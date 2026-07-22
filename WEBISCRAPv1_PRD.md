@@ -16,9 +16,9 @@ WEBISCRAP is a conversational, AI-powered web data extraction platform that repl
 1. **Agent Orchestrator**  
    - Implements the specialized logic for Planner, Analyzer, Browser, Extractor, Cleaner, Validator, Memory, and Conversation Agents.
    - Built in Python (FastAPI).
-2. **AI Provider Fallback (Groq + Gemini)**  
+2. **AI Provider Fallback (Groq + Groq)**  
    - **Groq (llama-3.3-70b-versatile)**: Fast reasoning, conversation, workflow decisions.
-   - **Google Gemini (gemini-3.5-flash)**: Heavy extraction, visual analysis, structure generation.
+   - **Groq LLaMA (groq-3.5-flash)**: Heavy extraction, visual analysis, structure generation.
    - Key Manager automatically load-balances and cycles keys when limits are hit.
 
 The core differentiator is **session-aware intelligence**: once a website has been scraped, the resulting dataset is cached in the session. Follow-up questions ("show only Dell laptops," "sort by rating," "export only 5-star items") are answered from cached data instead of triggering a new scrape, making the product feel instant and conversational rather than transactional.
@@ -263,7 +263,7 @@ All of the above operate on cached session data rather than re-scraping the sour
 
 ## 11. AI Providers & Reliability
 
-WEBISCRAP uses a **dual AI-provider architecture** to maximize performance, reliability, and availability. Instead of relying on a single LLM provider, the platform intelligently distributes tasks between **Groq** and **Google AI Studio (Gemini)** based on their strengths.
+WEBISCRAP uses a **dual AI-provider architecture** to maximize performance, reliability, and availability. Instead of relying on a single LLM provider, the platform intelligently distributes tasks between **Groq** and **Groq Cloud (Groq)** based on their strengths.
 
 ### 11.1 AI Provider Responsibilities
 
@@ -280,9 +280,9 @@ Groq is optimized for ultra-fast inference and is primarily responsible for:
 - Fast Reasoning Tasks
 - General Chat Responses
 
-#### Google AI Studio (Gemini)
+#### Groq Cloud (Groq)
 
-Gemini is optimized for large-context understanding and complex data processing. It is primarily responsible for:
+Groq is optimized for large-context understanding and complex data processing. It is primarily responsible for:
 
 - Website Analysis
 - Extraction Agent
@@ -303,7 +303,7 @@ By assigning tasks according to each provider's strengths, WEBISCRAP achieves fa
 WEBISCRAP maintains a centralized **API Key Manager** with a pool of:
 
 - 10 Groq API Keys
-- 10 Google AI Studio (Gemini) API Keys
+- 10 Groq Cloud (Groq) API Keys
 
 The API Key Manager automatically:
 
@@ -350,43 +350,43 @@ Groq Key 9
 Groq Key 10
 ```
 
-If all Groq keys become unavailable due to quota limits or temporary failures, the system automatically switches to the Gemini provider.
+If all Groq keys become unavailable due to quota limits or temporary failures, the system automatically switches to the Groq provider.
 
 ```
 Groq Pool Exhausted
         ↓
-Switch to Gemini Pool
+Switch to Groq Pool
 ```
 
 ---
 
-#### Gemini Rotation
+#### Groq Rotation
 
 ```
-Gemini Key 1
+Groq Key 1
       ↓
 Quota Exceeded
       ↓
-Gemini Key 2
+Groq Key 2
       ↓
-Gemini Key 3
+Groq Key 3
       ↓
-Gemini Key 4
+Groq Key 4
       ↓
-Gemini Key 5
+Groq Key 5
       ↓
-Gemini Key 6
+Groq Key 6
       ↓
-Gemini Key 7
+Groq Key 7
       ↓
-Gemini Key 8
+Groq Key 8
       ↓
-Gemini Key 9
+Groq Key 9
       ↓
-Gemini Key 10
+Groq Key 10
 ```
 
-If all Gemini keys are also exhausted, the API Key Manager waits until the earliest key's quota resets and automatically resumes processing.
+If all Groq keys are also exhausted, the API Key Manager waits until the earliest key's quota resets and automatically resumes processing.
 
 ---
 
@@ -402,13 +402,13 @@ Rather than sending every request to a single model, WEBISCRAP intelligently rou
 | Intent Understanding | Groq |
 | Follow-up Queries | Groq |
 | Session Memory | Groq |
-| Website Analyzer | Gemini |
-| Extraction Agent | Gemini |
-| Cleaning Agent | Gemini |
-| Large Context Processing | Gemini |
-| Data Summarization | Gemini |
-| Multi-language Understanding | Gemini |
-| Complex Structured Extraction | Gemini |
+| Website Analyzer | Groq |
+| Extraction Agent | Groq |
+| Cleaning Agent | Groq |
+| Large Context Processing | Groq |
+| Data Summarization | Groq |
+| Multi-language Understanding | Groq |
+| Complex Structured Extraction | Groq |
 
 This intelligent routing balances workload across providers while leveraging the unique strengths of each model.
 
@@ -460,7 +460,7 @@ This architecture ensures high availability, minimizes downtime, and provides a 
                        ┌────────────────────┼─────────────────────┐
                        ▼                    ▼                     ▼
               ┌────────────────┐   ┌────────────────┐   ┌──────────────────┐
-              │ Agent Orchestr.│   │ Browser Layer   │   │ Gemini API Layer │
+              │ Agent Orchestr.│   │ Browser Layer   │   │ Groq API Layer │
               │ (Planner, etc.)│   │ (Playwright)    │   │ (Key Rotation)   │
               └───────┬────────┘   └────────┬────────┘   └────────┬─────────┘
                       │                     │                     │
@@ -484,7 +484,7 @@ This architecture ensures high availability, minimizes downtime, and provides a 
 - REST API with JWT auth + refresh tokens
 
 **AI**
-- Google Gemini (AI Studio) — with 10-key rotation pool
+- Groq LLaMA (AI Studio) — with 10-key rotation pool
 - Groq API Key — with 10-key rotation pool
 
 **Scraping / Browser Automation**
@@ -620,7 +620,7 @@ docs/
 | Risk | Mitigation |
 |---|---|
 | Target website blocks automated browsing / anti-bot measures | Respect robots.txt and ToS; avoid CAPTCHA bypass; fail gracefully with clear user messaging |
-| Gemini API quota exhaustion across all 10 keys | Implement wait/backoff queue; surface a clear "temporarily rate-limited" state to the user |
+| Groq API quota exhaustion across all 10 keys | Implement wait/backoff queue; surface a clear "temporarily rate-limited" state to the user |
 | Dynamic site structure changes mid-session | Website Analyzer Agent re-analyzes DOM per scrape rather than relying on hardcoded selectors |
 | Ambiguous or mixed-language prompts misinterpreted | Planner Agent falls back to clarifying questions when confidence is low |
 | Sensitive data inadvertently scraped (PII, login-gated content) | Validation Agent flags sensitive fields; access to login-gated content requires explicit user-provided credentials/cookies only |
@@ -634,7 +634,7 @@ docs/
 - Auth (Email/Password, Google OAuth, Guest Mode)
 - Basic chat UI shell
 - FastAPI backend skeleton + PostgreSQL schema
-- Single Gemini API key integration (rotation deferred)
+- Single Groq API key integration (rotation deferred)
 
 **Phase 2 — Core Scraping Pipeline**
 - Planner Agent + Website Analyzer Agent
@@ -653,7 +653,7 @@ docs/
 - Theme switching, responsive polish
 
 **Phase 5 — Reliability & Scale**
-- 10-key Gemini API rotation manager
+- 10-key Groq API rotation manager
 - Redis caching layer
 - Background job queue for long-running scrapes
 - Full security hardening pass (rate limiting, CSRF, audit logs)
@@ -662,7 +662,7 @@ docs/
 
 ## 21. Open Decisions
 
-1. **Stack tier**: Zero-cost lightweight stack (FastAPI + Playwright + Supabase + Gemini/Ollama + Vercel/Render) vs. full production stack (Next.js + PostgreSQL + Redis + Celery + Docker + Elasticsearch) — recommend resolving before implementation begins.
+1. **Stack tier**: Zero-cost lightweight stack (FastAPI + Playwright + Supabase + Groq/Ollama + Vercel/Render) vs. full production stack (Next.js + PostgreSQL + Redis + Celery + Docker + Elasticsearch) — recommend resolving before implementation begins.
 2. **Backend host**: Render vs. Railway vs. Fly.io — depends on free-tier suitability for long-running Playwright browser processes.
 3. **Cookie import/export**: Confirmed as a future release, not MVP.
 4. **Shadow DOM support**: Confirmed as a future release, not MVP.
@@ -864,7 +864,7 @@ Backend Integration
 
 - API Key Manager
 - 10 Groq Keys
-- 10 Gemini Keys
+- 10 Groq Keys
 - Retry Logic
 - Provider Routing
 - Security

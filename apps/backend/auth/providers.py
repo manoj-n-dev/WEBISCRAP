@@ -30,7 +30,7 @@ try:
         else:
             logger.warning("Firebase Admin skipped: missing configuration.")
 except Exception as e:
-    logger.error(f"Failed to initialize Firebase Admin: {e}")
+    logger.warning(f"Firebase Admin skipped (invalid or missing keys): {e}")
 
 def verify_firebase_token(token: str) -> dict:
     """
