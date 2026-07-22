@@ -33,6 +33,20 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ---
 
+## 🚀 Current Status & Next Steps
+
+**Where we are:**
+- The **FastAPI Backend** is 100% complete and fully verified.
+- The **9-Agent AI Pipeline** is successfully running exclusively on Groq.
+- **Authentication logic** (Google OAuth, Phone OTP, Email) is fully implemented on the backend.
+- Extraneous test files and Google Gemini integrations have been permanently removed.
+
+**What we are doing next:**
+- **Phase 4 (Frontend Scaffolding):** We are moving to the `apps/frontend` directory to build the Next.js App Router project.
+- **Real Authentication Testing:** We will build the UI for Google/Phone Login so you can connect your real Firebase/Google API keys and test it out!
+
+---
+
 ## ⚡ Overview
 
 WEBISCRAP is built on one idea —
@@ -144,9 +158,9 @@ This is what separates WEBISCRAP from single-shot scraping tools — value compo
 ## 💻 Tech Stack
 
 ```
-Frontend      →  Next.js + React + TypeScript (Tailwind, shadcn/ui, TanStack Query)
+Frontend      →  Next.js + React + TypeScript (Vanilla CSS, Chat-first UI)
 Backend       →  FastAPI (Python) · REST API · JWT auth + refresh tokens
-AI Providers  →  Groq (fast reasoning) + Google Gemini (large-context, extraction) [llama-3.3-70b-versatile, gemini-3.5-flash]
+AI Providers  →  Groq (100% routing to llama-3.3-70b-versatile for all tasks)
 Browser       →  Playwright (dynamic JS rendering) + BeautifulSoup/lxml (static)
 Auth          →  Better Auth / Auth.js · Google OAuth · Firebase (Phone OTP)
 Database      →  PostgreSQL (Neon, production) / SQLite (development)
@@ -157,7 +171,7 @@ Deployment    →  Vercel (frontend) · Render/Railway/Fly.io (backend)
 
 ### Why This Stack?
 
-- **Dual AI Providers** — Groq handles fast reasoning (planning, conversation, validation); Gemini handles large-context work (extraction, cleaning, multi-language understanding). A 10-key rotation pool per provider means near-zero downtime from quota limits.
+- **100% Groq Architecture** — We exclusively use Groq (LLaMA 3 70B) for every step of the pipeline. A robust HTML minifier protects the context window, and a 10-key rotation pool ensures near-zero downtime from quota limits.
 - **Playwright** — Full JS rendering for React/Vue/Angular/SPA sites, infinite scroll, and dynamic pagination — no brittle static-only scraping.
 - **Session-first design** — Redis + Postgres combination keeps extracted datasets alive for the session so follow-up questions never trigger a redundant scrape.
 - **FastAPI + Next.js** — A clean separation between a fast async Python backend for agent orchestration and a streaming, chat-first frontend.
@@ -170,29 +184,21 @@ Deployment    →  Vercel (frontend) · Render/Railway/Fly.io (backend)
 webiscrap/
 │
 ├── apps/
-│   ├── frontend/              # Next.js chat UI
-│   │   ├── app/                # App Router pages (Chat, Login, History, Settings)
-│   │   ├── components/         # UI components
-│   │   └── lib/                # Utilities, API client
+│   ├── frontend/              # (Upcoming) Next.js chat UI with Vanilla CSS
 │   │
 │   └── backend/               # FastAPI backend
-│       ├── api/                 # REST routes
-│       ├── auth/                 # JWT, OAuth, OTP
-│       └── main.py
+│       ├── agents/             # The 9-Agent Pipeline (Planner, Analyzer, Browser, Extractor, etc.)
+│       ├── ai/                 # Groq Client and Key Manager
+│       ├── api/                # FastAPI Routers (Auth, etc.)
+│       ├── auth/               # Security, JWT, Google/Firebase Auth Providers
+│       ├── core/               # App Settings and Config
+│       ├── database/           # PostgreSQL connection (SQLModel)
+│       ├── memory/             # Redis session cache store
+│       ├── models/             # Database ORM Models
+│       └── main.py             # FastAPI entry point
 │
-├── packages/
-│   ├── agents/                 # Planner, Analyzer, Extraction, Cleaning, Validation,
-│   │                           # Memory, Conversation, Export agents
-│   ├── ai/                     # Groq + Gemini client, key rotation manager
-│   ├── browser/                 # Playwright automation layer
-│   ├── scraper/                 # Static parsing (BeautifulSoup/lxml)
-│   ├── parsers/                 # File-type parsers (PDF, DOCX, CSV, images/OCR)
-│   ├── exporters/               # CSV, Excel, JSON, Markdown, PDF generation
-│   ├── memory/                  # Session + dataset caching
-│   └── shared/                  # Shared types and helpers
-│
-├── uploads/
-├── exports/
+├── exports/                   # Downloadable data exports (CSV/JSON)
+├── uploads/                   # Uploaded user files
 ├── docs/
 │   └── WEBISCRAPv1_PRD.md
 │
