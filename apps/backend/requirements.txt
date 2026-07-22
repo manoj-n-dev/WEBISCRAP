@@ -23,7 +23,6 @@ google-auth>=2.29.0
 
 # AI Providers
 groq>=0.9.0
-google-genai>=0.1.2
 
 # Web Automation & Parsing
 playwright>=1.44.0

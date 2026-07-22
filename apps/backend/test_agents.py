@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from core.config import settings
 from ai.key_manager import ai_manager
 from ai.providers.groq_client import GroqClient
-from ai.providers.gemini_client import GeminiClient
+from ai.providers.groq_client import GroqClient
 from agents.planner import planner_agent
 from agents.analyzer import analyzer_agent
 
@@ -35,17 +35,7 @@ async def test_api_keys():
         elif hasattr(real_e, 'body'):
             logger.error(f"Groq Error Body: {real_e.body}")
 
-    logger.info("Testing Gemini Client...")
-    try:
-        gemini_client = GeminiClient()
-        response = await gemini_client.generate_response(
-            prompt="Hello, are you working?",
-            system_prompt="You are a helpful assistant. Reply with a short JSON like {'status': 'ok'}.",
-            temperature=0.1
-        )
-        logger.success(f"Gemini Response: {response}")
-    except Exception as e:
-        logger.error(f"Gemini Test Failed: {e}")
+
 
 async def test_agents():
     from agents.browser import browser_agent
@@ -114,7 +104,6 @@ async def test_agents():
 
 async def main():
     logger.info("Loaded GROQ Keys: " + str(len(settings.GROQ_API_KEYS)))
-    logger.info("Loaded GEMINI Keys: " + str(len(settings.GEMINI_API_KEYS)))
     
     await test_api_keys()
     await test_agents()

@@ -66,7 +66,6 @@ class AIManager:
         
     def __init__(self):
         self.groq_keys = KeyManager("Groq", settings.groq_keys_list)
-        self.gemini_keys = KeyManager("Gemini", settings.gemini_keys_list)
-        logger.info(f"Initialized AIManager with {len(self.groq_keys.keys)} Groq keys and {len(self.gemini_keys.keys)} Gemini keys.")
+        logger.info(f"Initialized AIManager with {len(self.groq_keys.keys)} Groq keys.")
 
 ai_manager = AIManager.get_instance()

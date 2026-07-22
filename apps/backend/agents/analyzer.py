@@ -43,7 +43,7 @@ class AnalyzerAgent(BaseAgent):
         
         prompt = f"Target URL: '{target_url}'\nHTML Snippet:\n```html\n{html_snippet}\n```\nAnalyze the structure."
         
-        # Route to analysis model (Gemini)
+        # Route to analysis model
         response_text = await ai_router.generate(
             task_category="analysis",
             prompt=prompt,

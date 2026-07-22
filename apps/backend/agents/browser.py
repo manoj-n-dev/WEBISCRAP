@@ -3,6 +3,28 @@ from typing import Dict, Any, List
 from playwright.async_api import async_playwright
 from .base import BaseAgent
 from loguru import logger
+from bs4 import BeautifulSoup
+
+def minify_html(html_content: str, max_chars: int = 25000) -> str:
+    if not html_content:
+        return ""
+    try:
+        soup = BeautifulSoup(html_content, 'lxml')
+        # Remove useless tags for extraction
+        for tag in soup(['script', 'style', 'noscript', 'svg', 'iframe', 'path', 'header', 'footer']):
+            tag.decompose()
+        # Minify
+        text = str(soup)
+        # Remove extra whitespace
+        import re
+        text = re.sub(r'\s+', ' ', text).strip()
+        # Truncate
+        if len(text) > max_chars:
+            text = text[:max_chars] + " <!-- TRUNCATED -->"
+        return text
+    except Exception as e:
+        logger.warning(f"Failed to minify HTML: {e}")
+        return html_content[:max_chars]
 
 class BrowserAgent(BaseAgent):
     def __init__(self):
@@ -52,11 +74,12 @@ class BrowserAgent(BaseAgent):
                         await page.wait_for_timeout(2000)
                     
                     content = await page.content()
-                    dom_snapshots.append(content)
+                    dom_snapshots.append(minify_html(content))
                     
                 elif pagination_type == "button" and analysis.get("pagination_selector"):
                     # Get first page
-                    dom_snapshots.append(await page.content())
+                    content = await page.content()
+                    dom_snapshots.append(minify_html(content))
                     
                     # Try to click next button up to 2 times
                     selector = analysis.get("pagination_selector")
@@ -66,7 +89,8 @@ class BrowserAgent(BaseAgent):
                             if next_btn:
                                 await next_btn.click()
                                 await page.wait_for_timeout(2000)
-                                dom_snapshots.append(await page.content())
+                                content = await page.content()
+                                dom_snapshots.append(minify_html(content))
                             else:
                                 break
                         except Exception as e:
@@ -75,7 +99,7 @@ class BrowserAgent(BaseAgent):
                 else:
                     # Default: just grab the single page
                     content = await page.content()
-                    dom_snapshots.append(content)
+                    dom_snapshots.append(minify_html(content))
                     
             except Exception as e:
                 logger.error(f"[{session_id}] Playwright navigation failed: {e}")

@@ -5,7 +5,6 @@ import os
 class Settings(BaseSettings):
     # API Keys
     GROQ_API_KEYS: str
-    GEMINI_API_KEYS: str
 
     # Database
     DATABASE_URL: str
@@ -43,9 +42,5 @@ class Settings(BaseSettings):
     @property
     def groq_keys_list(self) -> List[str]:
         return [k.strip() for k in self.GROQ_API_KEYS.split(",") if k.strip()]
-
-    @property
-    def gemini_keys_list(self) -> List[str]:
-        return [k.strip() for k in self.GEMINI_API_KEYS.split(",") if k.strip()]
 
 settings = Settings()

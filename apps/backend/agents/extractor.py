@@ -27,8 +27,8 @@ class ExtractorAgent(BaseAgent):
         for i, html_chunk in enumerate(dom_snapshots):
             logger.info(f"[{session_id}] Extracting from snapshot {i+1}/{len(dom_snapshots)}")
             
-            # Truncate html to a safe limit if extremely large
-            # (Gemini 1.5 Pro has 1-2M token window, but it's good to be cautious)
+            # Ensure we are not sending excessive tokens.
+            # (Groq has a smaller context window, so browser_agent minified this)
             if len(html_chunk) > 3000000:
                 html_chunk = html_chunk[:3000000]
                 
