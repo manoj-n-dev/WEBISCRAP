@@ -1,0 +1,16 @@
+{
+  "name": "webiscrap",
+  "version": "1.0.0",
+  "description": "AI-Powered Multi-Agent Intelligent Web Data Extraction Platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev:backend": "cd apps/backend && uvicorn main:app --reload",
+    "build:frontend": "npm run build --workspace=apps/frontend",
+    "lint": "npm run lint --workspaces"
+  }
+}

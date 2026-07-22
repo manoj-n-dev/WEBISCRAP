@@ -1,0 +1,38 @@
+# Backend Core
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.1
+python-dotenv>=1.0.1
+loguru>=0.7.2
+tenacity>=8.5.0
+pydantic>=2.7.4
+pydantic-settings>=2.3.4
+aiofiles>=24.1.0
+python-multipart>=0.0.9
+
+# Database & Cache
+sqlmodel>=0.0.19
+alembic>=1.13.1
+asyncpg>=0.29.0
+redis>=5.0.7
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+firebase-admin>=6.5.0
+google-auth>=2.29.0
+
+# AI Providers
+groq>=0.9.0
+google-genai>=0.1.2
+
+# Web Automation & Parsing
+playwright>=1.44.0
+beautifulsoup4>=4.12.3
+lxml>=5.2.2
+
+# File Document Parsing
+PyPDF2>=3.0.1
+python-docx>=1.1.2
+pandas>=2.2.2
+pytesseract>=0.3.10
+Pillow>=10.3.0

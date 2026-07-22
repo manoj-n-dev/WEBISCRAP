@@ -1,0 +1,60 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+build/
+.npm
+.eslintcache
+.stylelintcache
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+
+# Uploads and exports
+apps/backend/uploads/
+apps/backend/exports/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
