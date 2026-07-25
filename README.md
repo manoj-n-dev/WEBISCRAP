@@ -16,6 +16,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ## 📑 Table of Contents
 
+- [Current Status](#-current-status--next-steps)
 - [Overview](#-overview)
 - [How It Works](#-how-it-works)
 - [Agent Team](#-agent-team)
@@ -25,7 +26,6 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
 - [Configuration](#️-configuration)
-- [Deployment](#-deployment)
 - [Roadmap](#️-roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -36,14 +36,16 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 ## 🚀 Current Status & Next Steps
 
 **Where we are:**
-- The **FastAPI Backend** is 100% complete and fully verified.
-- The **9-Agent AI Pipeline** is successfully running exclusively on Groq.
-- **Authentication logic** (Google OAuth, Phone OTP, Email) is fully implemented on the backend.
-- Extraneous test files and Google Gemini integrations have been permanently removed.
+- ✅ The **FastAPI Backend** is 100% complete and verified.
+- ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B).
+- ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend.
+- ✅ **10-key rotation** with automatic failover, cooldown, and load balancing.
+- ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites.
 
 **What we are doing next:**
-- **Phase 4 (Frontend Scaffolding):** We are moving to the `apps/frontend` directory to build the Next.js App Router project.
-- **Real Authentication Testing:** We will build the UI for Google/Phone Login so you can connect your real Firebase/Google API keys and test it out!
+- 🔲 **Phase 4 (Frontend):** Build the Next.js chat-first UI in `apps/frontend/`.
+- 🔲 **Real Auth Testing:** Connect real Firebase/Google credentials and test login flows.
+- 🔲 **Deployment:** Deploy frontend to Vercel, backend to Render/Railway.
 
 ---
 
@@ -158,20 +160,19 @@ This is what separates WEBISCRAP from single-shot scraping tools — value compo
 ## 💻 Tech Stack
 
 ```
-Frontend      →  Next.js + React + TypeScript (Vanilla CSS, Chat-first UI)
+Frontend      →  Next.js + React + TypeScript (upcoming)
 Backend       →  FastAPI (Python) · REST API · JWT auth + refresh tokens
-AI Providers  →  Groq (100% routing to llama-3.3-70b-versatile for all tasks)
+AI Provider   →  Groq (100% routing to llama-3.3-70b-versatile, 10-key rotation)
 Browser       →  Playwright (dynamic JS rendering) + BeautifulSoup/lxml (static)
-Auth          →  Better Auth / Auth.js · Google OAuth · Firebase (Phone OTP)
-Database      →  PostgreSQL (Neon, production) / SQLite (development)
-Caching       →  Redis (session + dataset caching)
-Storage       →  Local (dev) / Cloudflare R2 (uploads)
-Deployment    →  Vercel (frontend) · Render/Railway/Fly.io (backend)
+Auth          →  JWT · Google OAuth · Firebase (Phone OTP) · Guest Mode
+Database      →  PostgreSQL (Neon, managed)
+Caching       →  Redis (Upstash, session + dataset caching)
+Deployment    →  Vercel (frontend) · Render/Railway (backend) · Neon (database)
 ```
 
 ### Why This Stack?
 
-- **100% Groq Architecture** — We exclusively use Groq (LLaMA 3 70B) for every step of the pipeline. A robust HTML minifier protects the context window, and a 10-key rotation pool ensures near-zero downtime from quota limits.
+- **100% Groq Architecture** — All 9 agents route exclusively to Groq (LLaMA 3 70B). An aggressive HTML minifier protects the context window, and a 10-key rotation pool ensures near-zero downtime from rate limits.
 - **Playwright** — Full JS rendering for React/Vue/Angular/SPA sites, infinite scroll, and dynamic pagination — no brittle static-only scraping.
 - **Session-first design** — Redis + Postgres combination keeps extracted datasets alive for the session so follow-up questions never trigger a redundant scrape.
 - **FastAPI + Next.js** — A clean separation between a fast async Python backend for agent orchestration and a streaming, chat-first frontend.
@@ -184,28 +185,35 @@ Deployment    →  Vercel (frontend) · Render/Railway/Fly.io (backend)
 webiscrap/
 │
 ├── apps/
-│   ├── frontend/              # (Upcoming) Next.js chat UI with Vanilla CSS
+│   ├── frontend/              # (Upcoming) Next.js chat UI
 │   │
 │   └── backend/               # FastAPI backend
-│       ├── agents/             # The 9-Agent Pipeline (Planner, Analyzer, Browser, Extractor, etc.)
-│       ├── ai/                 # Groq Client and Key Manager
-│       ├── api/                # FastAPI Routers (Auth, etc.)
-│       ├── auth/               # Security, JWT, Google/Firebase Auth Providers
-│       ├── core/               # App Settings and Config
-│       ├── database/           # PostgreSQL connection (SQLModel)
-│       ├── memory/             # Redis session cache store
-│       ├── models/             # Database ORM Models
+│       ├── agents/             # 9-Agent Pipeline (orchestrator, planner, analyzer, browser, etc.)
+│       │   ├── base.py         # BaseAgent class with progress events
+│       │   ├── orchestrator.py # PipelineOrchestrator — coordinates all agents
+│       │   ├── planner.py      # Intent parsing and workflow planning
+│       │   ├── analyzer.py     # DOM structure analysis
+│       │   ├── browser.py      # Playwright automation + HTML minifier
+│       │   ├── extractor.py    # AI-driven data extraction
+│       │   ├── cleaner.py      # Deduplication and normalization
+│       │   ├── validator.py    # Confidence scoring
+│       │   ├── memory.py       # Session cache save/load
+│       │   ├── conversation.py # Follow-up query handling
+│       │   └── exporter.py     # CSV/Excel/JSON/Markdown export
+│       ├── ai/                 # Groq Client, Key Manager, AI Router
+│       ├── api/                # FastAPI route handlers (auth, chat, scrape, export, upload)
+│       ├── auth/               # JWT security, Google OAuth, Firebase Phone OTP
+│       ├── core/               # App settings and config (Pydantic Settings)
+│       ├── database/           # Async PostgreSQL connection (SQLModel)
+│       ├── memory/             # Redis session store
+│       ├── models/             # Database ORM models (User, etc.)
+│       ├── parsers/            # Document parsers (PDF, DOCX, CSV, Image/OCR)
+│       ├── prompts/            # System prompts for each AI agent
 │       └── main.py             # FastAPI entry point
 │
-├── exports/                   # Downloadable data exports (CSV/JSON)
-├── uploads/                   # Uploaded user files
-├── docs/
-│   └── WEBISCRAPv1_PRD.md
-│
-├── .env.example
-├── docker-compose.yml
-├── README.md
-└── LICENSE
+├── .env.example               # Environment variable template
+├── .gitignore
+└── README.md
 ```
 
 ---
@@ -214,13 +222,12 @@ webiscrap/
 
 Before you start, make sure you have:
 
-- **Node.js** v20+
 - **Python** 3.11+
-- **npm** or **yarn**
-- **PostgreSQL** (or use Neon's managed free tier)
-- **Redis** (optional locally, recommended for production)
+- **Node.js** v20+ (for frontend, upcoming)
 - **Git**
-- API keys: **Groq** and **Google AI Studio (Gemini)**
+- **Groq API Key(s)** — [Get them free at console.groq.com](https://console.groq.com)
+- **PostgreSQL** — use [Neon](https://neon.tech) free tier (managed)
+- **Redis** — use [Upstash](https://upstash.com) free tier (managed)
 
 ---
 
@@ -229,98 +236,88 @@ Before you start, make sure you have:
 ```bash
 # 1. Clone the repo
 git clone https://github.com/manoj-n-dev/WEBISCRAP.git
-cd webiscrap
+cd WEBISCRAP
 
-# 2. Install frontend dependencies
-cd apps/frontend && npm install
+# 2. Set up the backend
+cd apps/backend
+python -m venv venv
+.\venv\Scripts\activate     # Windows
+# source venv/bin/activate  # macOS/Linux
 
-# 3. Install backend dependencies
-cd ../backend && pip install -r requirements.txt
+pip install -r requirements.txt
+playwright install chromium
 
-# 4. Setup environment variables
+# 3. Configure environment
+cd ../..
 cp .env.example .env
-# Add your Groq / Gemini API keys and database URL
+# Edit .env with your Groq API keys, database URL, and Redis URL
 
-# 5. Run in development
-# Terminal 1 — Frontend
-cd apps/frontend && npm run dev
-
-# Terminal 2 — Backend
-cd apps/backend && uvicorn main:app --reload
+# 4. Run the backend
+cd apps/backend
+uvicorn main:app --reload
 ```
+
+The API will be available at `http://localhost:8000` and docs at `http://localhost:8000/docs`.
 
 ---
 
 ## ⚙️ Configuration
 
-Create a `.env` file in `/apps/backend`:
+Create a `.env` file in the **project root** (not in `apps/backend/`):
 
-```
-# AI Providers
-GROQ_API_KEY=your_key_here
-GEMINI_API_KEY=your_key_here
+```env
+# AI Provider (Groq) — comma-separated keys for 10-key rotation
+GROQ_API_KEYS=gsk_key1,gsk_key2,gsk_key3,...
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/webiscrap
+# Database (Neon PostgreSQL)
+DATABASE_URL=postgresql+asyncpg://user:password@host/dbname?sslmode=require
 
-# Auth
-JWT_SECRET=your_secret_here
-GOOGLE_OAUTH_CLIENT_ID=your_client_id
-FIREBASE_PROJECT_ID=your_firebase_project
+# Redis (Upstash)
+REDIS_URL=rediss://default:password@host:6379
 
-# Cache
-REDIS_URL=redis://localhost:6379
+# JWT
+JWT_SECRET=generate_a_strong_random_secret_here
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# App config
-PORT=8000
-ENV=development
-```
+# Google OAuth (optional for dev)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 
-> WEBISCRAP supports a pool of multiple Groq and Gemini keys for automatic rotation on rate limits — add additional keys as `GROQ_API_KEY_2`, `GEMINI_API_KEY_2`, etc. once the key manager is in place.
-
----
-
-## 🐳 Deployment
-
-### Frontend — Vercel
-
-```bash
-cd apps/frontend
-vercel --prod
+# Firebase Phone OTP (optional for dev)
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+# ... see .env.example for full list
 ```
 
-### Backend — Render / Railway / Fly.io
-
-```bash
-# Push to your connected repo, or deploy via Docker
-docker compose up --build
-```
-
-### Database — Neon PostgreSQL
-
-Provision a free Neon instance and point `DATABASE_URL` at it for production.
+> **Note:** All API keys, database URLs, and Redis URLs should be changed before deployment. The current `.env` contains development credentials only.
 
 ---
 
 ## 🗺️ Roadmap
 
-Based on the 2-month, 16-session backend-first build plan:
+Based on the backend-first build plan:
 
 - [x] PRD finalized
-- [x] API Key Manager (10-key rotation, Groq + Gemini)
-- [x] Multi-language prompt support (10+ languages)
+- [x] FastAPI backend skeleton + PostgreSQL schema
+- [x] Authentication (Email/Password, Google OAuth, Phone OTP, Guest Mode)
+- [x] API Key Manager (10-key Groq rotation with auto-failover)
 - [x] Planner Agent
 - [x] Website Analyzer Agent
-- [x] Browser Automation Agent (Playwright)
+- [x] Browser Automation Agent (Playwright + HTML minifier)
 - [x] Extraction Agent
 - [x] Cleaning Agent
 - [x] Validation Agent
-- [x] Memory Agent (session caching)
-- [x] Conversation Agent (follow-up queries)
-- [x] Export Agent (CSV, Excel, JSON, Markdown, PDF)
-- [x] Authentication (Email/Password, Google OAuth, Phone OTP, Guest Mode)
-- [ ] Frontend chat interface + streaming responses
+- [x] Memory Agent (Redis session caching)
+- [x] Conversation Agent (follow-up queries without re-scraping)
+- [x] Export Agent (CSV, Excel, JSON, Markdown)
+- [x] Multi-language prompt support (10+ languages)
+- [x] Full pipeline verification (static + dynamic sites)
+- [ ] Next.js frontend chat interface + streaming responses
+- [ ] Real authentication testing with live credentials
 - [ ] Production hardening (rate limiting, CSRF, audit logs)
+- [ ] Deployment to Vercel + Render
 
 ---
 
