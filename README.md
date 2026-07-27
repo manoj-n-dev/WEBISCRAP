@@ -44,7 +44,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 **What we are doing next:**
 - 🔲 **Phase 4 (Frontend):** Build the Next.js chat-first UI in `apps/frontend/`.
-- 🔲 **Real Auth Testing:** Connect real Firebase/Google credentials and test login flows.
+- ✅ **Real Auth Testing:** Connected real Firebase/Google credentials and tested login flows.
 - 🔲 **Deployment:** Deploy frontend to Vercel, backend to Render/Railway.
 
 ---
@@ -315,7 +315,7 @@ Based on the backend-first build plan:
 - [x] Multi-language prompt support (10+ languages)
 - [x] Full pipeline verification (static + dynamic sites)
 - [ ] Next.js frontend chat interface + streaming responses
-- [ ] Real authentication testing with live credentials
+- [x] Real authentication testing with live credentials
 - [ ] Production hardening (rate limiting, CSRF, audit logs)
 - [ ] Deployment to Vercel + Render
 
