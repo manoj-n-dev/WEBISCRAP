@@ -6,7 +6,7 @@
 
 Not a scraping tool. Not a selector builder. **A research assistant that happens to understand websites.**
 
-![License: MIT](https://img.shields.io/badge/License-MIT-purple?style=flat-square)
+![License: All Rights Reserved](https://img.shields.io/badge/License-All%20Rights%20Reserved-red?style=flat-square)
 ![Made in India](https://img.shields.io/badge/Made%20in-India%20%F0%9F%87%AE%F0%9F%87%B3-ff6b35?style=flat-square)
 ![Status](https://img.shields.io/badge/Status-In%20Development-00ff78?style=flat-square)
 
@@ -342,7 +342,7 @@ Every completed agent goes through Unit, Integration, API, and Performance testi
 
 ## 📜 License
 
-MIT License — see [LICENSE](LICENSE) file.
+All Rights Reserved — see [LICENSE](LICENSE) file.
 
 ---
 
