@@ -1,5 +1,11 @@
 # WEBISCRAP 🕸️
 
+<div align="center">
+  <img src="apps/frontend/public/assets/branding-logo.png" alt="WEBISCRAP Branding" width="200" />
+  <br/>
+  <img src="apps/frontend/public/assets/inner-logo.png" alt="WEBISCRAP Inner Logo" width="50" />
+</div>
+
 ### *Extract Anything. Ask Naturally. Export Instantly.*
 
 **WEBISCRAP** is a conversational, AI-powered web data extraction platform that replaces traditional scraping workflows — CSS selectors, XPath, brittle scripts — with plain natural language. Paste a URL, describe what you want in your own words (English, Telugu, Hindi, Tamil, Hinglish, or mixed), and a team of nine specialized AI agents plans, browses, extracts, cleans, validates, and exports the data for you.
@@ -43,7 +49,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites.
 
 **What we are doing next:**
-- 🔲 **Phase 4 (Frontend):** Build the Next.js chat-first UI in `apps/frontend/`.
+- ✅ **Phase 4 (Frontend):** Build the Next.js chat-first UI in `apps/frontend/`.
 - ✅ **Real Auth Testing:** Connected real Firebase/Google credentials and tested login flows.
 - 🔲 **Deployment:** Deploy frontend to Vercel, backend to Render/Railway.
 
