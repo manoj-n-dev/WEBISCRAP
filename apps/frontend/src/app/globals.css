@@ -1,0 +1,167 @@
+@import "tailwindcss";
+
+/* ===========================
+   WEBISCRAP Design System
+   ChatGPT-Inspired Minimal Dark Theme
+   =========================== */
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border-color);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  /* ChatGPT-style neutral dark palette */
+  --bg: #212121;
+  --fg: #ececec;
+  --surface: #2f2f2f;
+  --surface-hover: #3a3a3a;
+  --border-color: #3a3a3a;
+
+  /* Sidebar */
+  --sidebar-bg: #171717;
+  --sidebar-hover: #2f2f2f;
+
+  /* Brand - subtle teal/green accent (like ChatGPT) */
+  --primary: #10a37f;
+  --primary-hover: #0e8c6d;
+
+  /* Text */
+  --muted: #8e8ea0;
+
+  /* Status */
+  --success: #10a37f;
+  --warning: #f5a623;
+  --error: #ef4444;
+
+  /* Glass (login page only) */
+  --glass-bg: rgba(33, 33, 33, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+}
+
+/* ===========================
+   Base Reset
+   =========================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+}
+
+/* ===========================
+   Scrollbar – thin & minimal
+   =========================== */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ===========================
+   Glassmorphism (Login page)
+   =========================== */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+}
+
+/* ===========================
+   Animations – subtle only
+   =========================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin 1.5s linear infinite;
+}
+
+/* Typing indicator */
+@keyframes blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.typing-dot {
+  animation: blink 1.4s infinite both;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ===========================
+   Markdown table styling
+   =========================== */
+.msg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.msg-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--muted);
+  font-weight: 500;
+  background: var(--surface);
+}
+
+.msg-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--fg);
+}
+
+.msg-table tr:last-child td {
+  border-bottom: none;
+}
