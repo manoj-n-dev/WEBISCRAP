@@ -1,9 +1,20 @@
 # WEBISCRAP 🕸️
 
 <div align="center">
-  <img src="apps/frontend/public/assets/branding-logo.png" alt="WEBISCRAP Branding" width="200" />
-  <br/>
-  <img src="apps/frontend/public/assets/inner-logo.png" alt="WEBISCRAP Inner Logo" width="50" />
+  <table>
+    <tr>
+      <td align="center" style="padding: 10px;">
+        <img src="apps/frontend/public/assets/branding-logo.png" alt="WEBISCRAP Branding Logo" width="300" />
+        <br />
+        <strong>Branding Logo</strong>
+      </td>
+      <td align="center" style="padding: 10px;">
+        <img src="apps/frontend/public/assets/inner-logo.png" alt="WEBISCRAP Inner Logo" width="150" />
+        <br />
+        <strong>Inner Logo</strong>
+      </td>
+    </tr>
+  </table>
 </div>
 
 ### *Extract Anything. Ask Naturally. Export Instantly.*
