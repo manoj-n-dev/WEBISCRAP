@@ -33,12 +33,16 @@ class GroqClient:
                 messages=messages,
                 model=model_name,
                 temperature=temperature,
+                max_tokens=4096,
             )
             return response.choices[0].message.content
         except APIStatusError as e:
+            logger.error(f"Groq API error (status={e.status_code}): {e.message}")
             if e.status_code == 429: # Rate limit
                 logger.warning(f"Groq rate limit hit for key ending in {used_key[-4:]}")
                 ai_manager.groq_keys.mark_key_exhausted(used_key, cooldown_seconds=60)
+            elif e.status_code in (413, 400): # Payload too large or bad request
+                logger.error(f"Groq payload error — likely context window exceeded. Prompt too long.")
             raise e
         except Exception as e:
             logger.error(f"Groq API error: {str(e)}")

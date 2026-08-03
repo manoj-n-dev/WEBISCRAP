@@ -28,9 +28,8 @@ class ExtractorAgent(BaseAgent):
             logger.info(f"[{session_id}] Extracting from snapshot {i+1}/{len(dom_snapshots)}")
             
             # Ensure we are not sending excessive tokens.
-            # (Groq has a smaller context window, so browser_agent minified this)
-            if len(html_chunk) > 3000000:
-                html_chunk = html_chunk[:3000000]
+            if len(html_chunk) > 20000:
+                html_chunk = html_chunk[:20000]
                 
             prompt = f"""
             Extraction Goal: {extraction_goal}
