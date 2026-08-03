@@ -90,10 +90,14 @@ class PipelineOrchestrator:
             }
             
         except Exception as e:
-            logger.error(f"[{session_id}] Pipeline failed: {str(e)}")
+            import traceback
+            tb = traceback.format_exc()
+            error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else tb
+            logger.error(f"[{session_id}] Pipeline failed:\n{tb}")
             return {
                 "status": "error",
-                "message": str(e)
+                "message": error_msg,
+                "traceback": tb
             }
 
 orchestrator = PipelineOrchestrator()

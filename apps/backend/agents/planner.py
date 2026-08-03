@@ -32,7 +32,10 @@ class PlannerAgent(BaseAgent):
                 
             plan = json.loads(response_text)
             logger.info(f"[{session_id}] Planner generated plan: {plan}")
-            return plan
+            
+            # Merge plan into pipeline state (preserves target_url, user_request, etc.)
+            input_data.update(plan)
+            return input_data
         except json.JSONDecodeError as e:
             logger.error(f"[{session_id}] Planner failed to output valid JSON. Output: {response_text}")
             raise ValueError("Planner output was not valid JSON.") from e

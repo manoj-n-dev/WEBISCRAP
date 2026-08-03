@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from pydantic import BaseModel
 
 from database.connection import get_session
@@ -15,7 +15,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     message: str
     target_url: str = ""
-    session_id: str = None # If none, a new session is created
+    session_id: Optional[str] = None # If none, a new session is created
 
 @router.post("/", response_model=Dict[str, Any])
 async def chat(
