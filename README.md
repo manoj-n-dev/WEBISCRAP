@@ -58,10 +58,10 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend.
 - ✅ **10-key rotation** with automatic failover, cooldown, and load balancing.
 - ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites.
+- ✅ **Phase 4 (Frontend UI):** Fully rebuilt Next.js chat-first UI matching the cinematic HUD glassmorphism design.
 
 **What we are doing next:**
-- ✅ **Phase 4 (Frontend):** Build the Next.js chat-first UI in `apps/frontend/`.
-- ✅ **Real Auth Testing:** Connected real Firebase/Google credentials and tested login flows.
+- 🔲 **Phase 5 (Frontend API Integration):** Wire up Zustand state and Next.js pages to the live FastAPI backend.
 - 🔲 **Deployment:** Deploy frontend to Vercel, backend to Render/Railway.
 
 ---
@@ -331,7 +331,8 @@ Based on the backend-first build plan:
 - [x] Export Agent (CSV, Excel, JSON, Markdown)
 - [x] Multi-language prompt support (10+ languages)
 - [x] Full pipeline verification (static + dynamic sites)
-- [ ] Next.js frontend chat interface + streaming responses
+- [x] Next.js frontend UI rebuilt matching cinematic HUD reference
+- [ ] API Integration (Zustand -> FastAPI)
 - [x] Real authentication testing with live credentials
 - [ ] Production hardening (rate limiting, CSRF, audit logs)
 - [ ] Deployment to Vercel + Render
