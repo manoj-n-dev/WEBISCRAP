@@ -1,0 +1,86 @@
+@layer base {
+  :root {
+    --bg-0: #05070c;
+    --bg-1: #0a0e17;
+    --bg-2: #0d1220;
+    --panel: rgba(16, 22, 36, 0.55);
+    --panel-strong: rgba(16, 22, 36, 0.8);
+    --glass-border: rgba(130, 170, 255, 0.14);
+    --glass-border-strong: rgba(130, 170, 255, 0.28);
+    --hair: rgba(255, 255, 255, 0.06);
+
+    --signal-500: #1477f5;
+    --signal-400: #3b93ff;
+    --signal-300: #6cb2ff;
+    --cyan: #4fd8ff;
+    --cyan-dim: #2a5f70;
+
+    --text-hi: #eef2fa;
+    --text-mid: #a9b4c9;
+    --text-dim: #67728a;
+
+    --success: #34d399;
+    --warn: #f5b544;
+    --danger: #f2596b;
+
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 22px;
+    --r-pill: 999px;
+
+    --font-display: 'Space Grotesk', 'Inter', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .bg-field {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(60% 50% at 18% -6%, rgba(20, 119, 245, 0.16), transparent 60%),
+      radial-gradient(50% 40% at 100% 10%, rgba(79, 216, 255, 0.1), transparent 60%),
+      radial-gradient(70% 60% at 50% 120%, rgba(20, 119, 245, 0.1), transparent 60%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1) 40%, var(--bg-0));
+  }
+  .bg-field::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(130, 170, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(130, 170, 255, 0.035) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(80% 60% at 50% 0%, black, transparent 75%);
+  }
+
+  .glass {
+    background: var(--panel);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-md);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+  }
+  .glass-strong {
+    background: var(--panel-strong);
+    border: 1px solid var(--glass-border-strong);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(130, 170, 255, 0.18);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

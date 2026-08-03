@@ -53,3 +53,5 @@ WEBISCRAPv1_PRD.md
 *.swp
 *.swo
 
+# Reference designs (local only)
+UI refereance/
