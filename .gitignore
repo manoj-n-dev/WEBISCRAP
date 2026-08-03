@@ -37,5 +37,19 @@ apps/backend/exports/
 .DS_Store
 Thumbs.db
 
-# Project-specific
+# AI agent config files
+CLAUDE.md
+AGENTS.md
+
+# Dev-only test scripts
+test.py
+
+# Internal docs
 WEBISCRAPv1_PRD.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
