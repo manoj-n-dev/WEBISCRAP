@@ -29,10 +29,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+import time
+from fastapi import Request
+from core.rate_limit import rate_limiter
+from fastapi import Depends
+
+@app.middleware("http")
+async def audit_logging_middleware(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    client_ip = request.client.host if request.client else "unknown"
+    logger.info(
+        f"AUDIT | IP: {client_ip} | "
+        f"{request.method} {request.url.path} | "
+        f"Status: {response.status_code} | "
+        f"Time: {process_time:.3f}s"
+    )
+    return response
+
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for development, should be restricted in production
+    allow_origins=[settings.FRONTEND_URL] if settings.ENVIRONMENT == "production" else ["*", settings.FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,8 +59,8 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(chat_router, prefix="/api/chat", tags=["Chat"])
-app.include_router(scrape_router, prefix="/api/scrape", tags=["Scrape"])
+app.include_router(chat_router, prefix="/api/chat", tags=["Chat"], dependencies=[Depends(rate_limiter)])
+app.include_router(scrape_router, prefix="/api/scrape", tags=["Scrape"], dependencies=[Depends(rate_limiter)])
 app.include_router(export_router, prefix="/api/export", tags=["Export"])
 app.include_router(upload_router, prefix="/api/upload", tags=["Upload"])
 

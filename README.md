@@ -25,7 +25,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ![License: All Rights Reserved](https://img.shields.io/badge/License-All%20Rights%20Reserved-red?style=flat-square)
 ![Made in India](https://img.shields.io/badge/Made%20in-India%20%F0%9F%87%AE%F0%9F%87%B3-ff6b35?style=flat-square)
-![Status](https://img.shields.io/badge/Status-In%20Development-00ff78?style=flat-square)
+![Status](https://img.shields.io/badge/Status-Complete-00ff78?style=flat-square)
 
 > *"Paste a link. Ask in your own words. Get your data."*
 
@@ -33,12 +33,14 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ## 📑 Table of Contents
 
-- [Current Status](#-current-status--next-steps)
+- [Current Status](#-current-status)
 - [Overview](#-overview)
-- [How It Works](#-how-it-works)
-- [Agent Team](#-agent-team)
-- [Session-Aware Intelligence](#-session-aware-intelligence)
-- [Tech Stack](#-tech-stack)
+- [System Architecture (Pin-to-Pin)](#-system-architecture-pin-to-pin)
+  - [1. Frontend (Next.js 16)](#1-frontend-nextjs-16)
+  - [2. Backend (FastAPI)](#2-backend-fastapi)
+  - [3. Database & Caching](#3-database--caching)
+- [The 9-Agent AI Pipeline](#-the-9-agent-ai-pipeline)
+- [Security & Production Hardening](#-security--production-hardening)
 - [Folder Structure](#-folder-structure)
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
@@ -50,19 +52,17 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ---
 
-## 🚀 Current Status & Next Steps
+## 🚀 Current Status
 
 **Where we are:**
-- ✅ The **FastAPI Backend** is 100% complete and verified.
+- ✅ The **FastAPI Backend** is 100% complete, hardened, and verified.
 - ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B).
-- ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend.
-- ✅ **10-key rotation** with automatic failover, cooldown, and load balancing.
-- ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites.
-- ✅ **Phase 4 (Frontend UI):** Fully rebuilt Next.js chat-first UI matching the cinematic HUD glassmorphism design.
-
-**What we are doing next:**
-- ✅ **Phase 5 (Frontend API Integration):** Wire up Zustand state and Next.js pages to the live FastAPI backend.
-- 🔲 **Deployment:** Deploy frontend to Vercel, backend to Render/Railway.
+- ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend via JWT.
+- ✅ **10-key rotation** with automatic failover, cooldown, and load balancing for Groq.
+- ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites using Playwright.
+- ✅ **Frontend UI** fully built in Next.js 16 (Turbopack) with a highly customized cinematic HUD glassmorphism design.
+- ✅ **API Integration (Phase 5)** completed: Zustand globally manages live API interactions, session IDs, and polling for the PipelineStrip.
+- ✅ **Production Hardening (Phase 6)** completed: Implemented Redis-based sliding window Rate Limiting, Audit Logging Middleware, and strict CORS.
 
 ---
 
@@ -91,108 +91,56 @@ There's no dashboard, no manual selector builder, no scrape-configuration screen
 
 ---
 
-## 🧠 How It Works
+## 🏗️ System Architecture (Pin-to-Pin)
 
-```
-You (Chat Interface)
-        │
-        ▼
-   Planner Agent
- (intent · strategy · workflow)
-        │
-        ▼
-Website Analyzer Agent
-   (DOM structure)
-        │
-        ▼
-Browser Automation Agent
-  (Playwright · render · capture)
-        │
-        ▼
-  Extraction Agent
- (titles · prices · tables · emails · images)
-        │
-        ▼
-  Cleaning Agent
- (dedupe · normalize · fix URLs)
-        │
-        ▼
- Validation Agent
-(confidence scores · flags)
-        │
-        ▼
-   Memory Agent
-(session cache · context)
-        │
-        ▼
-Conversation Agent  ──▶  Export Agent
-(answers, filters,        (CSV · Excel · JSON
- follow-ups)                Markdown · PDF)
-```
+WEBISCRAP is divided into a strictly uncoupled Backend API and a Client-Side Rendered frontend.
 
-For follow-up questions, the flow **short-circuits straight to the Conversation Agent** — no re-scrape needed.
+### 1. Frontend (Next.js 16)
+- **Framework**: Next.js 16 App Router using Turbopack for compilation.
+- **State Management**: `Zustand` (`src/lib/store/chat.ts`) handles the global session state. When a user pastes a URL, it stores the message, assigns a temporary placeholder message for the AI response, marks the status as "running", and fires off the async fetch request. When the backend completes, Zustand updates the state to "completed" and injects the resulting JSON array.
+- **Styling**: Tailwind CSS v4 configured exclusively through CSS variables mapped in `globals.css`. We use a custom "cinematic HUD" glassmorphism theme characterized by `signal-500` accents, hairline borders (`bg-hair`), and backdrop blurs (`backdrop-blur-md`).
+- **Data Fetching**: A custom `ApiClient` (`src/lib/api/client.ts`) handles REST communications. The extraction endpoint (`POST /api/chat/`) accepts `multipart/form-data` to easily upload the prompt and target URL, passing along the `Authorization: Bearer <token>` in headers.
+
+### 2. Backend (FastAPI)
+- **Framework**: FastAPI (Python 3.11+). Runs asynchronously using Uvicorn.
+- **Authentication**: JWT-based auth (`api/auth.py`). Passwords are hashed with `passlib` (bcrypt). Guest mode issues anonymous JWTs so users can test the platform without an account.
+- **Middleware**: 
+  - `AuditLoggingMiddleware`: Logs the IP, endpoint, response time, and HTTP status of every incoming request.
+  - `CORSMiddleware`: Locked down to the `FRONTEND_URL` environment variable to prevent cross-origin abuse.
+- **Rate Limiting**: Custom Redis-backed Sliding Window rate limiter (`core/rate_limit.py`). Automatically prevents LLM abuse by throttling IPs to a customizable limit (default 10 requests/minute).
+
+### 3. Database & Caching
+- **Database (PostgreSQL)**: Managed via Neon. Mapped via `SQLModel` and `SQLAlchemy`. Stores `User` records, hashed passwords, and OAuth IDs.
+- **Caching (Redis)**: Managed via Upstash. Redis powers two core systems:
+  1. **Rate Limiting**: Sliding window token bucket.
+  2. **Session Memory**: Once an extraction is completed, the resulting JSON schema is cached in Redis using the `session_id`. When a user asks a follow-up question (e.g. "sort by price"), the memory agent retrieves the data directly from Redis, bypassing the entire scraping pipeline.
 
 ---
 
-## 🤖 Agent Team
+## 🧠 The 9-Agent AI Pipeline
 
-| # | Agent | Role | What It Does |
+The beating heart of WEBISCRAP is the Orchestrator (`apps/backend/agents/orchestrator.py`), which passes state across 9 specialized AI Agents. Every agent calls the Groq API (LLaMA 3 70B) utilizing a 10-key rotation pool (`ai.key_manager`) to prevent rate limits.
+
+| # | Agent | Role | What It Does (Technical Depth) |
 |---|-------|------|---------------|
-| 1 | 🧭 **Planner Agent** | Orchestrator | Interprets intent, decides extraction strategy, builds the workflow |
-| 2 | 🔬 **Website Analyzer Agent** | Structure | Analyzes DOM/HTML/CSS/JS, detects repeating blocks and layouts |
-| 3 | 🌐 **Browser Automation Agent** | Automation | Drives Playwright — navigates, scrolls, waits for JS, captures rendered DOM |
-| 4 | 📦 **Extraction Agent** | Extraction | Pulls titles, prices, tables, reviews, images, emails, contact info |
-| 5 | 🧹 **Cleaning Agent** | Data Quality | Removes duplicates, normalizes formatting, fixes broken URLs |
-| 6 | ✅ **Validation Agent** | Trust | Checks completeness, assigns confidence scores, flags uncertainty |
-| 7 | 🧠 **Memory Agent** | Session Memory | Caches datasets and chat history, enables follow-ups without re-scraping |
-| 8 | 💬 **Conversation Agent** | Follow-ups | Filters, sorts, compares, summarizes cached data — no new scrape |
-| 9 | 📤 **Export Agent** | Output | Generates CSV, Excel, JSON, Markdown, and PDF exports |
-
-All nine agents run as a coordinated pipeline for the first request, then hand off to the Memory + Conversation agents for everything after.
+| 1 | 🧭 **Planner Agent** | Orchestrator | Interprets intent using prompt engineering. Decides if a new scrape is needed or if this is a follow-up query against the cache. Outputs a JSON workflow plan. |
+| 2 | 🔬 **Website Analyzer Agent** | Structure | Analyzes raw DOM/HTML (minified). It detects repeating `<li>`, `<tr>`, or `<div>` card layouts to determine where the data lies. |
+| 3 | 🌐 **Browser Automation Agent** | Automation | Uses `Playwright` to spawn a headless Chromium instance. It navigates to the URL, waits for network idle, scrolls to the bottom to trigger lazy-loaded JS elements, and captures the final rendered HTML. The HTML is then passed through a rigorous minifier to strip `<script>`, `<style>`, and SVG tags to fit within the LLaMA context window. |
+| 4 | 📦 **Extraction Agent** | Extraction | Receives the minified HTML and the Planner's field list. Forces a `json_object` response format via the LLM to guarantee structured output matching the requested schema. |
+| 5 | 🧹 **Cleaning Agent** | Data Quality | A post-processing LLM pass. Dedupes identical rows, normalizes currencies/dates, and resolves relative URLs (`/images/pic.png`) to absolute URLs (`https://site.com/images/pic.png`). |
+| 6 | ✅ **Validation Agent** | Trust | Compares the output against the schema. Calculates a `confidence_score` (0.0 to 1.0) and flags missing/null fields. |
+| 7 | 🧠 **Memory Agent** | Session Memory | Saves the validated JSON to Redis (`SET session:{id}:data`). For follow-ups, retrieves it. |
+| 8 | 💬 **Conversation Agent** | Follow-ups | Takes a follow-up natural language query, takes the cached JSON, and writes a Python snippet or directly prompts the LLM to filter, sort, or modify the JSON. |
+| 9 | 📤 **Export Agent** | Output | Translates JSON array into raw string formats (CSV, Excel, JSON, Markdown). |
 
 ---
 
-## 💾 Session-Aware Intelligence
+## 🔒 Security & Production Hardening
 
-The core differentiator. Once a site is scraped, the dataset is cached for the session. Follow-ups are answered from cache instead of re-hitting the website.
-
-```
-User: Extract all laptop prices.
-AI:   [Scrapes website] → Returns structured dataset.
-
-User: Show only Dell laptops.
-AI:   [No new scrape] → Filters cached dataset.
-
-User: Sort by highest rating.
-AI:   [No new scrape] → Sorts cached dataset.
-
-User: Export only Dell laptops.
-AI:   [No new scrape] → Exports filtered cached dataset.
-```
-
-This is what separates WEBISCRAP from single-shot scraping tools — value compounds with every question instead of resetting.
-
----
-
-## 💻 Tech Stack
-
-```
-Frontend      →  Next.js + React + TypeScript (upcoming)
-Backend       →  FastAPI (Python) · REST API · JWT auth + refresh tokens
-AI Provider   →  Groq (100% routing to llama-3.3-70b-versatile, 10-key rotation)
-Browser       →  Playwright (dynamic JS rendering) + BeautifulSoup/lxml (static)
-Auth          →  JWT · Google OAuth · Firebase (Phone OTP) · Guest Mode
-Database      →  PostgreSQL (Neon, managed)
-Caching       →  Redis (Upstash, session + dataset caching)
-Deployment    →  Vercel (frontend) · Render/Railway (backend) · Neon (database)
-```
-
-### Why This Stack?
-
-- **100% Groq Architecture** — All 9 agents route exclusively to Groq (LLaMA 3 70B). An aggressive HTML minifier protects the context window, and a 10-key rotation pool ensures near-zero downtime from rate limits.
-- **Playwright** — Full JS rendering for React/Vue/Angular/SPA sites, infinite scroll, and dynamic pagination — no brittle static-only scraping.
-- **Session-first design** — Redis + Postgres combination keeps extracted datasets alive for the session so follow-up questions never trigger a redundant scrape.
-- **FastAPI + Next.js** — A clean separation between a fast async Python backend for agent orchestration and a streaming, chat-first frontend.
+- **Key Rotation**: `apps/backend/ai/key_manager.py` manages a `cycle()` iterator across all keys provided in `GROQ_API_KEYS`. If a key hits a 429 Rate Limit, it is put into a "cooldown dictionary" for 60 seconds and the next key is tried automatically.
+- **Audit Logs**: Every API request is tracked by `AuditLoggingMiddleware` to stdout, making it easily ingested by Datadog or AWS CloudWatch.
+- **Strict CORS**: `allow_origins=[settings.FRONTEND_URL]` instead of `*`.
+- **IP Rate Limiting**: Redis ZSET (Sorted Set) tracks requests per IP. Drops connections via `429 Too Many Requests` if the 1-minute window is exceeded.
 
 ---
 
@@ -202,25 +150,18 @@ Deployment    →  Vercel (frontend) · Render/Railway (backend) · Neon (databa
 webiscrap/
 │
 ├── apps/
-│   ├── frontend/              # (Upcoming) Next.js chat UI
+│   ├── frontend/              # Next.js 16 UI
+│   │   ├── src/app            # App Router (login, chat, dataset layouts)
+│   │   ├── src/components     # Custom HUD UI Components
+│   │   ├── src/lib/store      # Zustand global state
+│   │   └── src/lib/api        # ApiClient class
 │   │
-│   └── backend/               # FastAPI backend
+│   └── backend/               # FastAPI
 │       ├── agents/             # 9-Agent Pipeline (orchestrator, planner, analyzer, browser, etc.)
-│       │   ├── base.py         # BaseAgent class with progress events
-│       │   ├── orchestrator.py # PipelineOrchestrator — coordinates all agents
-│       │   ├── planner.py      # Intent parsing and workflow planning
-│       │   ├── analyzer.py     # DOM structure analysis
-│       │   ├── browser.py      # Playwright automation + HTML minifier
-│       │   ├── extractor.py    # AI-driven data extraction
-│       │   ├── cleaner.py      # Deduplication and normalization
-│       │   ├── validator.py    # Confidence scoring
-│       │   ├── memory.py       # Session cache save/load
-│       │   ├── conversation.py # Follow-up query handling
-│       │   └── exporter.py     # CSV/Excel/JSON/Markdown export
 │       ├── ai/                 # Groq Client, Key Manager, AI Router
 │       ├── api/                # FastAPI route handlers (auth, chat, scrape, export, upload)
 │       ├── auth/               # JWT security, Google OAuth, Firebase Phone OTP
-│       ├── core/               # App settings and config (Pydantic Settings)
+│       ├── core/               # App config & Redis Rate Limiter
 │       ├── database/           # Async PostgreSQL connection (SQLModel)
 │       ├── memory/             # Redis session store
 │       ├── models/             # Database ORM models (User, etc.)
@@ -240,7 +181,7 @@ webiscrap/
 Before you start, make sure you have:
 
 - **Python** 3.11+
-- **Node.js** v20+ (for frontend, upcoming)
+- **Node.js** v20+
 - **Git**
 - **Groq API Key(s)** — [Get them free at console.groq.com](https://console.groq.com)
 - **PostgreSQL** — use [Neon](https://neon.tech) free tier (managed)
@@ -272,15 +213,20 @@ cp .env.example .env
 # 4. Run the backend
 cd apps/backend
 uvicorn main:app --reload
+
+# 5. Run the frontend
+cd ../frontend
+npm install
+npm run dev
 ```
 
-The API will be available at `http://localhost:8000` and docs at `http://localhost:8000/docs`.
+The API will be available at `http://localhost:8000` and the UI at `http://localhost:3000`.
 
 ---
 
 ## ⚙️ Configuration
 
-Create a `.env` file in the **project root** (not in `apps/backend/`):
+Create a `.env` file in the **project root**:
 
 ```env
 # AI Provider (Groq) — comma-separated keys for 10-key rotation
@@ -298,23 +244,16 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Google OAuth (optional for dev)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-# Firebase Phone OTP (optional for dev)
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_CLIENT_EMAIL=your_firebase_client_email
-# ... see .env.example for full list
+# Security
+FRONTEND_URL=http://localhost:3000
+RATE_LIMIT_PER_MINUTE=10
 ```
 
-> **Note:** All API keys, database URLs, and Redis URLs should be changed before deployment. The current `.env` contains development credentials only.
+> **Note:** All API keys, database URLs, and Redis URLs should be changed before deployment. The current `.env.example` contains development placeholders only.
 
 ---
 
 ## 🗺️ Roadmap
-
-Based on the backend-first build plan:
 
 - [x] PRD finalized
 - [x] FastAPI backend skeleton + PostgreSQL schema
@@ -333,15 +272,14 @@ Based on the backend-first build plan:
 - [x] Full pipeline verification (static + dynamic sites)
 - [x] Next.js frontend UI rebuilt matching cinematic HUD reference
 - [x] API Integration (Zustand -> FastAPI)
-- [x] Real authentication testing with live credentials
-- [ ] Production hardening (rate limiting, CSRF, audit logs)
+- [x] Production hardening (Rate limiting, CORS, Audit logs)
 - [ ] Deployment to Vercel + Render
 
 ---
 
 ## 🤝 Contributing
 
-WEBISCRAP is being built by a small core team, following a backend-first approach — all agents, APIs, and auth are completed and tested before frontend work begins.
+WEBISCRAP is being built by a small core team.
 
 ```bash
 # Create your branch
@@ -353,8 +291,6 @@ git commit -m "feat: your feature description"
 # Push and open a PR
 git push origin feat/your-feature
 ```
-
-Every completed agent goes through Unit, Integration, API, and Performance testing before merging into `main`.
 
 ---
 
@@ -372,6 +308,6 @@ Built by:
 
 ---
 
-**⭐ Star this repo to follow along as WEBISCRAP gets built.**
+**⭐ Star this repo to follow along as WEBISCRAP is built.**
 
 *WEBISCRAP — Extract Anything. Ask Naturally. Export Instantly.*

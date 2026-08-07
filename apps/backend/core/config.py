@@ -32,6 +32,10 @@ class Settings(BaseSettings):
 
     # Environment
     ENVIRONMENT: str = "development"
+    FRONTEND_URL: str = "http://localhost:3000"
+    
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 10
     
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env"),
