@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search, Filter, Database, Clock, ShieldAlert } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -10,29 +10,49 @@ import { ConfidenceBar } from "@/components/dataset/ConfidenceBar";
 import { DataTable } from "@/components/dataset/DataTable";
 import { ExportPanel } from "@/components/dataset/ExportPanel";
 import { ColumnDef } from "@tanstack/react-table";
+import { useChatStore } from "@/lib/store/chat";
 
-// Dummy data mirroring the reference HTML
-const mockData = [
-  { id: "1", title: "ASUS Vivobook 15", price: "₹52,990", rating: "4.2", processor: "Core i5", conf: 0.98 },
-  { id: "2", title: "HP Pavilion 14", price: "₹58,500", rating: "4.4", processor: "Ryzen 5", conf: 0.94 },
-  { id: "3", title: "Acer Swift 3", price: "₹54,999", rating: "4.3", processor: "Core i5", conf: 0.88 },
-  { id: "4", title: "Lenovo IdeaPad Slim 3", price: "₹51,490", rating: "4.1", processor: "Ryzen 5", conf: 0.72 },
-  { id: "5", title: "Dell Inspiron 3511", price: "₹55,200", rating: "4.0", processor: "Core i5", conf: 0.65 },
-];
+const generateColumns = (data: any[]): ColumnDef<any>[] => {
+  if (!data || data.length === 0) return [];
+  // Exclude 'conf' from standard keys since we want a custom renderer for it
+  const keys = Object.keys(data[0]).filter(k => k !== 'conf');
+  
+  const cols: ColumnDef<any>[] = keys.map(key => ({
+    accessorKey: key,
+    header: key.toUpperCase(),
+  }));
+  
+  // If the backend provided a 'conf' (confidence) score for each row, render it
+  if (data[0].conf !== undefined) {
+    cols.push({
+      accessorKey: "conf",
+      header: "CONFIDENCE",
+      cell: ({ row }) => <ConfidenceBar score={row.original.conf} />
+    });
+  }
+  
+  return cols;
+};
 
-const columns: ColumnDef<typeof mockData[0]>[] = [
-  { accessorKey: "title", header: "TITLE" },
-  { accessorKey: "price", header: "PRICE" },
-  { accessorKey: "rating", header: "RATING" },
-  { accessorKey: "processor", header: "PROCESSOR" },
-  { 
-    accessorKey: "conf", 
-    header: "CONFIDENCE",
-    cell: ({ row }) => <ConfidenceBar score={row.original.conf} />
-  },
-];
+export default function DatasetPage({ params }: { params: { sessionId: string } }) {
+  const { messages } = useChatStore();
+  
+  // Find the last completed extraction in the store
+  const lastExtraction = useMemo(() => {
+    const aiMessages = messages.filter(m => m.role === "ai" && m.status === "completed" && m.data);
+    return aiMessages[aiMessages.length - 1];
+  }, [messages]);
 
-export default function DatasetPage() {
+  const rawData = lastExtraction?.data || [];
+  const columns = useMemo(() => generateColumns(rawData), [rawData]);
+  
+  const totalRows = rawData.length;
+  // Calculate average confidence if it exists
+  const hasConf = rawData.length > 0 && rawData[0].conf !== undefined;
+  const avgConf = hasConf 
+    ? Math.round((rawData.reduce((acc, row) => acc + (row.conf || 0), 0) / totalRows) * 100) 
+    : 100; // Default to 100% if backend doesn't provide row-level conf
+
   return (
     <div className="flex flex-col h-full bg-bg-0 text-text-hi font-body overflow-hidden">
       <div className="bg-field"></div>
@@ -41,17 +61,19 @@ export default function DatasetPage() {
         {/* Top Header */}
         <div className="flex items-center justify-between mb-[24px] shrink-0">
           <div className="flex items-center gap-[16px]">
-            <Link href="/chat/1">
+            <Link href={`/chat/${params.sessionId}`}>
               <Button variant="icon">
                 <ArrowLeft className="w-[16px] h-[16px]" />
               </Button>
             </Link>
             <div>
-              <div className="text-[20px] font-display font-semibold">Flipkart laptops over 50k</div>
+              <div className="text-[20px] font-display font-semibold">
+                Extraction Dataset
+              </div>
               <div className="text-[13px] text-text-dim flex items-center gap-[8px]">
-                <span>Extracted today at 2:45 PM</span>
+                <span>Session {params.sessionId}</span>
                 <span className="w-[4px] h-[4px] bg-glass-border-strong rounded-full"></span>
-                <span>Source: flipkart.com</span>
+                <span>Active</span>
               </div>
             </div>
           </div>
@@ -64,7 +86,7 @@ export default function DatasetPage() {
               <Database className="w-[20px] h-[20px]" />
             </div>
             <div>
-              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">42</div>
+              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">{totalRows}</div>
               <div className="text-[12px] text-text-dim uppercase tracking-[0.05em] font-mono">Total Rows</div>
             </div>
           </Card>
@@ -74,7 +96,7 @@ export default function DatasetPage() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
             </div>
             <div>
-              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">94%</div>
+              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">{avgConf}%</div>
               <div className="text-[12px] text-text-dim uppercase tracking-[0.05em] font-mono">Avg Confidence</div>
             </div>
           </Card>
@@ -84,7 +106,7 @@ export default function DatasetPage() {
               <ShieldAlert className="w-[20px] h-[20px]" />
             </div>
             <div>
-              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">3</div>
+              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">0</div>
               <div className="text-[12px] text-text-dim uppercase tracking-[0.05em] font-mono">Flagged Fields</div>
             </div>
           </Card>
@@ -94,7 +116,7 @@ export default function DatasetPage() {
               <Clock className="w-[20px] h-[20px]" />
             </div>
             <div>
-              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">4.2s</div>
+              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">Live</div>
               <div className="text-[12px] text-text-dim uppercase tracking-[0.05em] font-mono">Pipeline Time</div>
             </div>
           </Card>
@@ -117,7 +139,13 @@ export default function DatasetPage() {
             </div>
             
             <div className="flex-1 overflow-hidden">
-              <DataTable columns={columns} data={mockData} />
+              {totalRows > 0 ? (
+                <DataTable columns={columns} data={rawData} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-text-dim">
+                  No data available. Run an extraction in the chat first.
+                </div>
+              )}
             </div>
           </Card>
           

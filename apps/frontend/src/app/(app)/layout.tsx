@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { useChatStore } from "@/lib/store/chat";
 
 export default function AppLayout({
   children,
@@ -11,22 +14,14 @@ export default function AppLayout({
       <div className="bg-field"></div>
       
       {/* Sidebar - fixed width */}
-      <Sidebar 
-        sessions={[
-          { id: "1", title: "Flipkart laptops over 50k", date: "today" },
-          { id: "2", title: "Amazon phones", date: "yesterday" }
-        ]}
-        activeSessionId="1"
-        onSelectSession={() => {}}
-        onNewSession={() => {}}
-      />
+      <Sidebar />
 
       {/* Main content area */}
       <div className="flex-1 relative z-10 flex flex-col h-screen overflow-hidden">
         {/* Topbar */}
         <header className="h-[60px] border-b border-hair flex items-center justify-between px-[20px] shrink-0 bg-[rgba(5,7,12,0.6)] backdrop-blur-md">
           <div className="flex items-center gap-[10px] text-[13.5px]">
-            <span className="text-text-mid truncate max-w-[300px]">Flipkart laptops over 50k</span>
+            <span className="text-text-mid truncate max-w-[300px]">New extraction</span>
             <span className="w-[4px] h-[4px] rounded-full bg-glass-border-strong"></span>
             <span className="font-mono text-[11px] text-cyan uppercase tracking-[0.05em]">Active</span>
           </div>

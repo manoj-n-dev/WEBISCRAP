@@ -8,13 +8,47 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
 import { Mail, Lock, Phone, UserRound, ArrowRight } from "lucide-react";
+import { ApiClient } from "@/lib/api/client";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/chat/new");
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await ApiClient.login(email, password);
+      if (response.access_token) {
+        localStorage.setItem("token", response.access_token);
+        router.push("/chat/new");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await ApiClient.guestLogin();
+      if (response.access_token) {
+        localStorage.setItem("token", response.access_token);
+        router.push("/chat/new");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to start guest session");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,15 +62,21 @@ export default function LoginPage() {
         <Input 
           type="email" 
           placeholder="Email address" 
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           icon={<Mail className="w-[16px] h-[16px]" />} 
           required 
+          disabled={loading}
         />
         
         <Input 
           type="password" 
           placeholder="Password" 
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           icon={<Lock className="w-[16px] h-[16px]" />} 
           required 
+          disabled={loading}
         />
         
         <div className="flex items-center justify-between mt-[4px]">
@@ -51,9 +91,10 @@ export default function LoginPage() {
           </a>
         </div>
         
-        <Button variant="primary" type="submit" className="w-full mt-[12px]">
-          Sign In
+        <Button variant="primary" type="submit" className="w-full mt-[12px]" disabled={loading}>
+          {loading ? "Signing in..." : "Sign In"}
         </Button>
+        {error && <div className="text-red-500 text-sm mt-2 text-center">{error}</div>}
       </form>
 
       <div className="flex items-center gap-[16px] my-[24px]">
@@ -79,13 +120,11 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-[28px] text-center">
-        <Link href="/chat/new">
-          <Button variant="ghost" className="w-full text-text-mid group">
-            <UserRound className="w-[16px] h-[16px] mr-[6px]" />
-            Continue as guest
-            <ArrowRight className="w-[14px] h-[14px] ml-[4px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-          </Button>
-        </Link>
+        <Button variant="ghost" className="w-full text-text-mid group" onClick={handleGuestLogin} disabled={loading}>
+          <UserRound className="w-[16px] h-[16px] mr-[6px]" />
+          Continue as guest
+          <ArrowRight className="w-[14px] h-[14px] ml-[4px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+        </Button>
       </div>
       
       <div className="mt-[24px] text-center text-[12px] text-text-dim">

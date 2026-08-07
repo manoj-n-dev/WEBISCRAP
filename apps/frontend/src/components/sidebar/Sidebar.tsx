@@ -5,20 +5,32 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Plus, Search, MessageSquare } from "lucide-react";
 
+import { useChatStore } from "@/lib/store/chat";
+import { useRouter } from "next/navigation";
+
 export interface Session {
   id: string;
   title: string;
   date: "today" | "yesterday" | "older";
 }
 
-export interface SidebarProps {
-  sessions: Session[];
-  activeSessionId?: string;
-  onSelectSession: (id: string) => void;
-  onNewSession: () => void;
-}
+export function Sidebar() {
+  const router = useRouter();
+  const { activeSessionId, setActiveSession } = useChatStore();
+  
+  // Hardcoded for now until session list API is implemented
+  const sessions: Session[] = [];
+  
+  const handleNewSession = () => {
+    setActiveSession("new");
+    router.push("/chat/new");
+  };
 
-export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSession }: SidebarProps) {
+  const handleSelectSession = (id: string) => {
+    setActiveSession(id);
+    router.push(`/chat/${id}`);
+  };
+
   const todaySessions = sessions.filter(s => s.date === "today");
   const yesterdaySessions = sessions.filter(s => s.date === "yesterday");
 
@@ -29,7 +41,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
       </div>
 
       <button
-        onClick={onNewSession}
+        onClick={handleNewSession}
         className="flex items-center gap-[8px] p-[10px_12px] rounded-sm border border-glass-border-strong text-[13.5px] text-text-hi cursor-pointer bg-[rgba(20,119,245,0.06)] hover:bg-[rgba(20,119,245,0.12)] transition-colors"
       >
         <Plus className="w-[18px] h-[18px]" />
@@ -55,7 +67,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                 key={session.id}
                 session={session}
                 isActive={activeSessionId === session.id}
-                onClick={() => onSelectSession(session.id)}
+                onClick={() => handleSelectSession(session.id)}
               />
             ))}
           </>
@@ -71,7 +83,7 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewSessi
                 key={session.id}
                 session={session}
                 isActive={activeSessionId === session.id}
-                onClick={() => onSelectSession(session.id)}
+                onClick={() => handleSelectSession(session.id)}
               />
             ))}
           </>

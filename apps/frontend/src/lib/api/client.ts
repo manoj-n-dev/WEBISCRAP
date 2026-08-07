@@ -32,14 +32,29 @@ export class ApiClient {
     return this.request("/api/auth/guest", { method: "POST" });
   }
 
-  static async submitExtraction(query: string, url?: string) {
-    return this.request("/api/chat", {
+  static async login(username: string, password: string) {
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("password", password);
+    
+    return this.request("/api/auth/login", { 
       method: "POST",
-      body: JSON.stringify({ query, url })
+      body: formData,
+      headers: {
+        // Fetch will automatically set the correct Content-Type for FormData,
+        // but we need to delete it from the defaults so it boundary is set correctly
+      }
     });
   }
 
-  static async checkStatus(sessionId: string) {
-    return this.request(`/api/chat/${sessionId}/status`, { method: "GET" });
+  static async submitExtraction(message: string, target_url: string = "", session_id?: string) {
+    return this.request("/api/chat/", {
+      method: "POST",
+      body: JSON.stringify({ message, target_url, session_id })
+    });
+  }
+
+  static async getHistory(sessionId: string) {
+    return this.request(`/api/chat/${sessionId}/history`, { method: "GET" });
   }
 }
