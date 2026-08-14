@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException
 from core.config import settings
-from memory.session import get_redis
+from memory.session_store import redis_store
 import time
 
 async def rate_limiter(request: Request):
@@ -11,7 +11,8 @@ async def rate_limiter(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     key = f"rate_limit:{client_ip}"
     
-    redis = await get_redis()
+    await redis_store.connect()
+    redis = redis_store.redis_client
     
     # Get current timestamp in seconds
     now = int(time.time())

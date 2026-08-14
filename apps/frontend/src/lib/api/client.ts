@@ -5,6 +5,7 @@ export class ApiClient {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     
     const headers = new Headers(options.headers);
+    // Only set Content-Type for non-FormData bodies
     if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
@@ -12,10 +13,15 @@ export class ApiClient {
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      throw new Error("Network error. Make sure the backend server is running.");
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -37,13 +43,17 @@ export class ApiClient {
     formData.append("username", username);
     formData.append("password", password);
     
+    // Do NOT set Content-Type header -- browser must set it with the multipart boundary
     return this.request("/api/auth/login", { 
       method: "POST",
       body: formData,
-      headers: {
-        // Fetch will automatically set the correct Content-Type for FormData,
-        // but we need to delete it from the defaults so it boundary is set correctly
-      }
+    });
+  }
+
+  static async register(email: string, password: string, full_name?: string) {
+    return this.request("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, full_name }),
     });
   }
 

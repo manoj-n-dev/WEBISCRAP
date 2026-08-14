@@ -63,6 +63,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - ✅ **Frontend UI** fully built in Next.js 16 (Turbopack) with a highly customized cinematic HUD glassmorphism design.
 - ✅ **API Integration (Phase 5)** completed: Zustand globally manages live API interactions, session IDs, and polling for the PipelineStrip.
 - ✅ **Production Hardening (Phase 6)** completed: Implemented Redis-based sliding window Rate Limiting, Audit Logging Middleware, and strict CORS.
+- ✅ **Frontend Features Completed**: Legal pages (Terms/Privacy), fully working Auth (Login/Signup), and error handling for chat extractions.
 
 ---
 
@@ -273,7 +274,8 @@ RATE_LIMIT_PER_MINUTE=10
 - [x] Next.js frontend UI rebuilt matching cinematic HUD reference
 - [x] API Integration (Zustand -> FastAPI)
 - [x] Production hardening (Rate limiting, CORS, Audit logs)
-- [ ] Deployment to Vercel + Render
+- [x] Functional Legal Pages (Terms & Privacy) and Login/Signup flows
+- [ ] Deployment to Vercel (Frontend) + Render (Backend)
 
 ---
 

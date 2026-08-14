@@ -7,45 +7,40 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
-import { Mail, Lock, Phone, UserRound, ArrowRight } from "lucide-react";
+import { Mail, Lock, Phone } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [confirmPassword, setConfirmPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await ApiClient.login(email, password);
-      if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        router.push("/chat/new");
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to sign in");
-    } finally {
-      setLoading(false);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
     }
-  };
-
-  const handleGuestLogin = async () => {
+    
     setLoading(true);
     setError(null);
     try {
-      const response = await ApiClient.guestLogin();
+      // 1. Register the user
+      await ApiClient.register(email, password);
+      
+      // 2. Log them in to get the token
+      const response = await ApiClient.login(email, password);
+      
       if (response.access_token) {
         localStorage.setItem("token", response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to start guest session");
+      setError(err.message || "Failed to sign up");
     } finally {
       setLoading(false);
     }
@@ -54,11 +49,11 @@ export default function LoginPage() {
   return (
     <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center mb-[28px]">
-        <h1 className="text-[24px] font-display font-semibold mb-[8px]">Welcome Back</h1>
-        <p className="text-[14px] text-text-dim">Sign in to access your extractions</p>
+        <h1 className="text-[24px] font-display font-semibold mb-[8px]">Create an Account</h1>
+        <p className="text-[14px] text-text-dim">Join WEBISCRAP to start extracting data</p>
       </div>
 
-      <form onSubmit={handleLogin} className="flex flex-col gap-[16px]">
+      <form onSubmit={handleSignup} className="flex flex-col gap-[16px]">
         <Input 
           type="email" 
           placeholder="Email address" 
@@ -78,21 +73,19 @@ export default function LoginPage() {
           required 
           disabled={loading}
         />
-        
-        <div className="flex items-center justify-between mt-[4px]">
-          <label className="flex items-center gap-[8px] cursor-pointer group">
-            <div className="w-[16px] h-[16px] rounded-[4px] border border-glass-border-strong group-hover:border-signal-300 transition-colors flex items-center justify-center">
-              <svg className="w-[10px] h-[10px] text-transparent transition-colors group-[.is-checked]:text-signal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <span className="text-[13px] text-text-mid group-hover:text-text-hi transition-colors">Stay signed in</span>
-          </label>
-          <a href="#" className="text-[13px] text-signal-400 hover:text-signal-300 transition-colors">
-            Forgot password?
-          </a>
-        </div>
+
+        <Input 
+          type="password" 
+          placeholder="Confirm Password" 
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          icon={<Lock className="w-[16px] h-[16px]" />} 
+          required 
+          disabled={loading}
+        />
         
         <Button variant="primary" type="submit" className="w-full mt-[12px]" disabled={loading}>
-          {loading ? "Signing in..." : "Sign In"}
+          {loading ? "Creating account..." : "Sign Up"}
         </Button>
         {error && <div className="text-red-500 text-sm mt-2 text-center">{error}</div>}
       </form>
@@ -119,22 +112,14 @@ export default function LoginPage() {
         </Button>
       </div>
 
-      <div className="mt-[28px] text-center">
-        <Button variant="ghost" className="w-full text-text-mid group" onClick={handleGuestLogin} disabled={loading}>
-          <UserRound className="w-[16px] h-[16px] mr-[6px]" />
-          Continue as guest
-          <ArrowRight className="w-[14px] h-[14px] ml-[4px] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-        </Button>
-      </div>
-      
       <div className="mt-[24px] text-center text-[12px] text-text-dim">
         By continuing, you agree to our <Link href="/terms" className="text-text-mid hover:text-text-hi transition-colors underline decoration-hair underline-offset-4">Terms</Link> & <Link href="/privacy" className="text-text-mid hover:text-text-hi transition-colors underline decoration-hair underline-offset-4">Privacy</Link>
       </div>
 
       <div className="mt-[16px] text-center text-[13px] text-text-dim">
-        Don't have an account?{" "}
-        <Link href="/signup" className="text-signal-400 hover:text-signal-300 transition-colors font-medium">
-          Sign Up
+        Already have an account?{" "}
+        <Link href="/login" className="text-signal-400 hover:text-signal-300 transition-colors font-medium">
+          Sign In
         </Link>
       </div>
     </Card>

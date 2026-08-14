@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { Logo } from "@/components/logo/Logo";
@@ -11,7 +13,7 @@ export default function LandingPage() {
   return (
     <div className="relative min-h-screen bg-bg-0 text-text-hi font-body overflow-x-hidden selection:bg-[rgba(20,119,245,0.3)]">
       <div className="bg-field"></div>
-      
+
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 h-[72px] flex items-center justify-between px-[32px] border-b border-[rgba(255,255,255,0.04)] bg-[rgba(5,7,12,0.6)] backdrop-blur-md z-50">
         <Logo variant="lockup" size={24} />
@@ -50,16 +52,16 @@ export default function LandingPage() {
                 Start Free Extraction <ArrowRight className="w-[18px] h-[18px]" />
               </Button>
             </Link>
-            <Button className="h-[48px] px-[28px] text-[15px]">View Examples</Button>
+            <Button className="h-[48px] px-[28px] text-[15px]" onClick={() => document.getElementById('agents')?.scrollIntoView({ behavior: 'smooth' })}>View Examples</Button>
           </div>
 
           {/* Hero Mock Chat */}
           <div className="mt-[80px] max-w-[800px] mx-auto">
             <Card variant="strong" className="p-[24px] text-left relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-signal-400 via-cyan to-signal-500"></div>
-              
+
               <MessageBubble role="user" content="Extract the top 20 trending repositories from GitHub today, including their name, description, star count, and primary language." />
-              
+
               <div className="my-[24px] ml-[42px] border-l-2 border-[rgba(130,170,255,0.1)] pl-[24px]">
                 <PipelineStrip activeStep="extract" completedSteps={["plan", "analyze", "browse"]} title="Pipeline Progress" />
               </div>
@@ -79,7 +81,7 @@ export default function LandingPage() {
             <h2 className="text-[32px] font-display font-semibold mb-[12px]">The 9-Agent Backend</h2>
             <p className="text-text-mid">A specialized swarm of AI agents working in concert to guarantee flawless extraction.</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px]">
             {[
               { icon: Target, title: "Planner", desc: "Analyzes your natural language request and formulates the extraction strategy." },
@@ -127,11 +129,11 @@ export default function LandingPage() {
         <div className="max-w-[1200px] mx-auto flex items-center justify-between px-[24px]">
           <Logo variant="lockup" size={20} className="opacity-50 grayscale" />
           <div className="flex gap-[24px]">
-            <Link href="#" className="hover:text-text-hi">Terms</Link>
-            <Link href="#" className="hover:text-text-hi">Privacy</Link>
-            <Link href="#" className="hover:text-text-hi">Documentation</Link>
+            <Link href="/terms" className="hover:text-text-hi">Terms</Link>
+            <Link href="/privacy" className="hover:text-text-hi">Privacy</Link>
+            <Link href="#agents" className="hover:text-text-hi">Documentation</Link>
           </div>
-          <div>© 2024 Webiscrap. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} Webiscrap. All rights reserved.</div>
         </div>
       </footer>
     </div>

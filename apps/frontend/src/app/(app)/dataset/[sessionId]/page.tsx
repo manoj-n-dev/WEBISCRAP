@@ -34,7 +34,9 @@ const generateColumns = (data: any[]): ColumnDef<any>[] => {
   return cols;
 };
 
-export default function DatasetPage({ params }: { params: { sessionId: string } }) {
+export default function DatasetPage({ params }: { params: Promise<{ sessionId: string }> }) {
+  const resolvedParams = React.use(params);
+  const sessionId = resolvedParams.sessionId;
   const { messages } = useChatStore();
   
   // Find the last completed extraction in the store
@@ -61,7 +63,7 @@ export default function DatasetPage({ params }: { params: { sessionId: string } 
         {/* Top Header */}
         <div className="flex items-center justify-between mb-[24px] shrink-0">
           <div className="flex items-center gap-[16px]">
-            <Link href={`/chat/${params.sessionId}`}>
+            <Link href={`/chat/${sessionId}`}>
               <Button variant="icon">
                 <ArrowLeft className="w-[16px] h-[16px]" />
               </Button>
@@ -71,7 +73,7 @@ export default function DatasetPage({ params }: { params: { sessionId: string } 
                 Extraction Dataset
               </div>
               <div className="text-[13px] text-text-dim flex items-center gap-[8px]">
-                <span>Session {params.sessionId}</span>
+                <span>Session {sessionId}</span>
                 <span className="w-[4px] h-[4px] bg-glass-border-strong rounded-full"></span>
                 <span>Active</span>
               </div>

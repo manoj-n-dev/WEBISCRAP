@@ -10,7 +10,10 @@ import { FileDown, RefreshCw } from "lucide-react";
 import { useChatStore } from "@/lib/store/chat";
 import { useRouter } from "next/navigation";
 
-export default function ChatPage({ params }: { params: { sessionId: string } }) {
+export default function ChatPage({ params }: { params: Promise<{ sessionId: string }> }) {
+  const resolvedParams = React.use(params);
+  const sessionId = resolvedParams.sessionId;
+
   const [input, setInput] = useState("");
   const router = useRouter();
   
@@ -23,17 +26,17 @@ export default function ChatPage({ params }: { params: { sessionId: string } }) 
   } = useChatStore();
 
   useEffect(() => {
-    if (params.sessionId && params.sessionId !== "new") {
-      setActiveSession(params.sessionId);
+    if (sessionId && sessionId !== "new") {
+      setActiveSession(sessionId);
     }
-  }, [params.sessionId, setActiveSession]);
+  }, [sessionId, setActiveSession]);
 
   // If activeSessionId changed from "new" to a real ID after submission, redirect silently
   useEffect(() => {
-    if (params.sessionId === "new" && activeSessionId && activeSessionId !== "new") {
+    if (sessionId === "new" && activeSessionId && activeSessionId !== "new") {
       router.replace(`/chat/${activeSessionId}`);
     }
-  }, [activeSessionId, params.sessionId, router]);
+  }, [activeSessionId, sessionId, router]);
 
   const handleSubmit = async () => {
     if (!input.trim() || isPipelineActive) return;
