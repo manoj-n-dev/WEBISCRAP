@@ -17,7 +17,10 @@ class User(UserBase, BaseUUIDModel, table=True):
 class UserCreate(UserBase):
     password: Optional[str] = None
 
+from datetime import datetime
+import uuid
+
 class UserRead(UserBase):
-    id: str
-    created_at: str
-    updated_at: str
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
