@@ -116,7 +116,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                       
                       {msg.exportUrl && (
                         <Button 
-                          variant="outline" 
+                          variant="default" 
                           onClick={() => {
                             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
                             const token = localStorage.getItem("token");
