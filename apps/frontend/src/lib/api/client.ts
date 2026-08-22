@@ -57,6 +57,20 @@ export class ApiClient {
     });
   }
 
+  static async googleLogin(idToken: string) {
+    return this.request("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ id_token: idToken }),
+    });
+  }
+
+  static async phoneLogin(idToken: string) {
+    return this.request("/api/auth/phone", {
+      method: "POST",
+      body: JSON.stringify({ id_token: idToken }),
+    });
+  }
+
   static async submitExtraction(message: string, target_url: string = "", session_id?: string) {
     return this.request("/api/chat/", {
       method: "POST",

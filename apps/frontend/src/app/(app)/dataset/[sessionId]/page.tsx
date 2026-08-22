@@ -153,6 +153,7 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
           
           {/* Export Panel */}
           <ExportPanel 
+            data={rawData}
             onExport={(fmt) => console.log(`Exporting as ${fmt}`)} 
             className="w-[280px] shrink-0" 
           />

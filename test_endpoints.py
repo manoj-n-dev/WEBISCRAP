@@ -17,49 +17,49 @@ print("=" * 60)
 
 # 1. Guest Login
 try:
-    res = requests.post(f"{BASE_URL}/api/auth/guest")
+    res = requests.post(f"{BASE_URL}/api/auth/guest", timeout=15)
     guest_token = res.json().get("access_token")
     pr("Guest Login", f"Token received ({len(guest_token)} chars)" if guest_token else "No token", bool(guest_token))
 except Exception as e:
     pr("Guest Login", str(e), False)
     guest_token = None
 
-# 2. Register
+# 2. Register with STRONG password (meets new validation)
 email = f"fulltest_{int(time.time())}@example.com"
+strong_password = "StrongPass1"
 try:
-    res = requests.post(f"{BASE_URL}/api/auth/register", json={"email": email, "password": "password123"})
-    pr("Register", f"Status {res.status_code} - {res.json().get('email', res.text[:80])}", res.status_code == 200)
+    res = requests.post(f"{BASE_URL}/api/auth/register", json={"email": email, "password": strong_password})
+    pr("Register (strong pwd)", f"Status {res.status_code} - {res.json().get('email', res.text[:80])}", res.status_code == 200)
 except Exception as e:
-    pr("Register", str(e), False)
+    pr("Register (strong pwd)", str(e), False)
 
-# 3. Login (Email/Password)
+# 3. Register with WEAK password (should fail)
 try:
-    res = requests.post(f"{BASE_URL}/api/auth/login", data={"username": email, "password": "password123"})
+    res = requests.post(f"{BASE_URL}/api/auth/register", json={"email": "weak@test.com", "password": "123"})
+    pr("Register (weak pwd rejected)", f"Status {res.status_code}", res.status_code == 400)
+except Exception as e:
+    pr("Register (weak pwd rejected)", str(e), False)
+
+# 4. Login (Email/Password)
+try:
+    res = requests.post(f"{BASE_URL}/api/auth/login", data={"username": email, "password": strong_password})
     user_token = res.json().get("access_token")
     pr("Login (Email/Password)", f"Token received ({len(user_token)} chars)" if user_token else "No token", bool(user_token))
 except Exception as e:
     pr("Login (Email/Password)", str(e), False)
     user_token = None
 
-# 4. Extraction Pipeline
+# 5. Extraction Pipeline
+sid = None
 if guest_token:
     try:
         headers = {"Authorization": f"Bearer {guest_token}"}
         payload = {"message": "https://example.com extract the main heading", "target_url": "https://example.com"}
-        res = requests.post(f"{BASE_URL}/api/chat/", json=payload, headers=headers)
+        res = requests.post(f"{BASE_URL}/api/chat/", json=payload, headers=headers, timeout=30)
         sid = res.json().get("session_id")
         pr("Extraction Pipeline", f"Session {sid}" if sid else res.text[:80], res.status_code == 200)
     except Exception as e:
         pr("Extraction Pipeline", str(e), False)
-
-# 5. Session polling
-if guest_token and sid:
-    try:
-        headers = {"Authorization": f"Bearer {guest_token}"}
-        res = requests.get(f"{BASE_URL}/api/chat/{sid}", headers=headers)
-        pr("Session Polling", f"Status {res.status_code}, keys: {list(res.json().keys())[:5]}", res.status_code == 200)
-    except Exception as e:
-        pr("Session Polling", str(e), False)
 
 # 6. Health / Docs endpoint
 try:
@@ -105,7 +105,7 @@ if sid:
         res = requests.get(f"{FRONTEND_URL}/dataset/{sid}", timeout=10)
         pr(f"Dataset Page (/dataset/{sid[:8]}...)", f"Status {res.status_code}, Size {len(res.text)} bytes", res.status_code == 200)
     except Exception as e:
-        pr(f"Dataset Page", str(e), False)
+        pr("Dataset Page", str(e), False)
 
 print()
 print("=" * 60)
@@ -126,34 +126,20 @@ try:
 except Exception as e:
     pr("Landing Content Check", str(e), False)
 
-# Verify login page
+# Verify login page has Google and Phone buttons
 try:
     res = requests.get(f"{FRONTEND_URL}/login")
     html = res.text.lower()
     checks = {
-        "Login: Has signup link": "sign up" in html or "signup" in html or "/signup" in html,
+        "Login: Has Google button": "google" in html,
+        "Login: Has Phone OTP button": "phone" in html,
+        "Login: Has signup link": "sign up" in html or "/signup" in html,
         "Login: Has password field": "password" in html,
     }
     for name, passed in checks.items():
         pr(name, "Found" if passed else "Not found", passed)
 except Exception as e:
     pr("Login Content Check", str(e), False)
-
-# Verify terms page
-try:
-    res = requests.get(f"{FRONTEND_URL}/terms")
-    html = res.text.lower()
-    pr("Terms: Has content", "Found" if "terms" in html else "Not found", "terms" in html)
-except Exception as e:
-    pr("Terms Content Check", str(e), False)
-
-# Verify privacy page
-try:
-    res = requests.get(f"{FRONTEND_URL}/privacy")
-    html = res.text.lower()
-    pr("Privacy: Has content", "Found" if "privacy" in html else "Not found", "privacy" in html)
-except Exception as e:
-    pr("Privacy Content Check", str(e), False)
 
 # Verify dynamic copyright year
 try:

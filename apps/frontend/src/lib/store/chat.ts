@@ -65,9 +65,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ activeSessionId: result.session_id });
       }
       
-      // The backend returns { result: [...] } or { status: "success", data: [...] }
-      // We assume it's in result.data or result.result
-      const extractionData = result.data || result.result || [];
+      // The backend returns { status: "success", data: { cleaned_data: [...], ... } }
+      // The actual rows live in result.data.cleaned_data (or result.data.extracted_data as fallback)
+      const pipelineState = result.data || {};
+      const extractionData = pipelineState.cleaned_data 
+        || pipelineState.extracted_data 
+        || (Array.isArray(pipelineState) ? pipelineState : []);
       
       updateMessage(aiMsgId, {
         status: "completed",

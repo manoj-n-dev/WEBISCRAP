@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import Any
+import re
 
 from database.connection import get_session
 from models.user import User, UserCreate, UserRead
@@ -10,6 +11,15 @@ from auth.security import get_password_hash, verify_password, create_access_toke
 from auth.dependencies import get_current_user
 
 router = APIRouter()
+
+def validate_password(password: str) -> None:
+    """Enforce password strength requirements."""
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
+    if not re.search(r'[A-Z]', password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter.")
+    if not re.search(r'[0-9]', password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number.")
 
 @router.post("/register", response_model=UserRead)
 async def register(
@@ -19,6 +29,9 @@ async def register(
     """
     Register a new user.
     """
+    # Validate password strength
+    validate_password(user_in.password)
+    
     if user_in.email:
         statement = select(User).where(User.email == user_in.email)
         result = await db.exec(statement)

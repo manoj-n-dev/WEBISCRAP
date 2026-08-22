@@ -1,9 +1,14 @@
+"use client";
+
 import React from "react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Table, Download, Maximize2 } from "lucide-react";
+import { exportData } from "@/lib/export";
+import { useRouter } from "next/navigation";
+import { useChatStore } from "@/lib/store/chat";
 
 export interface DataCardProps {
   rows: number;
@@ -22,8 +27,15 @@ export function DataCard({
   cached = false,
   className,
 }: DataCardProps) {
+  const router = useRouter();
+  const { activeSessionId } = useChatStore();
+  
   if (!data || data.length === 0) return null;
   const headers = Object.keys(data[0]);
+
+  const handleExport = (format: "csv" | "excel" | "json" | "pdf") => {
+    exportData(format, data);
+  };
 
   return (
     <Card variant="strong" className={cn("p-0 overflow-hidden", className)}>
@@ -33,10 +45,10 @@ export function DataCard({
           {totalRows} rows · {cols} columns
         </div>
         <div className="flex gap-[8px]">
-          <Button variant="icon">
+          <Button variant="icon" onClick={() => handleExport("csv")} title="Download CSV">
             <Download className="w-[15px] h-[15px]" />
           </Button>
-          <Button variant="icon">
+          <Button variant="icon" onClick={() => activeSessionId && router.push(`/dataset/${activeSessionId}`)} title="Open in Dataset View">
             <Maximize2 className="w-[15px] h-[15px]" />
           </Button>
         </div>
@@ -79,10 +91,10 @@ export function DataCard({
           {cached && "· cached for this session"}
         </span>
         <div className="flex gap-[6px]">
-          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi">CSV</Chip>
-          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi">Excel</Chip>
-          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi">JSON</Chip>
-          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi">PDF</Chip>
+          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi" onClick={() => handleExport("csv")}>CSV</Chip>
+          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi" onClick={() => handleExport("excel")}>Excel</Chip>
+          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi" onClick={() => handleExport("json")}>JSON</Chip>
+          <Chip className="cursor-pointer hover:border-signal-300 hover:text-text-hi" onClick={() => handleExport("pdf")}>PDF</Chip>
         </div>
       </div>
     </Card>
