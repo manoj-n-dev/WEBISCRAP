@@ -26,7 +26,8 @@ class ExportAgent(BaseAgent):
         
         export_id = str(uuid.uuid4())
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_filename = f"webiscrap_{timestamp}_{export_id[:8]}"
+        owner_prefix = input_data.get("owner_id", "")
+        base_filename = f"{owner_prefix}_webiscrap_{timestamp}_{export_id[:8]}" if owner_prefix else f"webiscrap_{timestamp}_{export_id[:8]}"
         file_path = ""
         download_url = ""
         

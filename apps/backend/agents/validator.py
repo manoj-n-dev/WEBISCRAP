@@ -58,7 +58,7 @@ class ValidatorAgent(BaseAgent):
             logger.info(f"[{session_id}] Validation result: Score={validation_result.get('confidence_score')}, Valid={validation_result.get('is_valid')}")
             
         except json.JSONDecodeError as e:
-            logger.error(f"[{session_id}] Validator failed to parse JSON. Output: {response_text}")
+            logger.error(f"[{session_id}] Validator failed to parse JSON. Error: {e}. Snippet: {response_text[:200]}")
             validation_result = {
                 "confidence_score": 50,
                 "validation_notes": "Validation agent failed to return parseable result.",

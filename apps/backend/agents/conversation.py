@@ -63,7 +63,7 @@ class ConversationAgent(BaseAgent):
             return input_data
             
         except json.JSONDecodeError as e:
-            logger.error(f"[{session_id}] ConversationAgent failed to parse JSON. Output: {response_text}")
+            logger.error(f"[{session_id}] ConversationAgent failed to parse JSON. Error: {e}. Snippet: {response_text[:200]}")
             
             # Fallback text response
             fallback = {

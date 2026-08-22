@@ -29,6 +29,18 @@ class RedisStore:
         )
         logger.info(f"[{session_id}] Session data saved to Redis with {ttl_seconds}s TTL.")
 
+    async def set_session_owner(self, session_id: str, owner_id: str, ttl_seconds: int = 86400):
+        await self.connect()
+        await self.redis_client.setex(
+            f"session:{session_id}:owner",
+            ttl_seconds,
+            owner_id
+        )
+
+    async def get_session_owner(self, session_id: str) -> Optional[str]:
+        await self.connect()
+        return await self.redis_client.get(f"session:{session_id}:owner")
+
     async def append_conversation_history(self, session_id: str, message: Dict[str, str]):
         await self.connect()
         key = f"session:{session_id}:history"

@@ -11,7 +11,7 @@ EXPORT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
 @router.get("/download/{filename}")
 async def download_export(
     filename: str,
-    # current_user: User = Depends(get_current_user) # In a real app, verify they own this file
+    current_user: User = Depends(get_current_user)
 ):
     """
     Download an exported file.
@@ -19,6 +19,10 @@ async def download_export(
     # Simple path traversal protection
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
+        
+    # Verify ownership based on filename prefix
+    if not filename.startswith(f"{current_user.id}_"):
+        raise HTTPException(status_code=403, detail="Not authorized to access this file")
         
     file_path = os.path.join(EXPORT_DIR, filename)
     

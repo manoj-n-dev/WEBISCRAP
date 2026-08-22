@@ -7,13 +7,48 @@ import re
 
 from database.connection import get_session
 from models.user import User, UserCreate, UserRead
-from auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token
+from auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token, decode_refresh_token
 from auth.dependencies import get_current_user
+from pydantic import BaseModel
 
 router = APIRouter()
 
-def validate_password(password: str) -> None:
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh")
+async def refresh_access_token(
+    request: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_session)
+) -> Any:
+    """
+    Refresh access and refresh tokens using a valid refresh token.
+    """
+    payload = decode_refresh_token(request.refresh_token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        
+    statement = select(User).where(User.id == user_id)
+    result = await db.exec(statement)
+    user = result.first()
+    
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+    return {
+        "access_token": create_access_token(user.id),
+        "refresh_token": create_refresh_token(user.id),
+        "token_type": "bearer",
+    }
+
+def validate_password(password: str | None) -> None:
     """Enforce password strength requirements."""
+    if not password:
+        raise HTTPException(status_code=400, detail="Password cannot be empty.")
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long.")
     if not re.search(r'[A-Z]', password):
@@ -98,7 +133,6 @@ async def create_guest_user(
         "user_id": user.id
     }
 
-from pydantic import BaseModel
 from auth.providers import verify_google_token, verify_firebase_token
 
 class TokenRequest(BaseModel):

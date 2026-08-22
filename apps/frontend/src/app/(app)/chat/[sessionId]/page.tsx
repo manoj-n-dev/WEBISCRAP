@@ -87,12 +87,61 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                     />
                   )}
 
+                  {msg.status === "completed" && msg.confidenceScore !== undefined && (
+                    <div className="mt-4 p-4 rounded-lg bg-bg-base border border-border-dim">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="text-sm font-medium text-text-hi">Validation Confidence</div>
+                        <div className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          msg.confidenceScore >= 80 ? 'bg-green-500/10 text-green-500' :
+                          msg.confidenceScore >= 50 ? 'bg-yellow-500/10 text-yellow-500' :
+                          'bg-red-500/10 text-red-500'
+                        }`}>
+                          {msg.confidenceScore}%
+                        </div>
+                      </div>
+                      {msg.validationNotes && (
+                        <div className="text-sm text-text-dim mt-2">
+                          {msg.validationNotes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {msg.status === "completed" && (
-                    <div className="flex gap-[12px] mt-4">
+                    <div className="flex gap-[12px] mt-4 flex-wrap">
                       <Button onClick={() => router.push(`/dataset/${activeSessionId}`)}>
                         <FileDown className="w-[16px] h-[16px]" />
                         Open in Dataset View
                       </Button>
+                      
+                      {msg.exportUrl && (
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                            const token = localStorage.getItem("token");
+                            
+                            // Download using fetch to send auth header
+                            fetch(`${baseUrl}${msg.exportUrl}`, {
+                              headers: { "Authorization": `Bearer ${token}` }
+                            })
+                            .then(res => res.blob())
+                            .then(blob => {
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = msg.exportUrl!.split('/').pop() || "export";
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                            });
+                          }}
+                        >
+                          <FileDown className="w-[16px] h-[16px]" />
+                          Download Export
+                        </Button>
+                      )}
+                      
                       <Button variant="ghost">
                         <RefreshCw className="w-[16px] h-[16px]" />
                         Re-run Extraction

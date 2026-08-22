@@ -12,6 +12,8 @@ from .memory import memory_agent
 from .conversation import conversation_agent
 from .exporter import export_agent
 
+from .base import validate_target_url
+
 class PipelineOrchestrator:
     """
     Coordinates the 9-agent pipeline for WEBISCRAP.
@@ -28,11 +30,15 @@ class PipelineOrchestrator:
         self.conversation = conversation_agent
         self.exporter = export_agent
 
-    async def execute_pipeline(self, user_request: str, target_url: str, session_id: str) -> Dict[str, Any]:
+    async def execute_pipeline(self, user_request: str, target_url: str, session_id: str, owner_id: str = "") -> Dict[str, Any]:
         """
         Executes the full extraction pipeline or routes to conversation agent if data is cached.
         """
         logger.info(f"[{session_id}] Starting pipeline for URL: {target_url}")
+        
+        # SSRF protection
+        if target_url and not validate_target_url(target_url):
+            raise ValueError(f"Invalid or restricted target URL: {target_url}")
         
         # In a real execution, we would:
         # 1. Check if we already have extracted this URL in the current session (Memory Agent)
@@ -42,6 +48,7 @@ class PipelineOrchestrator:
         pipeline_state = {
             "user_request": user_request,
             "target_url": target_url,
+            "owner_id": owner_id,
             "data": None,
             "metadata": {}
         }

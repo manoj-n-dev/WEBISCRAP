@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
 import { Mail, Lock, Phone, UserRound, ArrowRight, X } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
-import { auth, googleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
+import { getFirebaseAuth, getGoogleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,6 +34,9 @@ export default function LoginPage() {
       const response = await ApiClient.login(email, password);
       if (response.access_token) {
         localStorage.setItem("token", response.access_token);
+        if (response.refresh_token) {
+          localStorage.setItem("refresh_token", response.refresh_token);
+        }
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -50,6 +53,9 @@ export default function LoginPage() {
       const response = await ApiClient.guestLogin();
       if (response.access_token) {
         localStorage.setItem("token", response.access_token);
+        if (response.refresh_token) {
+          localStorage.setItem("refresh_token", response.refresh_token);
+        }
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -63,11 +69,14 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(getFirebaseAuth(), getGoogleProvider());
       const idToken = await result.user.getIdToken();
       const response = await ApiClient.googleLogin(idToken);
       if (response.access_token) {
         localStorage.setItem("token", response.access_token);
+        if (response.refresh_token) {
+          localStorage.setItem("refresh_token", response.refresh_token);
+        }
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -89,8 +98,8 @@ export default function LoginPage() {
       const recaptchaContainer = document.getElementById("recaptcha-container");
       if (!recaptchaContainer) return;
       
-      const verifier = new RecaptchaVerifier(auth, recaptchaContainer, { size: "invisible" });
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+      const verifier = new RecaptchaVerifier(getFirebaseAuth(), recaptchaContainer, { size: "invisible" });
+      const confirmation = await signInWithPhoneNumber(getFirebaseAuth(), phoneNumber, verifier);
       setConfirmationResult(confirmation);
       setOtpSent(true);
     } catch (err: any) {
@@ -110,6 +119,9 @@ export default function LoginPage() {
       const response = await ApiClient.phoneLogin(idToken);
       if (response.access_token) {
         localStorage.setItem("token", response.access_token);
+        if (response.refresh_token) {
+          localStorage.setItem("refresh_token", response.refresh_token);
+        }
         router.push("/chat/new");
       }
     } catch (err: any) {

@@ -24,6 +24,33 @@ export class ApiClient {
     }
 
     if (!response.ok) {
+      if (response.status === 401 && endpoint !== "/api/auth/refresh") {
+        const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
+        if (refreshToken) {
+          try {
+            const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refresh_token: refreshToken })
+            });
+            if (refreshRes.ok) {
+              const data = await refreshRes.json();
+              localStorage.setItem("token", data.access_token);
+              localStorage.setItem("refresh_token", data.refresh_token);
+              // Retry the original request
+              headers.set("Authorization", `Bearer ${data.access_token}`);
+              response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+              if (response.ok) {
+                if (response.headers.get("content-type")?.includes("application/json")) return response.json();
+                return response.blob();
+              }
+            }
+          } catch (e) {
+            // Refresh failed, fall through to error handling
+          }
+        }
+      }
+      
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || `API Error: ${response.statusText}`);
     }

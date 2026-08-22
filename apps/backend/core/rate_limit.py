@@ -27,8 +27,10 @@ async def rate_limiter(request: Request):
     # Count how many requests are in the current window
     pipeline.zcard(key)
     
+    import uuid
     # Add the current request
-    pipeline.zadd(key, {str(now): now})
+    unique_member = f"{now}:{uuid.uuid4().hex[:8]}"
+    pipeline.zadd(key, {unique_member: now})
     
     # Set expiration on the key so it cleans up after a minute of inactivity
     pipeline.expire(key, 60)

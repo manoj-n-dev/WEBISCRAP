@@ -67,7 +67,7 @@ class ExtractorAgent(BaseAgent):
                     all_extracted_data.append(data)
                     
             except json.JSONDecodeError as e:
-                logger.error(f"[{session_id}] Extractor failed to parse JSON for snapshot {i+1}. Skipping. Output: {response_text[:200]}...")
+                logger.error(f"[{session_id}] Extractor failed to parse JSON for snapshot {i+1}. Skipping. Error: {e}. Output: {response_text[:200]}...")
                 # Continue to next snapshot instead of failing the whole process
                 continue
                 

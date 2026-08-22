@@ -3,6 +3,36 @@ import time
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 from loguru import logger
+import urllib.parse
+import socket
+import ipaddress
+
+def validate_target_url(url: str) -> bool:
+    """SSRF protection: validate URL scheme and resolve IP to block private/internal addresses."""
+    if not url:
+        return False
+        
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ["http", "https"]:
+            return False
+            
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+            
+        # Resolve hostname to IP
+        ip_addr = socket.gethostbyname(hostname)
+        ip = ipaddress.ip_address(ip_addr)
+        
+        # Block internal/private IPs
+        if ip.is_loopback or ip.is_private or ip.is_multicast or ip.is_reserved:
+            return False
+            
+        return True
+    except Exception as e:
+        logger.warning(f"URL validation failed for {url}: {e}")
+        return False
 
 class BaseAgent:
     """Base class for all AI agents in the WEBISCRAP pipeline."""

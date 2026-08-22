@@ -8,8 +8,16 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only if not already initialized
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+const getFirebaseApp = () => {
+  return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+};
 
-export { auth, googleProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup };
+const getFirebaseAuth = () => {
+  return getAuth(getFirebaseApp());
+};
+
+const getGoogleProvider = () => {
+  return new GoogleAuthProvider();
+};
+
+export { getFirebaseAuth, getGoogleProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup };

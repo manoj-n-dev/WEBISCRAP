@@ -70,7 +70,7 @@ class AnalyzerAgent(BaseAgent):
             return input_data
             
         except json.JSONDecodeError as e:
-            logger.error(f"[{session_id}] Analyzer failed to output valid JSON. Output: {response_text}")
+            logger.error(f"[{session_id}] Analyzer failed to output valid JSON. Error: {e}. Snippet: {response_text[:200]}")
             raise ValueError("Analyzer output was not valid JSON.") from e
 
 analyzer_agent = AnalyzerAgent()

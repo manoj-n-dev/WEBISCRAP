@@ -29,13 +29,15 @@ async def chat(
     session_id = request.session_id
     if not session_id:
         session_id = str(uuid.uuid4())
+        await redis_store.set_session_owner(session_id, str(current_user.id))
         
     try:
         # Pass to the orchestrator pipeline
         result = await orchestrator.execute_pipeline(
             user_request=request.message,
             target_url=request.target_url,
-            session_id=session_id
+            session_id=session_id,
+            owner_id=current_user.id
         )
         
         # Add the session_id to the response so frontend can maintain state
@@ -53,5 +55,9 @@ async def get_chat_history(
     """
     Retrieve conversation history for a specific session.
     """
+    owner_id = await redis_store.get_session_owner(session_id)
+    if owner_id and owner_id != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session history")
+        
     history = await redis_store.get_conversation_history(session_id)
     return {"history": history}

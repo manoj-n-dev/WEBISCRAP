@@ -19,13 +19,26 @@ async def upload_file(
     Upload a file (PDF, DOCX, CSV, Image) for parsing.
     """
     file_id = str(uuid.uuid4())
-    ext = os.path.splitext(file.filename)[1]
+    ext = os.path.splitext(file.filename)[1].lower()
+    
+    ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.csv', '.png', '.jpg', '.jpeg'}
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Unsupported file extension")
+        
     safe_filename = f"{file_id}{ext}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
     
+    # 20MB size limit
+    MAX_FILE_SIZE = 20 * 1024 * 1024
+    
     try:
+        size = 0
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            while chunk := await file.read(1024 * 1024): # read in 1MB chunks
+                size += len(chunk)
+                if size > MAX_FILE_SIZE:
+                    raise HTTPException(status_code=413, detail="File too large. Maximum size is 20MB.")
+                buffer.write(chunk)
             
         # 1. Parse the uploaded file
         from parsers.document_parser import extract_text_from_file

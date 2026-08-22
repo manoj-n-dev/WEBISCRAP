@@ -31,6 +31,17 @@ def create_refresh_token(subject: Union[str, Any]) -> str:
 def decode_access_token(token: str) -> Optional[dict]:
     try:
         decoded_token = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        if decoded_token.get("type") == "refresh":
+            return None
+        return decoded_token
+    except JWTError:
+        return None
+
+def decode_refresh_token(token: str) -> Optional[dict]:
+    try:
+        decoded_token = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        if decoded_token.get("type") != "refresh":
+            return None
         return decoded_token
     except JWTError:
         return None

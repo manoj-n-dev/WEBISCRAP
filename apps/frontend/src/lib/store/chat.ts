@@ -9,6 +9,9 @@ export interface Message {
   status?: "running" | "completed" | "error";
   completedSteps?: string[];
   totalRows?: number;
+  confidenceScore?: number;
+  validationNotes?: string;
+  exportUrl?: string;
 }
 
 interface ChatState {
@@ -72,12 +75,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         || pipelineState.extracted_data 
         || (Array.isArray(pipelineState) ? pipelineState : []);
       
+      const conversationResponse = pipelineState.conversation_response?.response_text 
+        || `Extraction complete. I found ${Array.isArray(extractionData) ? extractionData.length : 1} items matching your criteria.`;
+        
+      const validation = pipelineState.validation || {};
+      
       updateMessage(aiMsgId, {
         status: "completed",
         completedSteps: ["plan", "analyze", "browse", "extract", "clean", "validate"],
         data: Array.isArray(extractionData) ? extractionData : [extractionData],
-        content: `Extraction complete. I found ${Array.isArray(extractionData) ? extractionData.length : 1} items matching your criteria.`,
+        content: conversationResponse,
         totalRows: Array.isArray(extractionData) ? extractionData.length : 1,
+        confidenceScore: validation.confidence_score,
+        validationNotes: validation.validation_notes,
+        exportUrl: pipelineState.export_url,
       });
       
     } catch (err: any) {

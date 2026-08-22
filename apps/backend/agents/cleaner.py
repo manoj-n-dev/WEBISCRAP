@@ -59,7 +59,7 @@ class CleanerAgent(BaseAgent):
                     all_cleaned.extend(cleaned_chunk)
                     
             except json.JSONDecodeError as e:
-                logger.error(f"[{session_id}] Cleaner failed to parse JSON. Skipping chunk. Output: {response_text[:200]}")
+                logger.error(f"[{session_id}] Cleaner failed to parse JSON. Error: {e}. Snippet: {response_text[:200]}")
                 # Fallback: just use the raw uncleaned chunk
                 all_cleaned.extend(chunk)
                 

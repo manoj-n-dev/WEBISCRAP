@@ -37,7 +37,7 @@ class PlannerAgent(BaseAgent):
             input_data.update(plan)
             return input_data
         except json.JSONDecodeError as e:
-            logger.error(f"[{session_id}] Planner failed to output valid JSON. Output: {response_text}")
+            logger.error(f"[{session_id}] Planner failed to output valid JSON. Error: {e}. Snippet: {response_text[:200]}")
             raise ValueError("Planner output was not valid JSON.") from e
 
 planner_agent = PlannerAgent()
