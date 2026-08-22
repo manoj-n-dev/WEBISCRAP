@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
-import { Mail, Lock, Phone, X } from "lucide-react";
+import { Mail, Lock, Phone, X, Wand2 } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
 import { auth, googleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
 
@@ -147,15 +147,38 @@ export default function SignupPage() {
             disabled={loading}
           />
           
-          <Input 
-            type="password" 
-            placeholder="Password (min 8 chars, 1 uppercase, 1 number)" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            icon={<Lock className="w-[16px] h-[16px]" />} 
-            required 
-            disabled={loading}
-          />
+          <div className="relative">
+            <Input 
+              type="password" 
+              placeholder="Password (min 8 chars, 1 uppercase, 1 number)" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              icon={<Lock className="w-[16px] h-[16px]" />} 
+              required 
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+                let pass = "";
+                // ensure at least 1 uppercase, 1 lowercase, 1 number, 1 special char
+                pass += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
+                pass += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
+                pass += "0123456789"[Math.floor(Math.random() * 10)];
+                pass += "!@#$%^&*"[Math.floor(Math.random() * 8)];
+                for (let i = 0; i < 8; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+                // shuffle string
+                pass = pass.split('').sort(() => 0.5 - Math.random()).join('');
+                setPassword(pass);
+                setConfirmPassword(pass);
+              }}
+              className="absolute right-[12px] top-[10px] text-text-dim hover:text-signal-400 transition-colors"
+              title="Generate Strong Password"
+            >
+              <Wand2 className="w-[16px] h-[16px]" />
+            </button>
+          </div>
 
           <Input 
             type="password" 
