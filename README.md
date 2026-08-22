@@ -58,12 +58,14 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - ✅ The **FastAPI Backend** is 100% complete, hardened, and verified.
 - ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B).
 - ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend via JWT.
+- ✅ **Refresh Tokens**: Automatic 401 retry with `/api/auth/refresh` endpoint and frontend `ApiClient` interceptor.
 - ✅ **10-key rotation** with automatic failover, cooldown, and load balancing for Groq.
 - ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites using Playwright.
 - ✅ **Frontend UI** fully built in Next.js 16 (Turbopack) with a highly customized cinematic HUD glassmorphism design.
 - ✅ **API Integration (Phase 5)** completed: Zustand globally manages live API interactions, session IDs, and polling for the PipelineStrip.
 - ✅ **Production Hardening (Phase 6)** completed: Implemented Redis-based sliding window Rate Limiting, Audit Logging Middleware, and strict CORS.
-- ✅ **Frontend Features Completed**: Legal pages (Terms/Privacy), fully working Auth (Login/Signup), and error handling for chat extractions.
+- ✅ **Security Hardening (Phase 7)** completed: SSRF protection, upload size/extension limits, ownership-based auth on exports and chat history.
+- ✅ **Frontend Features Completed**: Legal pages (Terms/Privacy), fully working Auth (Login/Signup with automated strong password generator), validation confidence score display, download export button, and error handling for chat extractions.
 
 ---
 
@@ -100,11 +102,11 @@ WEBISCRAP is divided into a strictly uncoupled Backend API and a Client-Side Ren
 - **Framework**: Next.js 16 App Router using Turbopack for compilation.
 - **State Management**: `Zustand` (`src/lib/store/chat.ts`) handles the global session state. When a user pastes a URL, it stores the message, assigns a temporary placeholder message for the AI response, marks the status as "running", and fires off the async fetch request. When the backend completes, Zustand updates the state to "completed" and injects the resulting JSON array.
 - **Styling**: Tailwind CSS v4 configured exclusively through CSS variables mapped in `globals.css`. We use a custom "cinematic HUD" glassmorphism theme characterized by `signal-500` accents, hairline borders (`bg-hair`), and backdrop blurs (`backdrop-blur-md`).
-- **Data Fetching**: A custom `ApiClient` (`src/lib/api/client.ts`) handles REST communications. The extraction endpoint (`POST /api/chat/`) accepts `multipart/form-data` to easily upload the prompt and target URL, passing along the `Authorization: Bearer <token>` in headers.
+- **Data Fetching**: A custom `ApiClient` (`src/lib/api/client.ts`) handles REST communications with automatic refresh-token retry on 401s. The extraction endpoint (`POST /api/chat/`) accepts JSON to submit the prompt and target URL, passing along the `Authorization: Bearer <token>` in headers.
 
 ### 2. Backend (FastAPI)
 - **Framework**: FastAPI (Python 3.11+). Runs asynchronously using Uvicorn.
-- **Authentication**: JWT-based auth (`api/auth.py`). Passwords are hashed with `passlib` (bcrypt). Guest mode issues anonymous JWTs so users can test the platform without an account.
+- **Authentication**: JWT-based auth (`api/auth.py`). Passwords are hashed with `passlib` (bcrypt). Includes password strength validation (min 8 chars, 1 uppercase, 1 number), refresh token rotation via `/api/auth/refresh`, and guest mode issuing anonymous JWTs.
 - **Middleware**: 
   - `AuditLoggingMiddleware`: Logs the IP, endpoint, response time, and HTTP status of every incoming request.
   - `CORSMiddleware`: Locked down to the `FRONTEND_URL` environment variable to prevent cross-origin abuse.
@@ -141,7 +143,12 @@ The beating heart of WEBISCRAP is the Orchestrator (`apps/backend/agents/orchest
 - **Key Rotation**: `apps/backend/ai/key_manager.py` manages a `cycle()` iterator across all keys provided in `GROQ_API_KEYS`. If a key hits a 429 Rate Limit, it is put into a "cooldown dictionary" for 60 seconds and the next key is tried automatically.
 - **Audit Logs**: Every API request is tracked by `AuditLoggingMiddleware` to stdout, making it easily ingested by Datadog or AWS CloudWatch.
 - **Strict CORS**: `allow_origins=[settings.FRONTEND_URL]` instead of `*`.
-- **IP Rate Limiting**: Redis ZSET (Sorted Set) tracks requests per IP. Drops connections via `429 Too Many Requests` if the 1-minute window is exceeded.
+- **IP Rate Limiting**: Redis ZSET (Sorted Set) with UUID-prefixed members tracks requests per IP. Drops connections via `429 Too Many Requests` if the 1-minute window is exceeded.
+- **SSRF Protection**: `validate_target_url()` resolves hostnames via DNS and blocks private, loopback, multicast, and reserved IP ranges before the browser agent fetches any URL.
+- **Upload Hardening**: File uploads are restricted to 20MB max and an allowlist of extensions (`.pdf`, `.docx`, `.csv`, `.png`, `.jpg`, `.jpeg`).
+- **Ownership Authorization**: Export downloads and chat history endpoints enforce ownership checks — users can only access files/sessions they created.
+- **Password Strength Validation**: Server-side enforcement of minimum 8 characters, at least 1 uppercase letter, and at least 1 number. Frontend includes an automated strong password generator.
+- **Refresh Token Rotation**: Access tokens expire in 30 minutes; refresh tokens last 7 days. The frontend `ApiClient` automatically intercepts 401 responses, refreshes the token pair, and retries the original request seamlessly.
 
 ---
 
@@ -275,6 +282,15 @@ RATE_LIMIT_PER_MINUTE=10
 - [x] API Integration (Zustand -> FastAPI)
 - [x] Production hardening (Rate limiting, CORS, Audit logs)
 - [x] Functional Legal Pages (Terms & Privacy) and Login/Signup flows
+- [x] Refresh token rotation + automatic 401 retry
+- [x] SSRF protection on scrape targets
+- [x] Upload hardening (size + extension limits)
+- [x] Ownership-based authorization on exports & chat history
+- [x] Password strength validation + automated strong password generator
+- [x] Validation confidence score surfaced in frontend UI
+- [x] Conversation agent reply surfaced in chat (not generic text)
+- [x] Export download button in chat UI
+- [x] Bug fixes: JSON error logging, rate limiter accuracy, unused import cleanup
 - [ ] Deployment to Vercel (Frontend) + Render (Backend)
 
 ---
