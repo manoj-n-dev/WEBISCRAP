@@ -7,7 +7,7 @@ from ai.key_manager import ai_manager
 
 class GroqClient:
     def __init__(self):
-        self.default_model = "llama-3.3-70b-versatile"
+        self.default_model = "openai/gpt-oss-120b"
         
     def _get_client(self) -> AsyncGroq:
         api_key = ai_manager.groq_keys.get_key()
