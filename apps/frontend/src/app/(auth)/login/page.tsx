@@ -87,6 +87,18 @@ export default function LoginPage() {
     }
   };
 
+  const recaptchaVerifierRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (recaptchaVerifierRef.current) {
+        try {
+          recaptchaVerifierRef.current.clear();
+        } catch(e) {}
+      }
+    };
+  }, []);
+
   const handleSendOTP = async () => {
     if (!phoneNumber.trim()) {
       setError("Enter a valid phone number with country code (e.g. +91...)");
@@ -98,8 +110,10 @@ export default function LoginPage() {
       const recaptchaContainer = document.getElementById("recaptcha-container");
       if (!recaptchaContainer) return;
       
-      const verifier = new RecaptchaVerifier(getFirebaseAuth(), recaptchaContainer, { size: "invisible" });
-      const confirmation = await signInWithPhoneNumber(getFirebaseAuth(), phoneNumber, verifier);
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(getFirebaseAuth(), recaptchaContainer, { size: "invisible" });
+      }
+      const confirmation = await signInWithPhoneNumber(getFirebaseAuth(), phoneNumber, recaptchaVerifierRef.current);
       setConfirmationResult(confirmation);
       setOtpSent(true);
     } catch (err: any) {

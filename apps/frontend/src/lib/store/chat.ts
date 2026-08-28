@@ -81,11 +81,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { addMessage, updateMessage, activeSessionId } = get();
     
     // Add user message
-    const userMsgId = Date.now().toString();
+    const userMsgId = crypto.randomUUID();
     addMessage({ id: userMsgId, role: "user", content: message });
     
     // Add AI placeholder message
-    const aiMsgId = (Date.now() + 1).toString();
+    const aiMsgId = crypto.randomUUID();
     addMessage({ 
       id: aiMsgId, 
       role: "ai", 

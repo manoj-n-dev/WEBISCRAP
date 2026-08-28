@@ -132,6 +132,11 @@ export class ApiClient {
     return this.request("/api/chat/sessions", { method: "GET" });
   }
 
+  // M9: Fetch pipeline progress
+  static async getProgress(sessionId: string) {
+    return this.request(`/api/chat/${sessionId}/progress`, { method: "GET" });
+  }
+
   // M5: Logout
   static async logout() {
     try {

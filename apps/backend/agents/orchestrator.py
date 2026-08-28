@@ -55,24 +55,30 @@ class PipelineOrchestrator:
         
         try:
             # 1. Start Planner
+            await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "plan")
             pipeline_state = await self.planner.run(pipeline_state, session_id)
             
             is_new_scrape = pipeline_state.get("is_new_scrape", True)
             
             if is_new_scrape:
                 # 2. Analyze
+                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "analyze")
                 pipeline_state = await self.analyzer.run(pipeline_state, session_id)
                 
                 # 3. Browse / Fetch
+                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "browse")
                 pipeline_state = await self.browser.run(pipeline_state, session_id)
                 
                 # 4. Extract
+                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "extract")
                 pipeline_state = await self.extractor.run(pipeline_state, session_id)
                 
                 # 5. Clean
+                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "clean")
                 pipeline_state = await self.cleaner.run(pipeline_state, session_id)
                 
                 # 6. Validate
+                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "validate")
                 pipeline_state = await self.validator.run(pipeline_state, session_id)
                 
                 # 7. Save to Memory
@@ -89,6 +95,7 @@ class PipelineOrchestrator:
             # 9. Export if requested
             pipeline_state = await self.exporter.run(pipeline_state, session_id)
             
+            await redis_store.redis.delete(f"pipeline_progress:{session_id}")
             logger.info(f"[{session_id}] Pipeline completed successfully.")
             return {
                 "status": "success",
@@ -97,6 +104,7 @@ class PipelineOrchestrator:
             }
             
         except Exception as e:
+            await redis_store.redis.delete(f"pipeline_progress:{session_id}")
             import traceback
             tb = traceback.format_exc()
             error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__

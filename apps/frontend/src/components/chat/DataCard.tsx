@@ -31,7 +31,11 @@ export function DataCard({
   const { activeSessionId } = useChatStore();
   
   if (!data || data.length === 0) return null;
-  const headers = Object.keys(data[0]);
+  
+  // M8: Union keys across all rows to handle heterogeneous data
+  const allKeys = new Set<string>();
+  data.forEach(row => Object.keys(row).forEach(k => allKeys.add(k)));
+  const headers = Array.from(allKeys);
 
   const handleExport = (format: "csv" | "excel" | "json" | "pdf") => {
     exportData(format, data);

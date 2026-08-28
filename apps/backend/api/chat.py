@@ -98,3 +98,19 @@ async def list_sessions(
     sessions = await redis_store.get_user_sessions(str(current_user.id))
     return {"sessions": sessions}
 
+@router.get("/{session_id}/progress")
+async def get_pipeline_progress(
+    session_id: str,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Get the current active step in the extraction pipeline for this session.
+    """
+    # Verify ownership
+    owner_id = await redis_store.get_session_owner(session_id)
+    if owner_id and owner_id != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session progress")
+        
+    step = await redis_store.redis.get(f"pipeline_progress:{session_id}")
+    return {"step": step}
+

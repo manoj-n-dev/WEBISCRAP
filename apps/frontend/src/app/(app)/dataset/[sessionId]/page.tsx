@@ -15,10 +15,15 @@ import { ApiClient } from "@/lib/api/client";
 
 const generateColumns = (data: any[]): ColumnDef<any>[] => {
   if (!data || data.length === 0) return [];
-  // Exclude 'conf' from standard keys since we want a custom renderer for it
-  const keys = Object.keys(data[0]).filter(k => k !== 'conf');
   
-  const cols: ColumnDef<any>[] = keys.map(key => ({
+  // M8: Union keys across all rows to handle heterogeneous data
+  const allKeys = new Set<string>();
+  data.forEach(row => Object.keys(row).forEach(k => allKeys.add(k)));
+  
+  // Exclude 'conf' from standard keys since we want a custom renderer for it
+  allKeys.delete('conf');
+  
+  const cols: ColumnDef<any>[] = Array.from(allKeys).map(key => ({
     accessorKey: key,
     header: key.toUpperCase(),
   }));

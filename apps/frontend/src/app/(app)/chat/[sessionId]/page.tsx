@@ -38,6 +38,35 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
     }
   }, [activeSessionId, sessionId, router]);
 
+  const [activeStep, setActiveStep] = useState<string>("plan");
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPipelineActive && activeSessionId && activeSessionId !== "new") {
+      interval = setInterval(async () => {
+        try {
+          const { ApiClient } = await import("@/lib/api/client");
+          const res = await ApiClient.getProgress(activeSessionId);
+          if (res.step) {
+             const STEPS = ["plan", "analyze", "browse", "extract", "clean", "validate"];
+             const currentIndex = STEPS.indexOf(res.step);
+             setActiveStep(res.step);
+             if (currentIndex > 0) {
+                setCompletedSteps(STEPS.slice(0, currentIndex));
+             } else {
+                setCompletedSteps([]);
+             }
+          }
+        } catch(e) {}
+      }, 1000);
+    } else {
+      setActiveStep("plan");
+      setCompletedSteps([]);
+    }
+    return () => clearInterval(interval);
+  }, [isPipelineActive, activeSessionId]);
+
   const handleSubmit = async () => {
     if (!input.trim() || isPipelineActive) return;
     
@@ -85,8 +114,8 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                   
                   {msg.status === "running" && (
                     <PipelineStrip 
-                      activeStep="plan"
-                      completedSteps={(msg.completedSteps as any) || []} 
+                      activeStep={activeStep as any}
+                      completedSteps={completedSteps as any} 
                       title="Processing Pipeline..."
                     />
                   )}

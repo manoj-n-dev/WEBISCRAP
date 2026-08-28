@@ -12,9 +12,17 @@ def run_backend():
     # Try to use python from active environment, otherwise just use python
     env = os.environ.copy()
     
-    # Make sure we're using the right uvicorn (which should be installed in the backend)
-    # We will just run the main.py which has uvicorn.run inside it
     try:
+        # Install backend dependencies
+        print("Installing backend dependencies...")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+            cwd=backend_dir,
+            env=env,
+            check=True
+        )
+        
+        print("Starting FastAPI server...")
         subprocess.run(
             [sys.executable, "main.py"],
             cwd=backend_dir,

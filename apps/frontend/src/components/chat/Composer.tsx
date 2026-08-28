@@ -16,8 +16,16 @@ export interface ComposerProps {
 
 export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [value]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -108,6 +116,7 @@ export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps
         </Button>
         
         <textarea
+          ref={textareaRef}
           rows={1}
           placeholder="Ask for anything — a URL, a follow-up, an export request…"
           value={value}
