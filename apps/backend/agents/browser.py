@@ -1,11 +1,12 @@
 import asyncio
 import sys
 from typing import Dict, Any, List
-from .base import BaseAgent
+from .base import BaseAgent, validate_target_url, validate_resolved_ip, ssrf_safe_fetch
 from loguru import logger
 from bs4 import BeautifulSoup
 import httpx
 import re
+import socket
 
 
 # Configurable limits
@@ -58,6 +59,24 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
         page = context.new_page()
 
         try:
+            # C4: SSRF — intercept all outgoing requests in Playwright to validate hostnames
+            def ssrf_route_handler(route):
+                """Abort requests to internal/private IPs."""
+                request_url = route.request.url
+                try:
+                    parsed = __import__('urllib.parse', fromlist=['urlparse']).urlparse(request_url)
+                    hostname = parsed.hostname
+                    if hostname:
+                        ip_addr = socket.gethostbyname(hostname)
+                        if not validate_resolved_ip(ip_addr):
+                            logger.warning(f"Playwright SSRF block: {request_url} resolved to {ip_addr}")
+                            route.abort()
+                            return
+                except Exception:
+                    pass  # Allow if DNS resolution fails — Playwright will handle the error
+                route.continue_()
+            
+            page.route("**/*", ssrf_route_handler)
             page.goto(target_url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_MS)
 
             pagination_type = (analysis.get("pagination_type") or "").lower()
@@ -210,21 +229,9 @@ def _auto_detect_and_extract(page) -> List[str]:
 
 
 async def _fetch_static_html(target_url: str) -> str:
-    """Fetch page HTML using httpx (no browser needed)."""
-    try:
-        async with httpx.AsyncClient(
-            timeout=20.0,
-            follow_redirects=True,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
-        ) as client:
-            response = await client.get(target_url)
-            response.raise_for_status()
-            return response.text
-    except Exception as e:
-        logger.warning(f"Static HTTP fetch failed for {target_url}: {e}")
-        return ""
+    """C4: Fetch page HTML using SSRF-safe redirect-walking fetcher."""
+    result = await ssrf_safe_fetch(target_url)
+    return result or ""
 
 
 class BrowserAgent(BaseAgent):

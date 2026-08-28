@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
+from loguru import logger
 
 from database.connection import get_session
 from auth.dependencies import get_current_user
@@ -30,6 +31,11 @@ async def chat(
     if not session_id:
         session_id = str(uuid.uuid4())
         await redis_store.set_session_owner(session_id, str(current_user.id))
+    else:
+        # C1: Ownership check — prevent IDOR across sessions
+        owner_id = await redis_store.get_session_owner(session_id)
+        if owner_id and owner_id != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this session")
         
     try:
         # Pass to the orchestrator pipeline
@@ -45,7 +51,9 @@ async def chat(
         return result
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # C8: Never leak internal errors to clients
+        logger.error(f"Chat endpoint error for session {session_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred. Please try again.")
 
 @router.get("/{session_id}/history")
 async def get_chat_history(

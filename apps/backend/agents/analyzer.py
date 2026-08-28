@@ -1,8 +1,7 @@
 import json
-import httpx
 from bs4 import BeautifulSoup
 from typing import Dict, Any
-from .base import BaseAgent
+from .base import BaseAgent, ssrf_safe_fetch
 from ai.router import ai_router
 from prompts.analyzer_prompt import ANALYZER_SYSTEM_PROMPT
 from loguru import logger
@@ -12,25 +11,24 @@ class AnalyzerAgent(BaseAgent):
         super().__init__(name="AnalyzerAgent")
         
     async def _fetch_html_snippet(self, url: str) -> str:
-        """Fetches the page statically to get the initial HTML snippet."""
+        """C4: Fetches the page statically using SSRF-safe redirect-walking fetcher."""
+        response_text = await ssrf_safe_fetch(url)
+        if not response_text:
+            return "<html><body>Static fetch failed. JS rendering likely required.</body></html>"
+        
         try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                response = await client.get(url)
-                response.raise_for_status()
+            soup = BeautifulSoup(response_text, 'html.parser')
+            
+            # Remove style tags to save tokens
+            for script in soup(["style"]):
+                script.decompose()
                 
-                # Use BeautifulSoup to extract head and a portion of body
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Remove script and style tags to save tokens, unless they indicate SPA
-                for script in soup(["style"]):
-                    script.decompose()
-                    
-                body_content = soup.body.prettify()[:5000] if soup.body else ""
-                head_content = soup.head.prettify()[:2000] if soup.head else ""
-                
-                return f"<head>\n{head_content}\n</head>\n<body>\n{body_content}\n</body>"
+            body_content = soup.body.prettify()[:5000] if soup.body else ""
+            head_content = soup.head.prettify()[:2000] if soup.head else ""
+            
+            return f"<head>\n{head_content}\n</head>\n<body>\n{body_content}\n</body>"
         except Exception as e:
-            logger.warning(f"Static fetch failed for {url}: {e}")
+            logger.warning(f"HTML snippet parsing failed for {url}: {e}")
             return "<html><body>Static fetch failed. JS rendering likely required.</body></html>"
 
     async def _execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:

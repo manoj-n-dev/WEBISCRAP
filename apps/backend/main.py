@@ -1,11 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, Request
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import sys
+import time
 
 from core.config import settings
-from api import api_router
+from core.rate_limit import rate_limiter
 from api.auth import router as auth_router
 from api.chat import router as chat_router
 from api.scrape import router as scrape_router
@@ -29,11 +30,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-import time
-from fastapi import Request
-from core.rate_limit import rate_limiter
-from fastapi import Depends
-
 @app.middleware("http")
 async def audit_logging_middleware(request: Request, call_next):
     start_time = time.time()
@@ -48,22 +44,23 @@ async def audit_logging_middleware(request: Request, call_next):
     )
     return response
 
-# Set up CORS
+# C6: Never combine "*" with allow_credentials=True.
+# Use explicit origins in both dev and production.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL] if settings.ENVIRONMENT == "production" else ["*", settings.FRONTEND_URL],
+    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(api_router, prefix="/api")
-app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+# C5: Single registration point for all routers. No api_router composition.
+# M4: Rate limiter applied to auth as well (prevents guest account spam).
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"], dependencies=[Depends(rate_limiter)])
 app.include_router(chat_router, prefix="/api/chat", tags=["Chat"], dependencies=[Depends(rate_limiter)])
 app.include_router(scrape_router, prefix="/api/scrape", tags=["Scrape"], dependencies=[Depends(rate_limiter)])
 app.include_router(export_router, prefix="/api/export", tags=["Export"])
 app.include_router(upload_router, prefix="/api/upload", tags=["Upload"])
-
 
 
 @app.get("/health")

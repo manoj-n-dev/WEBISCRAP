@@ -1,6 +1,15 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// C7: Formula injection protection — prefix dangerous leading chars with a single quote
+const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\r", "\n"]);
+function sanitizeCellValue(val: string): string {
+  if (val.length > 0 && FORMULA_CHARS.has(val[0])) {
+    return "'" + val;
+  }
+  return val;
+}
+
 export function downloadJSON(data: Record<string, any>[], filename = "webiscrap_export") {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: "application/json" });
@@ -14,7 +23,7 @@ export function downloadCSV(data: Record<string, any>[], filename = "webiscrap_e
     headers.join(","),
     ...data.map((row) =>
       headers.map((h) => {
-        const val = String(row[h] ?? "").replace(/"/g, '""');
+        const val = sanitizeCellValue(String(row[h] ?? "")).replace(/"/g, '""');
         return `"${val}"`;
       }).join(",")
     ),
@@ -31,7 +40,7 @@ export function downloadExcel(data: Record<string, any>[], filename = "webiscrap
   const tsvRows = [
     headers.join("\t"),
     ...data.map((row) =>
-      headers.map((h) => String(row[h] ?? "").replace(/\t/g, " ")).join("\t")
+      headers.map((h) => sanitizeCellValue(String(row[h] ?? "")).replace(/\t/g, " ")).join("\t")
     ),
   ];
   const blob = new Blob(["\uFEFF" + tsvRows.join("\n")], {
@@ -46,7 +55,7 @@ export function downloadMarkdown(data: Record<string, any>[], filename = "webisc
   const headerRow = `| ${headers.join(" | ")} |`;
   const separator = `| ${headers.map(() => "---").join(" | ")} |`;
   const bodyRows = data.map(
-    (row) => `| ${headers.map((h) => String(row[h] ?? "")).join(" | ")} |`
+    (row) => `| ${headers.map((h) => sanitizeCellValue(String(row[h] ?? ""))).join(" | ")} |`
   );
   const md = [headerRow, separator, ...bodyRows].join("\n");
   const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
@@ -70,7 +79,7 @@ export function downloadPDF(data: Record<string, any>[], filename = "webiscrap_e
   autoTable(doc, {
     startY: 32,
     head: [headers],
-    body: data.map((row) => headers.map((h) => String(row[h] ?? ""))),
+    body: data.map((row) => headers.map((h) => sanitizeCellValue(String(row[h] ?? "")))),
     theme: "striped",
     styles: { fontSize: 8, cellPadding: 3 },
     headStyles: { fillColor: [20, 119, 245], textColor: 255 },

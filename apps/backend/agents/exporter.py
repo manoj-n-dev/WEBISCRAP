@@ -10,6 +10,15 @@ from datetime import datetime
 EXPORT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
+# C7: Formula injection protection — dangerous leading characters in cells
+_FORMULA_CHARS = ('=', '+', '-', '@', '\t', '\r', '\n')
+
+def sanitize_cell_value(val: Any) -> Any:
+    """C7: Prefix dangerous leading characters with a single quote to prevent formula injection."""
+    if isinstance(val, str) and val and val[0] in _FORMULA_CHARS:
+        return "'" + val
+    return val
+
 class ExportAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="ExportAgent")
@@ -33,6 +42,8 @@ class ExportAgent(BaseAgent):
         
         try:
             df = pd.DataFrame(dataset)
+            # C7: Sanitize all cell values before export
+            df = df.map(sanitize_cell_value)
             
             if export_format == "csv":
                 file_path = os.path.join(EXPORT_DIR, f"{base_filename}.csv")

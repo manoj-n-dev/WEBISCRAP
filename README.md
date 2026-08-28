@@ -65,6 +65,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - ✅ **API Integration (Phase 5)** completed: Zustand globally manages live API interactions, session IDs, and polling for the PipelineStrip.
 - ✅ **Production Hardening (Phase 6)** completed: Implemented Redis-based sliding window Rate Limiting, Audit Logging Middleware, and strict CORS.
 - ✅ **Security Hardening (Phase 7)** completed: SSRF protection, upload size/extension limits, ownership-based auth on exports and chat history.
+- ✅ **Phase 1 Security Audit Pass**: Fixed IDOR vulnerabilities, strict SSRF DNS rebinding protections via Playwright interceptors, rate-limiter bypass fixes, and CSV formula injection sanitization.
 - ✅ **Frontend Features Completed**: Legal pages (Terms/Privacy), fully working Auth (Login/Signup with automated strong password generator), validation confidence score display, download export button, and error handling for chat extractions.
 
 ---
@@ -218,17 +219,22 @@ cd ../..
 cp .env.example .env
 # Edit .env with your Groq API keys, database URL, and Redis URL
 
-# 4. Run the backend
-cd apps/backend
-uvicorn main:app --reload
-
-# 5. Run the frontend
-cd ../frontend
-npm install
-npm run dev
+# 4. Quick Start (Run Both Backend & Frontend)
+python setup.py
 ```
 
 The API will be available at `http://localhost:8000` and the UI at `http://localhost:3000`.
+
+Alternatively, you can run them manually:
+```bash
+# Terminal 1: Backend
+cd apps/backend
+uvicorn main:app --reload
+
+# Terminal 2: Frontend
+cd apps/frontend
+npm run dev
+```
 
 ---
 
