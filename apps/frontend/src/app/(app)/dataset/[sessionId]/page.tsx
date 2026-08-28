@@ -23,7 +23,7 @@ const generateColumns = (data: any[]): ColumnDef<any>[] => {
     header: key.toUpperCase(),
   }));
   
-  // If the backend provided a 'conf' (confidence) score for each row, render it
+  // Remove the fake per-row confidence if it doesn't exist
   if (data[0].conf !== undefined) {
     cols.push({
       accessorKey: "conf",
@@ -72,11 +72,9 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   const columns = useMemo(() => generateColumns(rawData), [rawData]);
   
   const totalRows = rawData.length;
-  // Calculate average confidence if it exists
-  const hasConf = rawData.length > 0 && rawData[0].conf !== undefined;
-  const avgConf = hasConf 
-    ? Math.round((rawData.reduce((acc, row) => acc + (row.conf || 0), 0) / totalRows) * 100) 
-    : 100; // Default to 100% if backend doesn't provide row-level conf
+  // Use the actual overall confidence score and flagged fields from the ValidatorAgent
+  const avgConf = lastExtraction?.confidenceScore ?? (apiData ? (apiData as any).confidenceScore : 100);
+  const flaggedCount = lastExtraction?.flaggedFields ?? (apiData ? (apiData as any).flaggedFields : 0);
 
   return (
     <div className="flex flex-col h-full bg-bg-0 text-text-hi font-body overflow-hidden">
@@ -131,7 +129,7 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
               <ShieldAlert className="w-[20px] h-[20px]" />
             </div>
             <div>
-              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">0</div>
+              <div className="text-[24px] font-display font-semibold leading-none mb-[4px]">{flaggedCount}</div>
               <div className="text-[12px] text-text-dim uppercase tracking-[0.05em] font-mono">Flagged Fields</div>
             </div>
           </Card>

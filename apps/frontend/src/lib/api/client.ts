@@ -18,6 +18,7 @@ export class ApiClient {
       response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
+        credentials: "include",
       });
     } catch {
       throw new Error("Network error. Make sure the backend server is running.");
@@ -25,29 +26,30 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401 && endpoint !== "/api/auth/refresh") {
-        const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
-        if (refreshToken) {
-          try {
-            const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ refresh_token: refreshToken })
+        try {
+          const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({}) // Backend will read from cookie
+          });
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            localStorage.setItem("token", data.access_token);
+            // Retry the original request
+            headers.set("Authorization", `Bearer ${data.access_token}`);
+            response = await fetch(`${API_BASE_URL}${endpoint}`, { 
+              ...options, 
+              headers,
+              credentials: "include"
             });
-            if (refreshRes.ok) {
-              const data = await refreshRes.json();
-              localStorage.setItem("token", data.access_token);
-              localStorage.setItem("refresh_token", data.refresh_token);
-              // Retry the original request
-              headers.set("Authorization", `Bearer ${data.access_token}`);
-              response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
-              if (response.ok) {
-                if (response.headers.get("content-type")?.includes("application/json")) return response.json();
-                return response.blob();
-              }
+            if (response.ok) {
+              if (response.headers.get("content-type")?.includes("application/json")) return response.json();
+              return response.blob();
             }
-          } catch (e) {
-            // Refresh failed, fall through to error handling
           }
+        } catch (e) {
+          // Refresh failed, fall through to error handling
         }
       }
       
@@ -132,20 +134,17 @@ export class ApiClient {
 
   // M5: Logout
   static async logout() {
-    const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
-    if (refreshToken) {
-      try {
-        await this.request("/api/auth/logout", {
-          method: "POST",
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-      } catch {
-        // Best-effort logout
-      }
+    try {
+      await this.request("/api/auth/logout", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+    } catch {
+      // Best-effort logout
     }
     if (typeof window !== "undefined") {
       localStorage.removeItem("token");
-      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("refresh_token"); // Clean up old tokens if they exist
     }
   }
 }

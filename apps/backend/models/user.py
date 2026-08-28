@@ -4,6 +4,7 @@ from .base import BaseUUIDModel
 
 class UserBase(SQLModel):
     email: Optional[str] = Field(default=None, unique=True, index=True)
+    full_name: Optional[str] = Field(default=None)
     phone_number: Optional[str] = Field(default=None, unique=True, index=True)
     google_id: Optional[str] = Field(default=None, unique=True, index=True)
     is_active: bool = Field(default=True)

@@ -168,7 +168,7 @@ export default function LoginPage() {
               </div>
               <span className="text-[13px] text-text-mid group-hover:text-text-hi transition-colors">Stay signed in</span>
             </label>
-            <a href="#" className="text-[13px] text-signal-400 hover:text-signal-300 transition-colors">
+            <a href="/forgot-password" className="text-sm font-medium text-text-hi hover:text-white transition-colors">
               Forgot password?
             </a>
           </div>

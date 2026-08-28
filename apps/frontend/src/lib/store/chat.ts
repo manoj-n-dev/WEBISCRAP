@@ -11,6 +11,7 @@ export interface Message {
   totalRows?: number;
   confidenceScore?: number;
   validationNotes?: string;
+  flaggedFields?: number;
   exportUrl?: string;
 }
 
@@ -128,6 +129,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         totalRows: Array.isArray(extractionData) ? extractionData.length : 1,
         confidenceScore: validation.confidence_score,
         validationNotes: validation.validation_notes,
+        flaggedFields: validation.flagged_rows_count || 0,
         exportUrl: pipelineState.export_url,
       });
       

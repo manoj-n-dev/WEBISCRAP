@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -12,21 +12,63 @@ from auth.dependencies import get_current_user
 from pydantic import BaseModel
 from memory.session_store import redis_store
 from core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_session)
+) -> Any:
+    """
+    Mock forgot password endpoint.
+    In a real app, this would generate a reset token and send an email.
+    """
+    statement = select(User).where(User.email == request.email)
+    result = await db.exec(statement)
+    user = result.first()
+    
+    if user:
+        # Generate token and send email logic goes here
+        logger.info(f"Password reset requested for {user.email}")
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If that email is in our system, we have sent a reset link."}
+
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
+
+def set_refresh_cookie(response: Response, token: str):
+    response.set_cookie(
+        key="refresh_token",
+        value=token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+    )
 
 @router.post("/refresh")
 async def refresh_access_token(
-    request: RefreshTokenRequest,
+    request: Request,
+    response: Response,
+    body: RefreshTokenRequest | None = None,
     db: AsyncSession = Depends(get_session)
 ) -> Any:
     """
     Refresh access and refresh tokens using a valid refresh token.
     """
-    payload = decode_refresh_token(request.refresh_token)
+    refresh_token = request.cookies.get("refresh_token") or (body.refresh_token if body else None)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+        
+    payload = decode_refresh_token(refresh_token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
         
@@ -47,9 +89,11 @@ async def refresh_access_token(
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
         
+    new_refresh = create_refresh_token(user.id)
+    set_refresh_cookie(response, new_refresh)
+    
     return {
         "access_token": create_access_token(user.id),
-        "refresh_token": create_refresh_token(user.id),
         "token_type": "bearer",
     }
 
@@ -93,6 +137,7 @@ async def register(
 
 @router.post("/login")
 async def login_access_token(
+    response: Response,
     db: AsyncSession = Depends(get_session),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
@@ -112,9 +157,11 @@ async def login_access_token(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
+    new_refresh = create_refresh_token(user.id)
+    set_refresh_cookie(response, new_refresh)
+    
     return {
         "access_token": create_access_token(user.id),
-        "refresh_token": create_refresh_token(user.id),
         "token_type": "bearer",
     }
 
@@ -129,19 +176,24 @@ async def read_users_me(
 
 @router.post("/logout")
 async def logout(
-    request: RefreshTokenRequest,
+    request: Request,
+    response: Response,
+    body: RefreshTokenRequest | None = None,
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """
     Logout by invalidating the refresh token.
     """
-    payload = decode_refresh_token(request.refresh_token)
-    if payload and payload.get("jti"):
-        jti = payload.get("jti")
-        # Store JTI in Redis with an expiry matching the refresh token lifetime
-        expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-        await redis_store.redis.setex(f"blacklist:jti:{jti}", expiry_seconds, "true")
-    
+    refresh_token = request.cookies.get("refresh_token") or (body.refresh_token if body else None)
+    if refresh_token:
+        payload = decode_refresh_token(refresh_token)
+        if payload and payload.get("jti"):
+            jti = payload.get("jti")
+            # Store JTI in Redis with an expiry matching the refresh token lifetime
+            expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+            await redis_store.redis.setex(f"blacklist:jti:{jti}", expiry_seconds, "true")
+            
+    response.delete_cookie("refresh_token")
     return {"message": "Successfully logged out"}
 
 @router.post("/guest")
@@ -170,6 +222,7 @@ class TokenRequest(BaseModel):
 @router.post("/google")
 async def login_google(
     request: TokenRequest,
+    response: Response,
     db: AsyncSession = Depends(get_session)
 ) -> Any:
     """
@@ -203,15 +256,18 @@ async def login_google(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
+    new_refresh = create_refresh_token(user.id)
+    set_refresh_cookie(response, new_refresh)
+    
     return {
         "access_token": create_access_token(user.id),
-        "refresh_token": create_refresh_token(user.id),
         "token_type": "bearer",
     }
 
 @router.post("/phone")
 async def login_phone(
     request: TokenRequest,
+    response: Response,
     db: AsyncSession = Depends(get_session)
 ) -> Any:
     """
@@ -239,8 +295,10 @@ async def login_phone(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
+    new_refresh = create_refresh_token(user.id)
+    set_refresh_cookie(response, new_refresh)
+        
     return {
         "access_token": create_access_token(user.id),
-        "refresh_token": create_refresh_token(user.id),
         "token_type": "bearer",
     }
