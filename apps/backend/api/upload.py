@@ -56,5 +56,14 @@ async def upload_file(
             "extracted_length": len(parsed_text),
             "preview": parsed_text[:500] + "..." if len(parsed_text) > 500 else parsed_text
         }
+    except HTTPException:
+        # M2: Clean up partial file, then re-raise the HTTPException as-is (e.g. 413)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Clean up partial file on unexpected errors
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail="An error occurred while processing the upload.")
+

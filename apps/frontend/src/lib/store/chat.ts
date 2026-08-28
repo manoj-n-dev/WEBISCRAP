@@ -68,6 +68,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ activeSessionId: result.session_id });
       }
       
+      // H2: Properly handle pipeline errors (e.g. LLM failures, timeouts) that return HTTP 200 but status="error"
+      if (result.status === "error") {
+        throw new Error(result.message || "An error occurred during extraction.");
+      }
+      
       // The backend returns { status: "success", data: { cleaned_data: [...], ... } }
       // The actual rows live in result.data.cleaned_data (or result.data.extracted_data as fallback)
       const pipelineState = result.data || {};

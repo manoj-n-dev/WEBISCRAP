@@ -18,7 +18,7 @@ class GroqClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((APIStatusError, APITimeoutError))
     )
-    async def generate_response(self, prompt: str, system_prompt: str = None, model: str = None, temperature: float = 0.7) -> str:
+    async def generate_response(self, prompt: str, system_prompt: str = None, model: str = None, temperature: float = 0.7, max_tokens: int = 4096) -> str:
         client, used_key = self._get_client()
         model_name = model or self.default_model
         
@@ -33,7 +33,7 @@ class GroqClient:
                 messages=messages,
                 model=model_name,
                 temperature=temperature,
-                max_tokens=4096,
+                max_tokens=max_tokens,
             )
             return response.choices[0].message.content
         except APIStatusError as e:

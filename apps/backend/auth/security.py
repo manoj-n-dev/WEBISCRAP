@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Union, Optional
+import uuid
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from core.config import settings
@@ -24,7 +25,7 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
 
 def create_refresh_token(subject: Union[str, Any]) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
+    to_encode = {"exp": expire, "sub": str(subject), "type": "refresh", "jti": str(uuid.uuid4())}
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 

@@ -10,6 +10,8 @@ from models.user import User, UserCreate, UserRead
 from auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token, decode_refresh_token
 from auth.dependencies import get_current_user
 from pydantic import BaseModel
+from memory.session_store import redis_store
+from core.config import settings
 
 router = APIRouter()
 
@@ -28,6 +30,12 @@ async def refresh_access_token(
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
         
+    jti = payload.get("jti")
+    if jti:
+        is_blacklisted = await redis_store.redis.get(f"blacklist:jti:{jti}")
+        if is_blacklisted:
+            raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+            
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -95,9 +103,13 @@ async def login_access_token(
     result = await db.exec(statement)
     user = result.first()
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    elif not user.is_active:
+        
+    if not user.hashed_password or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        
+    if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
     return {
@@ -114,6 +126,23 @@ async def read_users_me(
     Get current user.
     """
     return current_user
+
+@router.post("/logout")
+async def logout(
+    request: RefreshTokenRequest,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Logout by invalidating the refresh token.
+    """
+    payload = decode_refresh_token(request.refresh_token)
+    if payload and payload.get("jti"):
+        jti = payload.get("jti")
+        # Store JTI in Redis with an expiry matching the refresh token lifetime
+        expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        await redis_store.redis.setex(f"blacklist:jti:{jti}", expiry_seconds, "true")
+    
+    return {"message": "Successfully logged out"}
 
 @router.post("/guest")
 async def create_guest_user(
