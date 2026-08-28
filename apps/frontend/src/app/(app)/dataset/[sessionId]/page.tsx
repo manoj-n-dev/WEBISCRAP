@@ -11,6 +11,7 @@ import { DataTable } from "@/components/dataset/DataTable";
 import { ExportPanel } from "@/components/dataset/ExportPanel";
 import { ColumnDef } from "@tanstack/react-table";
 import { useChatStore } from "@/lib/store/chat";
+import { ApiClient } from "@/lib/api/client";
 
 const generateColumns = (data: any[]): ColumnDef<any>[] => {
   if (!data || data.length === 0) return [];
@@ -39,13 +40,35 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   const sessionId = resolvedParams.sessionId;
   const { messages } = useChatStore();
   
+  const [apiData, setApiData] = React.useState<any[] | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
   // Find the last completed extraction in the store
   const lastExtraction = useMemo(() => {
     const aiMessages = messages.filter(m => m.role === "ai" && m.status === "completed" && m.data);
     return aiMessages[aiMessages.length - 1];
   }, [messages]);
 
-  const rawData = lastExtraction?.data || [];
+  React.useEffect(() => {
+    async function fetchData() {
+      try {
+        const data = await ApiClient.getSessionData(sessionId);
+        setApiData(data.cleaned_data || data.extracted_data || (Array.isArray(data) ? data : []));
+      } catch (err) {
+        console.error("Failed to load session data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    if (!lastExtraction?.data) {
+      fetchData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [sessionId, lastExtraction]);
+
+  const rawData = lastExtraction?.data || apiData || [];
   const columns = useMemo(() => generateColumns(rawData), [rawData]);
   
   const totalRows = rawData.length;

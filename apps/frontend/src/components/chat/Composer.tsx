@@ -1,8 +1,11 @@
-import React from "react";
+"use client";
+
+import React, { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Paperclip, Mic, ArrowUp } from "lucide-react";
+import { Paperclip, Mic, MicOff, ArrowUp } from "lucide-react";
+import { ApiClient } from "@/lib/api/client";
 
 export interface ComposerProps {
   value: string;
@@ -12,6 +15,10 @@ export interface ComposerProps {
 }
 
 export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -19,10 +26,84 @@ export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps
     }
   };
 
+  // H4: Wire paperclip to file upload
+  const handleFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const result = await ApiClient.uploadFile(file);
+      // Inject parsed preview into the textarea as context
+      const preview = result.preview || "File uploaded successfully.";
+      const syntheticEvent = {
+        target: { value: value + (value ? "\n" : "") + `[Uploaded: ${file.name}]\n${preview}` },
+      } as React.ChangeEvent<HTMLTextAreaElement>;
+      onChange(syntheticEvent);
+    } catch (err: any) {
+      alert(`Upload failed: ${err.message}`);
+    }
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  // H5: Wire mic button to Web Speech API
+  const handleMicToggle = () => {
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("Speech recognition is not supported in this browser. Try Chrome.");
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      const syntheticEvent = {
+        target: { value: value + (value ? " " : "") + transcript },
+      } as React.ChangeEvent<HTMLTextAreaElement>;
+      onChange(syntheticEvent);
+      setIsRecording(false);
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
   return (
     <div className="px-[26px] pb-[22px] pt-[16px]">
       <Card variant="strong" className="max-w-[760px] mx-auto p-[8px_8px_8px_18px] flex items-end gap-[10px]">
-        <Button variant="icon" className="border-none self-end shrink-0">
+        {/* H4: Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.csv,.png,.jpg,.jpeg"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <Button variant="icon" className="border-none self-end shrink-0" onClick={handleFileClick}>
           <Paperclip className="w-[18px] h-[18px]" />
         </Button>
         
@@ -37,8 +118,17 @@ export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps
         />
         
         <div className="flex items-center gap-[6px] shrink-0 self-end">
-          <Button variant="icon" className="border-none">
-            <Mic className="w-[18px] h-[18px]" />
+          {/* H5: Voice input button */}
+          <Button
+            variant="icon"
+            className={cn("border-none", isRecording && "text-red-500 animate-pulse")}
+            onClick={handleMicToggle}
+          >
+            {isRecording ? (
+              <MicOff className="w-[18px] h-[18px]" />
+            ) : (
+              <Mic className="w-[18px] h-[18px]" />
+            )}
           </Button>
           <button
             onClick={onSubmit}

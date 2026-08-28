@@ -108,4 +108,44 @@ export class ApiClient {
   static async getHistory(sessionId: string) {
     return this.request(`/api/chat/${sessionId}/history`, { method: "GET" });
   }
+
+  // H4: File upload
+  static async uploadFile(file: File, sessionId?: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const query = sessionId ? `?session_id=${sessionId}` : "";
+    return this.request(`/api/upload/${query}`, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  // H6: Fetch session data for dataset view
+  static async getSessionData(sessionId: string) {
+    return this.request(`/api/chat/${sessionId}/data`, { method: "GET" });
+  }
+
+  // H9: Fetch session list for sidebar
+  static async getSessions() {
+    return this.request("/api/chat/sessions", { method: "GET" });
+  }
+
+  // M5: Logout
+  static async logout() {
+    const refreshToken = typeof window !== "undefined" ? localStorage.getItem("refresh_token") : null;
+    if (refreshToken) {
+      try {
+        await this.request("/api/auth/logout", {
+          method: "POST",
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // Best-effort logout
+      }
+    }
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
+    }
+  }
 }

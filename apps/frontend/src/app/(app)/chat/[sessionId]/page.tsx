@@ -51,6 +51,20 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
     await submitExtraction(query, url);
   };
 
+  const handleRerun = async (index: number) => {
+    if (isPipelineActive) return;
+    let lastUserMsg = "Re-run the extraction";
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserMsg = String(messages[i].content);
+        break;
+      }
+    }
+    const urlMatch = lastUserMsg.match(/https?:\/\/[^\s]+/);
+    const url = urlMatch ? urlMatch[0] : "";
+    await submitExtraction(lastUserMsg, url);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-[24px_24px_40px]">
@@ -63,7 +77,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
             </div>
           )}
 
-          {messages.map((msg) => (
+          {messages.map((msg, index) => (
             <MessageBubble key={msg.id} role={msg.role} content={
               msg.role === "user" ? msg.content : (
                 <div className="flex flex-col gap-[12px]">
@@ -142,7 +156,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                         </Button>
                       )}
                       
-                      <Button variant="ghost">
+                      <Button variant="ghost" onClick={() => handleRerun(index)}>
                         <RefreshCw className="w-[16px] h-[16px]" />
                         Re-run Extraction
                       </Button>

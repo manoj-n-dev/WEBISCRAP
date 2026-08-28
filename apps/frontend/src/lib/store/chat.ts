@@ -22,6 +22,7 @@ interface ChatState {
   error: string | null;
   
   setActiveSession: (id: string) => void;
+  fetchSessionHistory: (id: string) => Promise<void>;
   addMessage: (msg: Message) => void;
   updateMessage: (id: string, updates: Partial<Message>) => void;
   submitExtraction: (message: string, url: string) => Promise<void>;
@@ -34,7 +35,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isPipelineActive: false,
   error: null,
   
-  setActiveSession: (id) => set({ activeSessionId: id }),
+  setActiveSession: (id) => {
+    set({ activeSessionId: id });
+    if (id === "new") {
+      set({ messages: [], error: null });
+    } else {
+      get().fetchSessionHistory(id);
+    }
+  },
+  
+  fetchSessionHistory: async (id: string) => {
+    try {
+      const result = await ApiClient.getHistory(id);
+      if (result && result.history) {
+        // H7/H8: Hydrate messages from history array
+        const historyMessages = result.history.map((item: any, i: number) => {
+          if (item.role === "user") {
+            return { id: `hist-${i}`, role: "user", content: item.content };
+          } else {
+            return {
+              id: `hist-${i}`,
+              role: "ai",
+              content: item.content,
+              status: "completed",
+              // We just display the conversation content for history MVP
+            };
+          }
+        });
+        set({ messages: historyMessages, error: null });
+      }
+    } catch (err) {
+      console.error("Failed to fetch session history:", err);
+      set({ error: "Failed to load session history" });
+    }
+  },
+
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   updateMessage: (id, updates) =>
     set((state) => ({

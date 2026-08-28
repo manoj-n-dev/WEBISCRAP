@@ -1,14 +1,24 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useChatStore } from "@/lib/store/chat";
+import { useRouter } from "next/navigation";
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/login");
+    }
+  }, [router]);
+
   return (
     <div className="relative min-h-screen flex text-text-hi font-body overflow-hidden">
       <div className="bg-field"></div>
