@@ -58,6 +58,10 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
 
   React.useEffect(() => {
     async function fetchData() {
+      if (!sessionId || sessionId === "new") {
+        setIsLoading(false);
+        return;
+      }
       try {
         const data = await ApiClient.getSessionData(sessionId);
         setApiResponse(data);
@@ -68,7 +72,7 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
       }
     }
     
-    if (!lastExtraction?.data) {
+    if (!lastExtraction?.data || lastExtraction.data.length === 0) {
       fetchData();
     } else {
       setIsLoading(false);
@@ -76,7 +80,19 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   }, [sessionId, lastExtraction]);
 
   const rawData = useMemo(() => {
-    return lastExtraction?.data || apiResponse?.cleaned_data || apiResponse?.extracted_data || (Array.isArray(apiResponse) ? apiResponse : []);
+    if (lastExtraction?.data && lastExtraction.data.length > 0) {
+      return lastExtraction.data;
+    }
+    if (apiResponse?.cleaned_data && Array.isArray(apiResponse.cleaned_data) && apiResponse.cleaned_data.length > 0) {
+      return apiResponse.cleaned_data;
+    }
+    if (apiResponse?.extracted_data && Array.isArray(apiResponse.extracted_data) && apiResponse.extracted_data.length > 0) {
+      return apiResponse.extracted_data;
+    }
+    if (Array.isArray(apiResponse) && apiResponse.length > 0) {
+      return apiResponse;
+    }
+    return [];
   }, [lastExtraction, apiResponse]);
 
   // FIX 12: Filter rawData based on search query and optional flagged filter
@@ -98,8 +114,12 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   
   const totalRows = rawData.length;
   // FIX 10 (M1): Use actual validation metrics from apiResponse.validation or lastExtraction
-  const avgConf = lastExtraction?.confidenceScore ?? (apiResponse?.validation?.confidence_score != null ? Math.round(apiResponse.validation.confidence_score) : 100);
-  const flaggedCount = lastExtraction?.flaggedFields ?? (apiResponse?.validation?.flagged_rows_count ?? (apiResponse?.validation?.flagged_fields?.length ?? 0));
+  const avgConf = (lastExtraction?.confidenceScore !== undefined && lastExtraction.confidenceScore !== null)
+    ? lastExtraction.confidenceScore
+    : (apiResponse?.validation?.confidence_score != null ? Math.round(apiResponse.validation.confidence_score) : 100);
+  const flaggedCount = (lastExtraction?.flaggedFields !== undefined && lastExtraction.flaggedFields !== null)
+    ? lastExtraction.flaggedFields
+    : (apiResponse?.validation?.flagged_rows_count ?? (apiResponse?.validation?.flagged_fields?.length ?? 0));
 
   return (
     <div className="flex flex-col h-full bg-bg-0 text-text-hi font-body overflow-hidden">

@@ -21,6 +21,7 @@ export class ApiClient {
    * Returns true if auth was restored, false otherwise.
    */
   static async initAuth(): Promise<boolean> {
+    if (accessToken) return true;
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
         method: "POST",

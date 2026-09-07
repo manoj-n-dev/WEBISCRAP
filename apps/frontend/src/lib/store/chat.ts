@@ -97,7 +97,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isPipelineActive: true, error: null });
     
     try {
-      const result = await ApiClient.submitExtraction(message, url, activeSessionId || undefined);
+      const sid = (activeSessionId && activeSessionId !== "new") ? activeSessionId : undefined;
+      const result = await ApiClient.submitExtraction(message, url, sid);
       
       // Update session if it's new
       if (result.session_id && result.session_id !== activeSessionId) {

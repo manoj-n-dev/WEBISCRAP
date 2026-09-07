@@ -21,6 +21,8 @@ async def upload_file(
     Upload a file (PDF, DOCX, CSV, Image) for parsing.
     """
     file_id = str(uuid.uuid4())
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
     ext = os.path.splitext(file.filename)[1].lower()
     
     ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.csv', '.png', '.jpg', '.jpeg'}

@@ -28,7 +28,7 @@ async def chat(
     Main chat endpoint. Receives user message and optional URL, and routes through the 9-agent pipeline.
     """
     session_id = request.session_id
-    if not session_id:
+    if not session_id or session_id == "new":
         session_id = str(uuid.uuid4())
         await redis_store.set_session_owner(session_id, str(current_user.id))
         # FIX 2: Track session under user for sidebar listing
@@ -45,7 +45,7 @@ async def chat(
             user_request=request.message,
             target_url=request.target_url,
             session_id=session_id,
-            owner_id=current_user.id
+            owner_id=str(current_user.id)
         )
         
         # Add the session_id to the response so frontend can maintain state

@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     
     # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 10
+    RATE_LIMIT_PER_MINUTE: int = 60
 
     # FIX 15 (M7): Set to True only when behind a trusted reverse proxy (Vercel/Render/Nginx)
     TRUST_PROXY_HEADERS: bool = False

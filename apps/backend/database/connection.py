@@ -7,7 +7,9 @@ from core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=True if settings.ENVIRONMENT == "development" else False,
-    future=True
+    future=True,
+    pool_pre_ping=True,
+    pool_recycle=300
 )
 
 # Async session factory

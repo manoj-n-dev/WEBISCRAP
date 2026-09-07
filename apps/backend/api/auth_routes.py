@@ -211,6 +211,7 @@ async def logout(
 
 @router.post("/guest")
 async def create_guest_user(
+    response: Response,
     db: AsyncSession = Depends(get_session)
 ) -> Any:
     """
@@ -220,6 +221,9 @@ async def create_guest_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    
+    new_refresh = create_refresh_token(user.id)
+    set_refresh_cookie(response, new_refresh)
     
     return {
         "access_token": create_access_token(user.id),
