@@ -55,19 +55,21 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 ## 🚀 Current Status
 
 **Where we are:**
-- ✅ The **FastAPI Backend** is 100% complete, hardened, and verified.
-- ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B).
-- ✅ **Authentication logic** (Email/Password, Google OAuth, Phone OTP, Guest Mode) is implemented on the backend via JWT.
-- ✅ **Refresh Tokens**: Automatic 401 retry with `/api/auth/refresh` endpoint and frontend `ApiClient` interceptor.
+- ✅ The **FastAPI Backend** is 100% complete, hardened, and verified with zero import errors or circular module shadowing.
+- ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B) with automatic key rotation and failover.
+- ✅ **Authentication**: Email/Password, Google OAuth, Firebase Phone OTP, and Guest Mode. Access tokens are stored strictly **in-memory** (XSS protection) with automatic silent refresh via secure `httpOnly` cookies.
+- ✅ **Token Security**: Refresh token rotation automatically blacklists old JTIs in Redis to prevent reuse attacks.
 - ✅ **10-key rotation** with automatic failover, cooldown, and load balancing for Groq.
 - ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites using Playwright.
 - ✅ **Frontend UI** fully built in Next.js 16 (Turbopack) with a highly customized cinematic HUD glassmorphism design.
-- ✅ **API Integration (Phase 5)** completed: Zustand globally manages live API interactions, session IDs, and polling for the PipelineStrip.
-- ✅ **Production Hardening (Phase 6)** completed: Implemented Redis-based sliding window Rate Limiting, Audit Logging Middleware, and strict CORS.
-- ✅ **Security Hardening (Phase 7)** completed: SSRF protection, upload size/extension limits, ownership-based auth on exports and chat history.
-- ✅ **Phase 1-3 Security & Integration Audit Pass**: Fixed IDOR vulnerabilities, strict SSRF DNS rebinding protections via Playwright interceptors, rate-limiter bypass fixes, missing endpoints, and CSV formula injection sanitization.
-- ✅ **Phase 4 Polish & Hygiene Audit Pass**: Real-time streaming pipeline progress, auto-growing textareas, RecaptchaVerifier leak fixes, robust random UUIDs, and heterogeneous schema union calculations.
-- ✅ **Frontend Features Completed**: Legal pages (Terms/Privacy), fully working Auth (Login/Signup with automated strong password generator), validation confidence score display, download export button, and error handling for chat extractions.
+- ✅ **Production & Security Hardening**:
+  - Fail-closed IDOR session authorization across all endpoints.
+  - SSRF protection with DNS-rebinding TOCTOU mitigation via Playwright request rewriting.
+  - Reverse-proxy-aware sliding-window IP rate limiting (`TRUST_PROXY_HEADERS`) and audit logging middleware.
+  - Registration duplicate-email race condition handling with graceful 400 responses.
+  - Upload context persistence associating document text with active chat sessions in Redis.
+  - Automated Playwright browser installation built directly into `setup.py`.
+- ✅ **17 Bug Report Fixes Completed**: All critical (C1-C5), high (H1-H5), medium (M1-M8), and polish issues from the security and integration audit have been resolved and verified.
 
 ---
 
@@ -108,17 +110,20 @@ WEBISCRAP is divided into a strictly uncoupled Backend API and a Client-Side Ren
 
 ### 2. Backend (FastAPI)
 - **Framework**: FastAPI (Python 3.11+). Runs asynchronously using Uvicorn.
-- **Authentication**: JWT-based auth (`api/auth.py`). Passwords are hashed with `passlib` (bcrypt). Includes password strength validation (min 8 chars, 1 uppercase, 1 number), refresh token rotation via `/api/auth/refresh`, and guest mode issuing anonymous JWTs.
+- **Authentication**: JWT-based auth (`api/auth_routes.py`). Passwords are hashed with `passlib` (bcrypt). Includes password strength validation (min 8 chars, 1 uppercase, 1 number), refresh token rotation via `/api/auth/refresh` with JTI revocation, in-memory client storage, and guest mode issuing anonymous JWTs.
 - **Middleware**: 
-  - `AuditLoggingMiddleware`: Logs the IP, endpoint, response time, and HTTP status of every incoming request.
+  - `AuditLoggingMiddleware`: Logs proxy-aware client IP, endpoint, response time, and HTTP status of every incoming request.
   - `CORSMiddleware`: Locked down to the `FRONTEND_URL` environment variable to prevent cross-origin abuse.
-- **Rate Limiting**: Custom Redis-backed Sliding Window rate limiter (`core/rate_limit.py`). Automatically prevents LLM abuse by throttling IPs to a customizable limit (default 10 requests/minute).
+- **Rate Limiting**: Custom Redis-backed Sliding Window rate limiter (`core/rate_limit.py`). Automatically prevents LLM abuse by throttling IPs to a customizable limit (default 10 requests/minute) with reverse-proxy header support.
 
 ### 3. Database & Caching
-- **Database (PostgreSQL)**: Managed via Neon. Mapped via `SQLModel` and `SQLAlchemy`. Stores `User` records, hashed passwords, and OAuth IDs.
-- **Caching (Redis)**: Managed via Upstash. Redis powers two core systems:
+- **Database (PostgreSQL)**: Managed via Neon. Mapped via `SQLModel` and `SQLAlchemy`. Stores `User` records, hashed passwords, and OAuth IDs. Timestamps use timezone-aware UTC datetime.
+- **Caching (Redis)**: Managed via Upstash. Redis powers core system workflows:
   1. **Rate Limiting**: Sliding window token bucket.
   2. **Session Memory**: Once an extraction is completed, the resulting JSON schema is cached in Redis using the `session_id`. When a user asks a follow-up question (e.g. "sort by price"), the memory agent retrieves the data directly from Redis, bypassing the entire scraping pipeline.
+  3. **Pipeline Progress**: Live step-by-step progress tracking for the frontend `PipelineStrip`.
+  4. **JTI Blacklist**: Revoked refresh tokens for secure token rotation.
+  5. **Uploaded Document Context**: Associated document text for active extraction sessions.
 
 ---
 
@@ -130,27 +135,28 @@ The beating heart of WEBISCRAP is the Orchestrator (`apps/backend/agents/orchest
 |---|-------|------|---------------|
 | 1 | 🧭 **Planner Agent** | Orchestrator | Interprets intent using prompt engineering. Decides if a new scrape is needed or if this is a follow-up query against the cache. Outputs a JSON workflow plan. |
 | 2 | 🔬 **Website Analyzer Agent** | Structure | Analyzes raw DOM/HTML (minified). It detects repeating `<li>`, `<tr>`, or `<div>` card layouts to determine where the data lies. |
-| 3 | 🌐 **Browser Automation Agent** | Automation | Uses `Playwright` to spawn a headless Chromium instance. It navigates to the URL, waits for network idle, scrolls to the bottom to trigger lazy-loaded JS elements, and captures the final rendered HTML. The HTML is then passed through a rigorous minifier to strip `<script>`, `<style>`, and SVG tags to fit within the LLaMA context window. |
+| 3 | 🌐 **Browser Automation Agent** | Automation | Uses `Playwright` to spawn a headless Chromium instance. It navigates to the URL, waits for network idle, scrolls to the bottom to trigger lazy-loaded JS elements, and captures the final rendered HTML. Implements DNS-rebinding TOCTOU mitigation and SSRF defenses. The HTML is passed through a minifier to strip `<script>`, `<style>`, and SVG tags to fit within context. |
 | 4 | 📦 **Extraction Agent** | Extraction | Receives the minified HTML and the Planner's field list. Forces a `json_object` response format via the LLM to guarantee structured output matching the requested schema. |
-| 5 | 🧹 **Cleaning Agent** | Data Quality | A post-processing LLM pass. Dedupes identical rows, normalizes currencies/dates, and resolves relative URLs (`/images/pic.png`) to absolute URLs (`https://site.com/images/pic.png`). |
-| 6 | ✅ **Validation Agent** | Trust | Compares the output against the schema. Calculates a `confidence_score` (0.0 to 1.0) and flags missing/null fields. |
-| 7 | 🧠 **Memory Agent** | Session Memory | Saves the validated JSON to Redis (`SET session:{id}:data`). For follow-ups, retrieves it. |
-| 8 | 💬 **Conversation Agent** | Follow-ups | Takes a follow-up natural language query, takes the cached JSON, and writes a Python snippet or directly prompts the LLM to filter, sort, or modify the JSON. |
-| 9 | 📤 **Export Agent** | Output | Translates JSON array into raw string formats (CSV, Excel, JSON, Markdown). |
+| 5 | 🧹 **Cleaning Agent** | Data Quality | A post-processing LLM pass. Dedupes identical rows, normalizes currencies/dates, and resolves relative URLs to absolute URLs. |
+| 6 | ✅ **Validation Agent** | Trust | Compares output against schema. Calculates a `confidence_score` (0.0 to 1.0) and flags missing/null fields. Surfaced live in the dataset view. |
+| 7 | 🧠 **Memory Agent** | Session Memory | `agents/memory_agent.py`. Saves validated JSON to Redis (`session_data:{id}`). For follow-ups, retrieves cached dataset. |
+| 8 | 💬 **Conversation Agent** | Follow-ups | Takes follow-up natural language queries, hoists export/filter parameters, and prompts the LLM to filter, sort, or modify the JSON. |
+| 9 | 📤 **Export Agent** | Output | Translates JSON array into raw string formats (CSV, Excel, JSON, Markdown). Sanitizes formula injections. |
 
 ---
 
 ## 🔒 Security & Production Hardening
 
-- **Key Rotation**: `apps/backend/ai/key_manager.py` manages a `cycle()` iterator across all keys provided in `GROQ_API_KEYS`. If a key hits a 429 Rate Limit, it is put into a "cooldown dictionary" for 60 seconds and the next key is tried automatically.
-- **Audit Logs**: Every API request is tracked by `AuditLoggingMiddleware` to stdout, making it easily ingested by Datadog or AWS CloudWatch.
-- **Strict CORS**: `allow_origins=[settings.FRONTEND_URL]` instead of `*`.
-- **IP Rate Limiting**: Redis ZSET (Sorted Set) with UUID-prefixed members tracks requests per IP. Drops connections via `429 Too Many Requests` if the 1-minute window is exceeded.
-- **SSRF Protection**: `validate_target_url()` resolves hostnames via DNS and blocks private, loopback, multicast, and reserved IP ranges before the browser agent fetches any URL.
-- **Upload Hardening**: File uploads are restricted to 20MB max and an allowlist of extensions (`.pdf`, `.docx`, `.csv`, `.png`, `.jpg`, `.jpeg`).
-- **Ownership Authorization**: Export downloads and chat history endpoints enforce ownership checks — users can only access files/sessions they created.
-- **Password Strength Validation**: Server-side enforcement of minimum 8 characters, at least 1 uppercase letter, and at least 1 number. Frontend includes an automated strong password generator.
-- **Refresh Token Rotation**: Access tokens expire in 30 minutes; refresh tokens last 7 days. The frontend `ApiClient` automatically intercepts 401 responses, refreshes the token pair, and retries the original request seamlessly.
+- **In-Memory Access Tokens (XSS Mitigation)**: Access tokens are stored exclusively in client memory, while refresh tokens remain in secure `httpOnly`, `sameSite: lax` cookies. Page refreshes seamlessly use silent refresh (`/api/auth/refresh`).
+- **Refresh Token Blacklisting**: During refresh token rotation, the old token's JTI is revoked in Redis via `blacklist_jti()` for its remaining lifetime, preventing replay attacks.
+- **Fail-Closed IDOR Authorization**: Endpoints verify session ownership defensively (`if not owner_id or owner_id != current_user.id`), denying access to expired or unmapped ownership records.
+- **SSRF & DNS Rebinding Defenses**: Playwright intercepts all outgoing requests, resolves the host IP, validates against private/internal/cloud metadata ranges, and rewrites the request URL to the validated literal IP while preserving the original `Host` header.
+- **Reverse-Proxy Awareness**: Rate limiting and audit logging read real client IPs via `TRUST_PROXY_HEADERS`, supporting deployments behind Vercel, Render, or custom reverse proxies.
+- **Key Rotation**: `apps/backend/ai/key_manager.py` manages a round-robin rotation pool across all keys provided in `GROQ_API_KEYS`. If a key hits a 429 Rate Limit, it enters a 60-second cooldown and the next key is tried automatically.
+- **Audit Logs**: Every API request is tracked by `AuditLoggingMiddleware` with proxy-resolved IP, endpoint, response time, and status.
+- **Strict CORS**: `allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"]` with credentials allowed safely.
+- **Upload Hardening & Association**: File uploads are restricted to 20MB max and an allowlist of extensions (`.pdf`, `.docx`, `.csv`, `.png`, `.jpg`, `.jpeg`). Uploaded text is saved directly to the active session context in Redis.
+- **Password Strength Validation**: Server-side enforcement of minimum 8 characters, at least 1 uppercase letter, and at least 1 number.
 
 ---
 
@@ -161,24 +167,25 @@ webiscrap/
 │
 ├── apps/
 │   ├── frontend/              # Next.js 16 UI
-│   │   ├── src/app            # App Router (login, chat, dataset layouts)
-│   │   ├── src/components     # Custom HUD UI Components
-│   │   ├── src/lib/store      # Zustand global state
-│   │   └── src/lib/api        # ApiClient class
+│   │   ├── src/app            # App Router (login, signup, chat, dataset layouts)
+│   │   ├── src/components     # Custom HUD UI Components (Sidebar, DataTable, Composer, etc.)
+│   │   ├── src/lib/store      # Zustand global state (chat.ts)
+│   │   └── src/lib/api        # ApiClient class (in-memory token, silent refresh)
 │   │
 │   └── backend/               # FastAPI
-│       ├── agents/             # 9-Agent Pipeline (orchestrator, planner, analyzer, browser, etc.)
+│       ├── agents/             # 9-Agent Pipeline (orchestrator, planner, memory_agent, etc.)
 │       ├── ai/                 # Groq Client, Key Manager, AI Router
-│       ├── api/                # FastAPI route handlers (auth, chat, scrape, export, upload)
+│       ├── api/                # Route handlers (auth_routes, chat, scrape, export, upload)
 │       ├── auth/               # JWT security, Google OAuth, Firebase Phone OTP
 │       ├── core/               # App config & Redis Rate Limiter
 │       ├── database/           # Async PostgreSQL connection (SQLModel)
-│       ├── memory/             # Redis session store
-│       ├── models/             # Database ORM models (User, etc.)
+│       ├── memory/             # Redis session store & token blacklisting
+│       ├── models/             # Database ORM models (User, BaseUUIDModel)
 │       ├── parsers/            # Document parsers (PDF, DOCX, CSV, Image/OCR)
 │       ├── prompts/            # System prompts for each AI agent
 │       └── main.py             # FastAPI entry point
 │
+├── pyrightconfig.json         # Python language server search path configuration
 ├── .env.example               # Environment variable template
 ├── .gitignore
 └── README.md
@@ -259,12 +266,13 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Security
+# Security & Proxy
 FRONTEND_URL=http://localhost:3000
 RATE_LIMIT_PER_MINUTE=10
+TRUST_PROXY_HEADERS=false
 ```
 
-> **Note:** All API keys, database URLs, and Redis URLs should be changed before deployment. The current `.env.example` contains development placeholders only.
+> **Note:** Set `TRUST_PROXY_HEADERS=true` only when deployed behind a reverse proxy you control (e.g. Vercel/Render). The current `.env.example` contains development placeholders only.
 
 ---
 
@@ -280,7 +288,7 @@ RATE_LIMIT_PER_MINUTE=10
 - [x] Extraction Agent
 - [x] Cleaning Agent
 - [x] Validation Agent
-- [x] Memory Agent (Redis session caching)
+- [x] Memory Agent (`agents/memory_agent.py` + Redis session caching)
 - [x] Conversation Agent (follow-up queries without re-scraping)
 - [x] Export Agent (CSV, Excel, JSON, Markdown)
 - [x] Multi-language prompt support (10+ languages)
@@ -290,14 +298,14 @@ RATE_LIMIT_PER_MINUTE=10
 - [x] Production hardening (Rate limiting, CORS, Audit logs)
 - [x] Functional Legal Pages (Terms & Privacy) and Login/Signup flows
 - [x] Refresh token rotation + automatic 401 retry
-- [x] SSRF protection on scrape targets
-- [x] Upload hardening (size + extension limits)
-- [x] Ownership-based authorization on exports & chat history
+- [x] SSRF protection on scrape targets with DNS-rebinding TOCTOU mitigation
+- [x] Upload hardening & session context persistence
+- [x] Ownership-based authorization (Fail-closed IDOR protection)
+- [x] In-memory access token storage with secure httpOnly cookie rotation
 - [x] Password strength validation + automated strong password generator
-- [x] Validation confidence score surfaced in frontend UI
-- [x] Conversation agent reply surfaced in chat (not generic text)
-- [x] Export download button in chat UI
-- [x] Bug fixes: JSON error logging, rate limiter accuracy, unused import cleanup
+- [x] Full validation metadata surfaced in frontend dataset view
+- [x] Complete security & integration audit (17 fixes: C1-C5, H1-H5, M1-M8)
+- [x] Zero-warning package restructuring & module shadowing resolution
 - [ ] Deployment to Vercel (Frontend) + Render (Backend)
 
 ---
