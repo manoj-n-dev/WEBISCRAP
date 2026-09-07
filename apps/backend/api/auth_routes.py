@@ -135,7 +135,7 @@ async def register(
                 detail="The user with this email already exists in the system.",
             )
             
-    user = User.model_validate(user_in, update={"hashed_password": get_password_hash(user_in.password)})
+    user = User.model_validate(user_in, update={"hashed_password": get_password_hash(user_in.password or "")})
     try:
         db.add(user)
         await db.commit()
@@ -201,7 +201,7 @@ async def logout(
     if refresh_token:
         payload = decode_refresh_token(refresh_token)
         if payload and payload.get("jti"):
-            jti = payload.get("jti")
+            jti = str(payload.get("jti"))
             # Store JTI in Redis with an expiry matching the refresh token lifetime
             expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
             await redis_store.blacklist_jti(jti, expiry_seconds)

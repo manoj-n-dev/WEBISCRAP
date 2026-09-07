@@ -6,7 +6,7 @@ from .cleaner import cleaner_agent
 from .conversation import conversation_agent
 from .exporter import export_agent
 from .extractor import extractor_agent
-from .memory import memory_agent
+from .memory_agent import memory_agent
 from .orchestrator import orchestrator
 from .planner import planner_agent
 from .validator import validator_agent

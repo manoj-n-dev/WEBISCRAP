@@ -8,7 +8,7 @@ from .browser import browser_agent
 from .extractor import extractor_agent
 from .cleaner import cleaner_agent
 from .validator import validator_agent
-from .memory import memory_agent
+from .memory_agent import memory_agent
 from .conversation import conversation_agent
 from .exporter import export_agent
 

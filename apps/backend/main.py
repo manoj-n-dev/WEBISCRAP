@@ -14,7 +14,7 @@ from loguru import logger
 
 from core.config import settings, get_client_ip
 from core.rate_limit import rate_limiter
-from api.auth import router as auth_router
+from api.auth_routes import router as auth_router
 from api.chat import router as chat_router
 from api.scrape import router as scrape_router
 from api.export import router as export_router
