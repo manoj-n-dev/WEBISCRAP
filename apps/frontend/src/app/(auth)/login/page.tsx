@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
 import { Mail, Lock, Phone, UserRound, ArrowRight, X } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import { getFirebaseAuth, getGoogleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
 
 export default function LoginPage() {
@@ -16,6 +17,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [staySignedIn, setStaySignedIn] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -33,10 +35,7 @@ export default function LoginPage() {
     try {
       const response = await ApiClient.login(email, password);
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -52,10 +51,7 @@ export default function LoginPage() {
     try {
       const response = await ApiClient.guestLogin();
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -73,10 +69,7 @@ export default function LoginPage() {
       const idToken = await result.user.getIdToken();
       const response = await ApiClient.googleLogin(idToken);
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -132,10 +125,7 @@ export default function LoginPage() {
       const idToken = await result.user.getIdToken();
       const response = await ApiClient.phoneLogin(idToken);
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -176,9 +166,19 @@ export default function LoginPage() {
           />
           
           <div className="flex items-center justify-between mt-[4px]">
-            <label className="flex items-center gap-[8px] cursor-pointer group">
-              <div className="w-[16px] h-[16px] rounded-[4px] border border-glass-border-strong group-hover:border-signal-300 transition-colors flex items-center justify-center">
-                <svg className="w-[10px] h-[10px] text-transparent transition-colors group-[.is-checked]:text-signal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <label 
+              className="flex items-center gap-[8px] cursor-pointer group select-none"
+              onClick={() => setStaySignedIn(!staySignedIn)}
+            >
+              <div className={cn(
+                "w-[16px] h-[16px] rounded-[4px] border transition-colors flex items-center justify-center",
+                staySignedIn
+                  ? "bg-signal-400 border-signal-400 text-bg-0"
+                  : "border-glass-border-strong group-hover:border-signal-300 text-transparent"
+              )}>
+                <svg className="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
               </div>
               <span className="text-[13px] text-text-mid group-hover:text-text-hi transition-colors">Stay signed in</span>
             </label>

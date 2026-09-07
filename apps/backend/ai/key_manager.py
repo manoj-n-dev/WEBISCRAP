@@ -48,7 +48,11 @@ class KeyManager:
         return selected_key
 
     def mark_key_exhausted(self, key: str, cooldown_seconds: int = 3600):
-        """Mark a key as rate-limited or exhausted, putting it on cooldown."""
+        """
+        Mark a key as rate-limited or exhausted, putting it on cooldown.
+        Note: The default cooldown_seconds=3600 is currently overridden at runtime;
+        groq_client.py explicitly passes cooldown_seconds=60 on rate limits (429).
+        """
         if key in self.key_status:
             self.key_status[key]["active"] = False
             self.key_status[key]["cooldown_until"] = time.time() + cooldown_seconds

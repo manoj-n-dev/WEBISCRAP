@@ -57,10 +57,7 @@ export default function SignupPage() {
       const response = await ApiClient.login(email, password);
       
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -78,10 +75,7 @@ export default function SignupPage() {
       const idToken = await result.user.getIdToken();
       const response = await ApiClient.googleLogin(idToken);
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
@@ -137,10 +131,7 @@ export default function SignupPage() {
       const idToken = await result.user.getIdToken();
       const response = await ApiClient.phoneLogin(idToken);
       if (response.access_token) {
-        localStorage.setItem("token", response.access_token);
-        if (response.refresh_token) {
-          localStorage.setItem("refresh_token", response.refresh_token);
-        }
+        ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {

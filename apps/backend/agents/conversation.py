@@ -60,6 +60,9 @@ class ConversationAgent(BaseAgent):
             await redis_store.append_conversation_history(session_id, {"role": "assistant", "content": response_data.get("response_text", "")})
             
             input_data["conversation_response"] = response_data
+            # FIX 3 (C4): Hoist export fields to top-level so ExportAgent can read them
+            input_data["filtered_data"] = response_data.get("filtered_data", dataset)
+            input_data["export_requested"] = response_data.get("export_requested", "none")
             return input_data
             
         except json.JSONDecodeError as e:
@@ -75,6 +78,9 @@ class ConversationAgent(BaseAgent):
             await redis_store.append_conversation_history(session_id, {"role": "assistant", "content": response_text})
             
             input_data["conversation_response"] = fallback
+            # FIX 3 (C4): Hoist export fields to top-level (fallback path)
+            input_data["filtered_data"] = dataset
+            input_data["export_requested"] = "none"
             return input_data
 
 conversation_agent = ConversationAgent()

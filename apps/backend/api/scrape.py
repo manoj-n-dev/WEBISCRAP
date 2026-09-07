@@ -51,6 +51,8 @@ async def submit_scrape_job(
     
     # C2: Set session ownership before scheduling the background task
     await redis_store.set_session_owner(session_id, str(current_user.id))
+    # FIX 2: Track session under user for sidebar listing
+    await redis_store.add_user_session(str(current_user.id), session_id)
     
     # Mark as pending initially
     await redis_store.save_session_data(session_id, {"status": "pending"})

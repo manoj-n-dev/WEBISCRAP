@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { useChatStore } from "@/lib/store/chat";
 import { useRouter } from "next/navigation";
+import { ApiClient } from "@/lib/api/client";
 
 export default function AppLayout({
   children,
@@ -11,13 +12,31 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-    }
+    // FIX 7: Use silent refresh instead of localStorage check
+    const init = async () => {
+      const ok = await ApiClient.initAuth();
+      if (!ok) {
+        router.push("/login");
+        return;
+      }
+      setAuthReady(true);
+    };
+    init();
   }, [router]);
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg-0">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-signal-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-[13px] text-text-dim font-mono">Authenticating...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen flex text-text-hi font-body overflow-hidden">
@@ -45,3 +64,4 @@ export default function AppLayout({
     </div>
   );
 }
+

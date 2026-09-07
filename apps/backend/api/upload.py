@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from auth.dependencies import get_current_user
 from models.user import User
+from memory.session_store import redis_store
 import os
 import shutil
 import uuid
@@ -13,6 +14,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/")
 async def upload_file(
     file: UploadFile = File(...),
+    session_id: str | None = Query(default=None),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -44,9 +46,9 @@ async def upload_file(
         from parsers.document_parser import extract_text_from_file
         parsed_text = extract_text_from_file(file_path)
         
-        # 2. Add to a session cache if we are uploading to an existing conversation
-        # Note: In a real app we'd pass session_id as a query param or form data
-        # For MVP we just return the parsed text.
+        # FIX 13 (M4): Associate uploaded file context with the chat session in Redis
+        if session_id:
+            await redis_store.save_uploaded_context(session_id, file_id, parsed_text)
         
         return {
             "status": "success", 

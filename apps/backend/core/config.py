@@ -1,6 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
+from fastapi import Request
 import os
+
+# FIX 17: PROJECT_ROOT calculated 3 levels up from apps/backend/core
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 class Settings(BaseSettings):
     # API Keys (Groq only)
@@ -36,9 +40,12 @@ class Settings(BaseSettings):
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 10
+
+    # FIX 15 (M7): Set to True only when behind a trusted reverse proxy (Vercel/Render/Nginx)
+    TRUST_PROXY_HEADERS: bool = False
     
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), ".env"),
+        env_file=os.path.join(PROJECT_ROOT, ".env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -48,3 +55,15 @@ class Settings(BaseSettings):
         return [k.strip() for k in self.GROQ_API_KEYS.split(",") if k.strip()]
 
 settings = Settings()
+
+def get_client_ip(request: Request) -> str:
+    """
+    FIX 15 (M7): Extract client IP safely.
+    When TRUST_PROXY_HEADERS is enabled, returns the first IP in X-Forwarded-For.
+    Otherwise falls back to direct connection host (prevents header spoofing).
+    """
+    if settings.TRUST_PROXY_HEADERS:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"

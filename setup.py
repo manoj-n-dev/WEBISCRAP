@@ -22,6 +22,15 @@ def run_backend():
             check=True
         )
         
+        # FIX 16 (M8): Install Playwright Chromium browser binary
+        print("Installing Playwright Chromium browser...")
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            cwd=backend_dir,
+            env=env,
+            check=True
+        )
+        
         print("Starting FastAPI server...")
         subprocess.run(
             [sys.executable, "main.py"],

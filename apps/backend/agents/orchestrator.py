@@ -13,6 +13,7 @@ from .conversation import conversation_agent
 from .exporter import export_agent
 
 from .base import validate_target_url
+from memory.session_store import redis_store
 
 class PipelineOrchestrator:
     """
@@ -40,11 +41,6 @@ class PipelineOrchestrator:
         if target_url and not validate_target_url(target_url):
             raise ValueError(f"Invalid or restricted target URL: {target_url}")
         
-        # In a real execution, we would:
-        # 1. Check if we already have extracted this URL in the current session (Memory Agent)
-        # 2. If Yes, and user is just asking follow-up questions -> route to Conversation Agent
-        # 3. If No, or it's a new extraction request -> run the full pipeline (1 -> 6)
-        
         pipeline_state = {
             "user_request": user_request,
             "target_url": target_url,
@@ -55,30 +51,30 @@ class PipelineOrchestrator:
         
         try:
             # 1. Start Planner
-            await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "plan")
+            await redis_store.set_pipeline_progress(session_id, "plan")
             pipeline_state = await self.planner.run(pipeline_state, session_id)
             
             is_new_scrape = pipeline_state.get("is_new_scrape", True)
             
             if is_new_scrape:
                 # 2. Analyze
-                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "analyze")
+                await redis_store.set_pipeline_progress(session_id, "analyze")
                 pipeline_state = await self.analyzer.run(pipeline_state, session_id)
                 
                 # 3. Browse / Fetch
-                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "browse")
+                await redis_store.set_pipeline_progress(session_id, "browse")
                 pipeline_state = await self.browser.run(pipeline_state, session_id)
                 
                 # 4. Extract
-                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "extract")
+                await redis_store.set_pipeline_progress(session_id, "extract")
                 pipeline_state = await self.extractor.run(pipeline_state, session_id)
                 
                 # 5. Clean
-                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "clean")
+                await redis_store.set_pipeline_progress(session_id, "clean")
                 pipeline_state = await self.cleaner.run(pipeline_state, session_id)
                 
                 # 6. Validate
-                await redis_store.redis.setex(f"pipeline_progress:{session_id}", 3600, "validate")
+                await redis_store.set_pipeline_progress(session_id, "validate")
                 pipeline_state = await self.validator.run(pipeline_state, session_id)
                 
                 # 7. Save to Memory
@@ -95,7 +91,7 @@ class PipelineOrchestrator:
             # 9. Export if requested
             pipeline_state = await self.exporter.run(pipeline_state, session_id)
             
-            await redis_store.redis.delete(f"pipeline_progress:{session_id}")
+            await redis_store.clear_pipeline_progress(session_id)
             logger.info(f"[{session_id}] Pipeline completed successfully.")
             return {
                 "status": "success",
@@ -104,7 +100,7 @@ class PipelineOrchestrator:
             }
             
         except Exception as e:
-            await redis_store.redis.delete(f"pipeline_progress:{session_id}")
+            await redis_store.clear_pipeline_progress(session_id)
             import traceback
             tb = traceback.format_exc()
             error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__
@@ -115,3 +111,4 @@ class PipelineOrchestrator:
             }
 
 orchestrator = PipelineOrchestrator()
+

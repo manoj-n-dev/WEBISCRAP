@@ -1,5 +1,5 @@
 from fastapi import Request, HTTPException
-from core.config import settings
+from core.config import settings, get_client_ip
 from memory.session_store import redis_store
 import time
 
@@ -8,7 +8,7 @@ async def rate_limiter(request: Request):
     A simple Redis-based sliding window rate limiter.
     Limits requests to RATE_LIMIT_PER_MINUTE per IP address.
     """
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     key = f"rate_limit:{client_ip}"
     
     await redis_store.connect()

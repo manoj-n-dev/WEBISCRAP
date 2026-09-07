@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 import httpx
 import re
 import socket
+import urllib.parse
 
 
 # Configurable limits
@@ -54,17 +55,22 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080}
+            viewport={"width": 1920, "height": 1080},
+            ignore_https_errors=True,
         )
         page = context.new_page()
 
         try:
-            # C4: SSRF — intercept all outgoing requests in Playwright to validate hostnames
+            # C4 & H4: SSRF and DNS rebinding protection
+            # Intercept all outgoing requests in Playwright to validate hostnames against internal/private IPs.
+            # To prevent DNS rebinding TOCTOU (where Chromium performs its own separate DNS lookup that
+            # could resolve to an internal/private IP after validation), we rewrite the request URL to use
+            # the validated IP address while preserving the original Host header.
             def ssrf_route_handler(route):
-                """Abort requests to internal/private IPs."""
+                """Abort requests to internal/private IPs and mitigate DNS rebinding TOCTOU."""
                 request_url = route.request.url
                 try:
-                    parsed = __import__('urllib.parse', fromlist=['urlparse']).urlparse(request_url)
+                    parsed = urllib.parse.urlparse(request_url)
                     hostname = parsed.hostname
                     if hostname:
                         ip_addr = socket.gethostbyname(hostname)
@@ -72,8 +78,17 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                             logger.warning(f"Playwright SSRF block: {request_url} resolved to {ip_addr}")
                             route.abort()
                             return
-                except Exception:
-                    pass  # Allow if DNS resolution fails — Playwright will handle the error
+                        
+                        # DNS rebinding fix: route directly to validated IP with original Host header
+                        headers = dict(route.request.headers)
+                        headers["host"] = hostname
+                        netloc = parsed.netloc
+                        new_netloc = netloc.replace(hostname, ip_addr, 1)
+                        rewritten_url = urllib.parse.urlunparse(parsed._replace(netloc=new_netloc))
+                        route.continue_(url=rewritten_url, headers=headers)
+                        return
+                except Exception as e:
+                    logger.debug(f"SSRF route handler fallback for {request_url}: {e}")
                 route.continue_()
             
             page.route("**/*", ssrf_route_handler)

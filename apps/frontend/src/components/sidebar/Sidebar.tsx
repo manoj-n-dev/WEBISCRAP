@@ -19,26 +19,32 @@ export function Sidebar() {
   const router = useRouter();
   const { activeSessionId, setActiveSession } = useChatStore();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   useEffect(() => {
-    const fetchSessions = async () => {
+    const fetchSessionsAndUser = async () => {
       try {
-        const result = await ApiClient.getSessions();
-        // The backend returns a list of session IDs/metadata. Map it to the Session format.
-        // For MVP, if backend returns just strings, we mock the title/date.
-        if (result && result.sessions) {
-          const mapped = result.sessions.map((s: string | any, i: number) => ({
+        const [sessionsRes, userRes] = await Promise.allSettled([
+          ApiClient.getSessions(),
+          ApiClient.getMe()
+        ]);
+        if (sessionsRes.status === "fulfilled" && sessionsRes.value?.sessions) {
+          const mapped = sessionsRes.value.sessions.map((s: string | any, i: number) => ({
             id: typeof s === 'string' ? s : s.id,
             title: typeof s === 'string' ? `Extraction ${i+1}` : s.title || `Extraction ${i+1}`,
             date: "today" // simplified for MVP
           }));
           setSessions(mapped);
         }
+        if (userRes.status === "fulfilled" && userRes.value) {
+          setUser(userRes.value);
+        }
       } catch (err) {
-        console.error("Failed to load sessions:", err);
+        console.error("Failed to load sidebar data:", err);
       }
     };
-    fetchSessions();
+    fetchSessionsAndUser();
   }, []);
   
   const handleNewSession = () => {
@@ -56,8 +62,18 @@ export function Sidebar() {
     router.push("/login");
   };
 
-  const todaySessions = sessions.filter(s => s.date === "today");
-  const yesterdaySessions = sessions.filter(s => s.date === "yesterday");
+  const filteredSessions = sessions.filter(s =>
+    s.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const todaySessions = filteredSessions.filter(s => s.date === "today");
+  const yesterdaySessions = filteredSessions.filter(s => s.date === "yesterday");
+
+  // FIX 11 (M2): Real user info derivation
+  const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : (user?.is_guest ? "Guest" : "User"));
+  const initials = user?.full_name
+    ? user.full_name.trim().split(/\s+/).map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
+    : (user?.email ? user.email.slice(0, 2).toUpperCase() : (user?.is_guest ? "GU" : "US"));
+  const workspaceText = user?.is_guest ? "Guest session" : "Personal workspace";
 
   return (
     <aside className="w-[264px] border-r border-hair flex flex-col p-[16px_14px] bg-bg-0 z-20 shrink-0 h-screen overflow-y-auto">
@@ -78,6 +94,8 @@ export function Sidebar() {
           icon={<Search className="w-[15px] h-[15px]" />} 
           placeholder="Search sessions" 
           className="text-[13px] py-[10px]"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
@@ -113,20 +131,26 @@ export function Sidebar() {
             ))}
           </>
         )}
+
+        {searchQuery && filteredSessions.length === 0 && (
+          <div className="p-[20px_10px] text-center text-[12px] text-text-dim">
+            No matching sessions
+          </div>
+        )}
       </div>
 
       <div className="mt-auto pt-[14px] border-t border-hair flex items-center justify-between pl-[6px]">
-        <div className="flex items-center gap-[10px]">
-          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white">
-            MN
+        <div className="flex items-center gap-[10px] min-w-0">
+          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0">
+            {initials}
           </div>
-          <div>
-            <div className="text-[12.5px] text-text-hi">Manoj</div>
-            <div className="text-[11px] text-text-dim">Free workspace</div>
+          <div className="min-w-0">
+            <div className="text-[12.5px] text-text-hi truncate">{displayName}</div>
+            <div className="text-[11px] text-text-dim truncate">{workspaceText}</div>
           </div>
         </div>
         
-        <Button variant="icon" className="border-none hover:text-red-400" onClick={handleLogout}>
+        <Button variant="icon" className="border-none hover:text-red-400 shrink-0" onClick={handleLogout} title="Log out">
           <LogOut className="w-[15px] h-[15px]" />
         </Button>
       </div>

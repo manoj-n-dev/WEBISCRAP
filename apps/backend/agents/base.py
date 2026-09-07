@@ -129,8 +129,9 @@ class BaseAgent:
         
     def _emit_progress(self, session_id: str, status: str, error: Optional[str] = None):
         """
-        Emit a progress event. In a full implementation, this would push to a Redis PubSub channel
-        or a queue that the SSE endpoint listens to, allowing the frontend to show live progress.
+        Emit an agent-level progress event for local debug logging.
+        Note: Pipeline-level progress tracking for frontend polling is managed directly
+        by orchestrator.py via redis_store.set_pipeline_progress().
         """
         event = {
             "agent": self.name,
@@ -140,5 +141,4 @@ class BaseAgent:
         if error:
             event["error"] = error
             
-        # TODO: Push event to Redis PubSub or Memory cache for SSE streaming
         logger.debug(f"Progress Event [{session_id}]: {event}")

@@ -1,8 +1,46 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// FIX 7 (H3): Access token stored in-memory instead of localStorage.
+// This prevents XSS from reading the token. The refresh token is already
+// stored as an httpOnly cookie and is never accessible to JS.
+let accessToken: string | null = null;
+
 export class ApiClient {
+  /** Set the in-memory access token (called after login/refresh). */
+  static setToken(token: string | null) {
+    accessToken = token;
+  }
+
+  /** Read the current in-memory access token (for auth guards). */
+  static getToken(): string | null {
+    return accessToken;
+  }
+
+  /**
+   * Bootstrap auth on page load by attempting a silent refresh.
+   * Returns true if auth was restored, false otherwise.
+   */
+  static async initAuth(): Promise<boolean> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        accessToken = data.access_token;
+        return true;
+      }
+    } catch {
+      // Refresh failed — user is not authenticated
+    }
+    return false;
+  }
+
   private static async request(endpoint: string, options: RequestInit = {}) {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = accessToken;
     
     const headers = new Headers(options.headers);
     // Only set Content-Type for non-FormData bodies
@@ -35,7 +73,7 @@ export class ApiClient {
           });
           if (refreshRes.ok) {
             const data = await refreshRes.json();
-            localStorage.setItem("token", data.access_token);
+            accessToken = data.access_token;
             // Retry the original request
             headers.set("Authorization", `Bearer ${data.access_token}`);
             response = await fetch(`${API_BASE_URL}${endpoint}`, { 
@@ -137,6 +175,11 @@ export class ApiClient {
     return this.request(`/api/chat/${sessionId}/progress`, { method: "GET" });
   }
 
+  // FIX 11 (M2): Fetch current user info
+  static async getMe() {
+    return this.request("/api/auth/me", { method: "GET" });
+  }
+
   // M5: Logout
   static async logout() {
     try {
@@ -147,9 +190,7 @@ export class ApiClient {
     } catch {
       // Best-effort logout
     }
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      localStorage.removeItem("refresh_token"); // Clean up old tokens if they exist
-    }
+    accessToken = null;
   }
 }
+

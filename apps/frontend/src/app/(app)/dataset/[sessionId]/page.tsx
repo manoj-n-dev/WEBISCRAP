@@ -45,7 +45,9 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   const sessionId = resolvedParams.sessionId;
   const { messages } = useChatStore();
   
-  const [apiData, setApiData] = React.useState<any[] | null>(null);
+  const [apiResponse, setApiResponse] = React.useState<any>(null);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [flaggedOnly, setFlaggedOnly] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
 
   // Find the last completed extraction in the store
@@ -58,7 +60,7 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
     async function fetchData() {
       try {
         const data = await ApiClient.getSessionData(sessionId);
-        setApiData(data.cleaned_data || data.extracted_data || (Array.isArray(data) ? data : []));
+        setApiResponse(data);
       } catch (err) {
         console.error("Failed to load session data:", err);
       } finally {
@@ -73,13 +75,31 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
     }
   }, [sessionId, lastExtraction]);
 
-  const rawData = lastExtraction?.data || apiData || [];
+  const rawData = useMemo(() => {
+    return lastExtraction?.data || apiResponse?.cleaned_data || apiResponse?.extracted_data || (Array.isArray(apiResponse) ? apiResponse : []);
+  }, [lastExtraction, apiResponse]);
+
+  // FIX 12: Filter rawData based on search query and optional flagged filter
+  const filteredData = useMemo(() => {
+    let result = rawData;
+    if (flaggedOnly) {
+      result = result.filter((row: any) => (row.conf !== undefined && row.conf < 90) || row._flagged);
+    }
+    if (!searchQuery.trim()) return result;
+    const q = searchQuery.toLowerCase();
+    return result.filter((row: any) =>
+      Object.values(row).some((val) =>
+        val !== null && val !== undefined && String(val).toLowerCase().includes(q)
+      )
+    );
+  }, [rawData, searchQuery, flaggedOnly]);
+
   const columns = useMemo(() => generateColumns(rawData), [rawData]);
   
   const totalRows = rawData.length;
-  // Use the actual overall confidence score and flagged fields from the ValidatorAgent
-  const avgConf = lastExtraction?.confidenceScore ?? (apiData ? (apiData as any).confidenceScore : 100);
-  const flaggedCount = lastExtraction?.flaggedFields ?? (apiData ? (apiData as any).flaggedFields : 0);
+  // FIX 10 (M1): Use actual validation metrics from apiResponse.validation or lastExtraction
+  const avgConf = lastExtraction?.confidenceScore ?? (apiResponse?.validation?.confidence_score != null ? Math.round(apiResponse.validation.confidence_score) : 100);
+  const flaggedCount = lastExtraction?.flaggedFields ?? (apiResponse?.validation?.flagged_rows_count ?? (apiResponse?.validation?.flagged_fields?.length ?? 0));
 
   return (
     <div className="flex flex-col h-full bg-bg-0 text-text-hi font-body overflow-hidden">
@@ -159,19 +179,24 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
                 icon={<Search className="w-[15px] h-[15px]" />}
                 placeholder="Search extracted data..."
                 className="max-w-[320px]"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <Button variant="ghost">
+              <Button 
+                variant={flaggedOnly ? "default" : "ghost"}
+                onClick={() => setFlaggedOnly(!flaggedOnly)}
+              >
                 <Filter className="w-[15px] h-[15px]" />
-                Filter
+                {flaggedOnly ? "Flagged Only" : "Filter"}
               </Button>
             </div>
             
             <div className="flex-1 overflow-hidden">
               {totalRows > 0 ? (
-                <DataTable columns={columns} data={rawData} />
+                <DataTable columns={columns} data={filteredData} />
               ) : (
                 <div className="h-full flex items-center justify-center text-text-dim">
-                  No data available. Run an extraction in the chat first.
+                  {isLoading ? "Loading session data..." : "No data available. Run an extraction in the chat first."}
                 </div>
               )}
             </div>

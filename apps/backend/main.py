@@ -1,11 +1,18 @@
+import sys
+import os
+import time
+
+# Ensure backend directory is on sys.path so modules resolve whether invoked from root or backend
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from fastapi import FastAPI, Depends, Request
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
-import sys
-import time
 
-from core.config import settings
+from core.config import settings, get_client_ip
 from core.rate_limit import rate_limiter
 from api.auth import router as auth_router
 from api.chat import router as chat_router
@@ -35,7 +42,7 @@ async def audit_logging_middleware(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     logger.info(
         f"AUDIT | IP: {client_ip} | "
         f"{request.method} {request.url.path} | "

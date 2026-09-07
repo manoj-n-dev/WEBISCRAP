@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { FileDown, RefreshCw } from "lucide-react";
 import { useChatStore } from "@/lib/store/chat";
 import { useRouter } from "next/navigation";
+import { ApiClient } from "@/lib/api/client";
 
 export default function ChatPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const resolvedParams = React.use(params);
@@ -162,11 +163,11 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                           variant="default" 
                           onClick={() => {
                             const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                            const token = localStorage.getItem("token");
+                            const token = ApiClient.getToken();
                             
                             // Download using fetch to send auth header
                             fetch(`${baseUrl}${msg.exportUrl}`, {
-                              headers: { "Authorization": `Bearer ${token}` }
+                              headers: token ? { "Authorization": `Bearer ${token}` } : {}
                             })
                             .then(res => res.blob())
                             .then(blob => {
@@ -203,6 +204,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onSubmit={handleSubmit}
+        isLoading={isPipelineActive}
       />
     </div>
   );

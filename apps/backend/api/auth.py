@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from sqlalchemy.exc import IntegrityError
 from typing import Any
 import re
 
@@ -74,7 +75,7 @@ async def refresh_access_token(
         
     jti = payload.get("jti")
     if jti:
-        is_blacklisted = await redis_store.redis.get(f"blacklist:jti:{jti}")
+        is_blacklisted = await redis_store.is_jti_blacklisted(jti)
         if is_blacklisted:
             raise HTTPException(status_code=401, detail="Refresh token has been revoked")
             
@@ -88,6 +89,11 @@ async def refresh_access_token(
     
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+        
+    # FIX 6: Blacklist the old refresh token upon rotation
+    if jti:
+        expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+        await redis_store.blacklist_jti(jti, expiry_seconds)
         
     new_refresh = create_refresh_token(user.id)
     set_refresh_cookie(response, new_refresh)
@@ -130,10 +136,17 @@ async def register(
             )
             
     user = User.model_validate(user_in, update={"hashed_password": get_password_hash(user_in.password)})
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    return user
+    try:
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system.",
+        )
 
 @router.post("/login")
 async def login_access_token(
@@ -191,7 +204,7 @@ async def logout(
             jti = payload.get("jti")
             # Store JTI in Redis with an expiry matching the refresh token lifetime
             expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-            await redis_store.redis.setex(f"blacklist:jti:{jti}", expiry_seconds, "true")
+            await redis_store.blacklist_jti(jti, expiry_seconds)
             
     response.delete_cookie("refresh_token")
     return {"message": "Successfully logged out"}

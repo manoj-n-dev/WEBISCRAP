@@ -31,10 +31,12 @@ async def chat(
     if not session_id:
         session_id = str(uuid.uuid4())
         await redis_store.set_session_owner(session_id, str(current_user.id))
+        # FIX 2: Track session under user for sidebar listing
+        await redis_store.add_user_session(str(current_user.id), session_id)
     else:
-        # C1: Ownership check — prevent IDOR across sessions
+        # FIX 5: Fail-closed IDOR — reject if owner is missing OR mismatched
         owner_id = await redis_store.get_session_owner(session_id)
-        if owner_id and owner_id != str(current_user.id):
+        if not owner_id or owner_id != str(current_user.id):
             raise HTTPException(status_code=403, detail="Not authorized to access this session")
         
     try:
@@ -63,8 +65,9 @@ async def get_chat_history(
     """
     Retrieve conversation history for a specific session.
     """
+    # FIX 5: Fail-closed — reject if owner is missing OR mismatched
     owner_id = await redis_store.get_session_owner(session_id)
-    if owner_id and owner_id != str(current_user.id):
+    if not owner_id or owner_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session history")
         
     history = await redis_store.get_conversation_history(session_id)
@@ -78,8 +81,9 @@ async def get_session_data(
     """
     H6: Retrieve the cached extraction data for a session (used by dataset view).
     """
+    # FIX 5: Fail-closed
     owner_id = await redis_store.get_session_owner(session_id)
-    if owner_id and owner_id != str(current_user.id):
+    if not owner_id or owner_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session data")
     
     data = await redis_store.get_session_data(session_id)
@@ -106,11 +110,12 @@ async def get_pipeline_progress(
     """
     Get the current active step in the extraction pipeline for this session.
     """
-    # Verify ownership
+    # FIX 5: Fail-closed ownership check
     owner_id = await redis_store.get_session_owner(session_id)
-    if owner_id and owner_id != str(current_user.id):
+    if not owner_id or owner_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session progress")
         
-    step = await redis_store.redis.get(f"pipeline_progress:{session_id}")
+    # FIX 1: Use helper instead of broken redis_store.redis.get
+    step = await redis_store.get_pipeline_progress(session_id)
     return {"step": step}
 
