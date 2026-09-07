@@ -41,6 +41,8 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
   - [3. Database & Caching](#3-database--caching)
 - [The 9-Agent AI Pipeline](#-the-9-agent-ai-pipeline)
 - [Security & Production Hardening](#-security--production-hardening)
+- [Comprehensive Code Audit & Verification Matrix](#️-comprehensive-code-audit--verification-matrix)
+- [Package Architecture & Module Resolution](#️-package-architecture--module-resolution)
 - [Folder Structure](#-folder-structure)
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
@@ -157,6 +159,44 @@ The beating heart of WEBISCRAP is the Orchestrator (`apps/backend/agents/orchest
 - **Strict CORS**: `allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"]` with credentials allowed safely.
 - **Upload Hardening & Association**: File uploads are restricted to 20MB max and an allowlist of extensions (`.pdf`, `.docx`, `.csv`, `.png`, `.jpg`, `.jpeg`). Uploaded text is saved directly to the active session context in Redis.
 - **Password Strength Validation**: Server-side enforcement of minimum 8 characters, at least 1 uppercase letter, and at least 1 number.
+
+---
+
+## 🛡️ Comprehensive Code Audit & Verification Matrix
+
+WEBISCRAP underwent a full security and architectural audit across both backend and frontend. All 17 identified issues (Critical, High, and Medium) have been remediated, tested, and verified:
+
+| ID | Severity | Area | Problem | Resolution |
+|:---|:---:|:---|:---|:---|
+| **C1** | 🔴 Critical | `orchestrator.py` | Missing `redis_store` import causing `NameError` on pipeline execution. | Correctly imported `redis_store` and verified all progress setex and cleanup call sites. |
+| **C2** | 🔴 Critical | `session_store.py` | `RedisStore` had no `.redis` attribute (only `.redis_client`), breaking progress, JTI blacklist, and token refresh. | Added `@property redis` returning `redis_client`, ensured auto-connect on all attribute calls. |
+| **C3** | 🔴 Critical | `chat.py` / `session_store.py` | `/sessions` called nonexistent `get_user_sessions()`, breaking sidebar history. | Implemented `get_user_sessions()` and user-session indexing via Redis sets (`user_sessions:{user_id}`). |
+| **C4** | 🔴 Critical | `conversation.py` / `exporter.py` | Export parameters nested inside `conversation_response` never reached the exporter. | Hoisted `export_requested` and `filtered_data` to top-level input dictionary. |
+| **C5** | 🔴 Critical | `base.py` / `chat.py` | `BaseAgent._emit_progress()` was a stub; pipeline strip polled empty keys. | Integrated Redis progress publication with stage names, percentages, and status payloads. |
+| **H1** | 🟠 High | `chat.py` | IDOR fail-open vulnerability if session owner key expired in Redis. | Migrated to fail-closed authorization: `if not owner_id or owner_id != current_user.id: raise 403`. |
+| **H2** | 🟠 High | `auth_routes.py` | Refresh token rotation did not invalidate old token JTI. | Added Redis JTI revocation (`blacklist_jti`) during `/api/auth/refresh` rotation. |
+| **H3** | 🟠 High | `client.ts` / Auth Pages | Access token stored in `localStorage` exposing sessions to XSS. | Migrated access token storage strictly to in-memory variables with silent refresh via `httpOnly` cookie. |
+| **H4** | 🟠 High | `browser.py` | Playwright SSRF validation vulnerable to DNS-rebinding TOCTOU attack. | Rewrote Chromium network requests to validated literal IP while retaining original `Host` header. |
+| **H5** | 🟠 High | `auth_routes.py` | Concurrent duplicate-email registrations caused unhandled `IntegrityError` 500s. | Wrapped commit in `try/except IntegrityError`, returning clean 400 "Email already registered". |
+| **M1** | 🟡 Medium | `dataset/[sessionId]/page.tsx` | Dataset page direct load showed `undefined%` confidence and `0` flagged fields. | Surfaced `data.validation.confidence_score` and `flagged_rows_count` directly in UI. |
+| **M2** | 🟡 Medium | `Sidebar.tsx` | Hardcoded mock user identity ("Manoj", "MN"). | Bound user block dynamically to authenticated user data from `GET /api/auth/me`. |
+| **M3** | 🟡 Medium | Multiple Frontend Pages | Decorative inputs (session search, data search, composer loading state). | Implemented real-time filtering for sessions/data and bound composer UI to pipeline status. |
+| **M4** | 🟡 Medium | `upload.py` | `session_id` query param ignored during file upload. | Added `session_id` parameter to upload route, saving parsed text directly to Redis session context. |
+| **M5** | 🟡 Medium | `models/base.py` | `updated_at` timestamp never updated on record modification. | Configured automatic timestamp refresh hooks for database updates. |
+| **M6** | 🟡 Medium | `base.py` / `security.py` | Inconsistent naive vs. timezone-aware datetimes (`utcnow` vs `now(timezone.utc)`). | Standardized all datetime operations across backend to timezone-aware UTC. |
+| **M7** | 🟡 Medium | `rate_limit.py` / `main.py` | Rate limiter and audit logger lacked reverse-proxy IP handling. | Added `TRUST_PROXY_HEADERS` support with trusted proxy header parsing (`X-Forwarded-For`). |
+| **M8** | 🟡 Medium | `setup.py` | Missing automated Playwright Chromium browser binary installation. | Added `playwright install chromium` step to backend setup runner. |
+
+---
+
+## 🏛️ Package Architecture & Module Resolution
+
+To ensure seamless execution and zero language-server / IDE warning noise across all platforms, package imports have been restructured:
+- **Module Shadowing Elimination**:
+  - Renamed `apps/backend/agents/memory.py` → `apps/backend/agents/memory_agent.py` to eliminate namespace collision with top-level `apps/backend/memory/` package.
+  - Renamed `apps/backend/api/auth.py` → `apps/backend/api/auth_routes.py` to eliminate namespace collision with top-level `apps/backend/auth/` security package.
+- **Python Path Injection**: Configured `pyrightconfig.json` with `extraPaths: ["apps/backend"]` and dynamic `sys.path` bootstrapping in `main.py` for effortless local development and production containerization.
+
 
 ---
 
