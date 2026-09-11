@@ -1,5 +1,5 @@
 from sqlmodel import Field, SQLModel
-from typing import Optional
+from typing import Optional, Any
 from .base import BaseUUIDModel
 
 class UserBase(SQLModel):
@@ -12,7 +12,7 @@ class UserBase(SQLModel):
     is_guest: bool = Field(default=False)
     
 class User(UserBase, BaseUUIDModel, table=True):
-    __tablename__ = "users"
+    __tablename__: Any = "users"  # type: ignore
     hashed_password: Optional[str] = Field(default=None)
 
 class UserCreate(UserBase):

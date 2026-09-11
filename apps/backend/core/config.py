@@ -3,21 +3,22 @@ from typing import List, Optional
 from fastapi import Request
 import os
 
-# FIX 17: PROJECT_ROOT calculated 3 levels up from apps/backend/core
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# FIX 17: Support .env in PROJECT_ROOT (root), BACKEND_DIR (apps/backend), or current working directory
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+PROJECT_ROOT = os.path.abspath(os.path.join(BACKEND_DIR, "..", ".."))
 
 class Settings(BaseSettings):
     # API Keys (Groq only)
-    GROQ_API_KEYS: str
+    GROQ_API_KEYS: str = ""
 
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = ""
 
     # Redis
-    REDIS_URL: str
+    REDIS_URL: str = ""
 
     # JWT
-    JWT_SECRET: str
+    JWT_SECRET: str = "dev-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -45,7 +46,11 @@ class Settings(BaseSettings):
     TRUST_PROXY_HEADERS: bool = False
     
     model_config = SettingsConfigDict(
-        env_file=os.path.join(PROJECT_ROOT, ".env"),
+        env_file=(
+            os.path.join(PROJECT_ROOT, ".env"),
+            os.path.join(BACKEND_DIR, ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         extra="ignore"
     )

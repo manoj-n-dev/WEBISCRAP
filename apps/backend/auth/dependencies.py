@@ -25,9 +25,10 @@ async def get_current_user(
     if payload is None:
         raise credentials_exception
         
-    user_id: str = payload.get("sub")
-    if user_id is None:
+    raw_sub = payload.get("sub")
+    if not raw_sub or not isinstance(raw_sub, str):
         raise credentials_exception
+    user_id: str = raw_sub
         
     # Get user from DB
     statement = select(User).where(User.id == user_id)
