@@ -46,3 +46,21 @@ def decode_refresh_token(token: str) -> Optional[dict]:
         return decoded_token
     except JWTError:
         return None
+
+def create_reset_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.RESET_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": str(subject), "type": "reset", "jti": str(uuid.uuid4())}
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+def decode_reset_token(token: str) -> Optional[dict]:
+    try:
+        decoded_token = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        if decoded_token.get("type") != "reset":
+            return None
+        return decoded_token
+    except JWTError:
+        return None
+

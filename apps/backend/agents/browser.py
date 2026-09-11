@@ -196,16 +196,15 @@ def _auto_detect_and_extract(page) -> List[str]:
     """
     dom_snapshots = []
 
-    # Common pagination selectors for e-commerce sites
+    # Common pagination selectors for universal pagination detection
     common_next_selectors = [
-        "a._1LKTO3",                        # Flipkart next button
         "a[class*='next']",                  # Generic next links
         "button[class*='next']",             # Generic next buttons
-        "a[aria-label='Next']",
+        "a[aria-label*='Next' i]",
         "a[rel='next']",
         "li.next > a",
         ".pagination a:last-child",
-        "nav[aria-label='Pagination'] a:last-child",
+        "nav[aria-label*='Pagination' i] a:last-child",
         "a:has-text('Next')",
         "a:has-text('next')",
         "button:has-text('Next')",

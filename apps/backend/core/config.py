@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
 
+    # SMTP / Email Service
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_TLS: bool = True
+    EMAILS_FROM_EMAIL: str = "noreply@webiscrap.com"
+    EMAILS_FROM_NAME: str = "WEBISCRAP"
+    RESET_TOKEN_EXPIRE_MINUTES: int = 15
+
     # FIX 15 (M7): Set to True only when behind a trusted reverse proxy (Vercel/Render/Nginx)
     TRUST_PROXY_HEADERS: bool = False
     

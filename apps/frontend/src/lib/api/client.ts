@@ -139,6 +139,20 @@ export class ApiClient {
     });
   }
 
+  static async forgotPassword(email: string) {
+    return this.request("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  static async resetPassword(token: string, new_password: string) {
+    return this.request("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password }),
+    });
+  }
+
   static async submitExtraction(message: string, target_url: string = "", session_id?: string) {
     return this.request("/api/chat/", {
       method: "POST",

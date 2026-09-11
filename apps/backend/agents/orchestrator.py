@@ -68,19 +68,25 @@ class PipelineOrchestrator:
             pipeline_state = await self.planner.run(pipeline_state, session_id)
             
             is_new_scrape = pipeline_state.get("is_new_scrape", True)
+            has_url = bool(pipeline_state.get("target_url"))
+            has_doc = bool(pipeline_state.get("uploaded_context"))
             
-            if is_new_scrape:
-                # 2. Analyze
-                await redis_store.set_pipeline_progress(session_id, "analyze")
-                pipeline_state = await self.analyzer.run(pipeline_state, session_id)
-                completed_steps.append("analyze")
+            # If user uploaded documents or provided a URL, treat as active extraction
+            if is_new_scrape or has_doc:
+                if has_url:
+                    # 2. Analyze URL structure
+                    await redis_store.set_pipeline_progress(session_id, "analyze")
+                    pipeline_state = await self.analyzer.run(pipeline_state, session_id)
+                    completed_steps.append("analyze")
+                    
+                    # 3. Browse / Fetch DOM snapshots
+                    await redis_store.set_pipeline_progress(session_id, "browse")
+                    pipeline_state = await self.browser.run(pipeline_state, session_id)
+                    completed_steps.append("browse")
+                elif has_doc:
+                    logger.info(f"[{session_id}] Bypassing browser: extracting directly from uploaded document context")
                 
-                # 3. Browse / Fetch
-                await redis_store.set_pipeline_progress(session_id, "browse")
-                pipeline_state = await self.browser.run(pipeline_state, session_id)
-                completed_steps.append("browse")
-                
-                # 4. Extract
+                # 4. Extract (universal: handles both DOM snapshots and document text)
                 await redis_store.set_pipeline_progress(session_id, "extract")
                 pipeline_state = await self.extractor.run(pipeline_state, session_id)
                 completed_steps.append("extract")

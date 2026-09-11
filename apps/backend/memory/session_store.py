@@ -193,5 +193,26 @@ class RedisStore:
         text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
         return json.loads(text)
 
+    async def delete_session(self, session_id: str):
+        """Clean up all Redis keys associated with a session."""
+        await self.connect()
+        uploaded_ids = await self.list_uploaded_context_ids(session_id)
+        keys_to_delete = [
+            f"session:{session_id}:data",
+            f"session:{session_id}:owner",
+            f"session:{session_id}:history",
+            f"pipeline_progress:{session_id}",
+            f"session_uploads:{session_id}",
+        ]
+        for fid in uploaded_ids:
+            keys_to_delete.append(f"uploaded_context:{session_id}:{fid}")
+        
+        owner_id = await self.get_session_owner(session_id)
+        if owner_id:
+            await self.client.zrem(f"user_sessions:{owner_id}", session_id)
+
+        if keys_to_delete:
+            await self.client.delete(*keys_to_delete)
+
 redis_store = RedisStore()
 

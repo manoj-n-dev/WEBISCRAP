@@ -49,17 +49,30 @@ def verify_firebase_token(token: str) -> dict:
 
 def verify_google_token(token: str) -> dict:
     """
-    Verify Google OAuth ID token.
+    Verify Google OAuth ID token or Firebase Auth ID token (from Firebase Google provider).
     Returns a dict with user info if successful, raises exception if invalid.
     """
     try:
-        # Specify the CLIENT_ID of the app that accesses the backend
+        # Try Google OAuth verification
         idinfo = id_token.verify_oauth2_token(
             token, 
             requests.Request(), 
             settings.GOOGLE_CLIENT_ID
         )
         return idinfo
-    except Exception as e:
-        logger.error(f"Google token verification failed: {e}")
-        raise ValueError("Invalid Google OAuth ID token")
+    except Exception as e_google:
+        # Fallback to Firebase verify_id_token if client authenticated via Firebase Google popup
+        if firebase_admin._apps:
+            try:
+                decoded = auth.verify_id_token(token)
+                return {
+                    "email": decoded.get("email"),
+                    "sub": decoded.get("uid"),
+                    "name": decoded.get("name"),
+                    "picture": decoded.get("picture"),
+                }
+            except Exception as e_fb:
+                logger.error(f"Google and Firebase token verification failed: {e_google} | {e_fb}")
+                raise ValueError("Invalid Google OAuth or Firebase ID token")
+        raise ValueError(f"Invalid Google OAuth ID token: {e_google}")
+
