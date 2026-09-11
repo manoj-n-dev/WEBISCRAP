@@ -47,16 +47,15 @@ class RefreshTokenRequest(BaseModel):
 
 def set_refresh_cookie(response: Response, token: str, remember_me: bool = True):
     # M3: Conditionally set max_age; omit for session-only cookie when remember_me is False
-    cookie_kwargs = {
-        "key": "refresh_token",
-        "value": token,
-        "httponly": True,
-        "secure": settings.ENVIRONMENT == "production",
-        "samesite": "lax",
-    }
-    if remember_me:
-        cookie_kwargs["max_age"] = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-    response.set_cookie(**cookie_kwargs)
+    max_age = (settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60) if remember_me else None
+    response.set_cookie(
+        key="refresh_token",
+        value=token,
+        max_age=max_age,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",
+        samesite="lax",
+    )
 
 @router.post("/refresh")
 async def refresh_access_token(

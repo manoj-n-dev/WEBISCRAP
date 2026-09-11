@@ -172,7 +172,7 @@ class RedisStore:
     async def list_uploaded_context_ids(self, session_id: str) -> List[str]:
         """C3: Retrieve all uploaded file IDs for a session."""
         await self.connect()
-        members = await self.client.smembers(f"session_uploads:{session_id}")
+        members = await self.client.smembers(f"session_uploads:{session_id}")  # type: ignore[misc]
         return [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in members]
 
     # --- Background Job Status Helpers (C5) ---

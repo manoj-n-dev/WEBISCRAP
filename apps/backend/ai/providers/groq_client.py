@@ -3,13 +3,15 @@ from groq import AsyncGroq, APIStatusError, APITimeoutError
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from typing import Optional, Tuple
+
 from ai.key_manager import ai_manager
 
 class GroqClient:
     def __init__(self):
         self.default_model = "openai/gpt-oss-120b"
         
-    def _get_client(self) -> AsyncGroq:
+    def _get_client(self) -> Tuple[AsyncGroq, str]:
         api_key = ai_manager.groq_keys.get_key()
         return AsyncGroq(api_key=api_key), api_key
 
@@ -18,7 +20,14 @@ class GroqClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((APIStatusError, APITimeoutError))
     )
-    async def generate_response(self, prompt: str, system_prompt: str = None, model: str = None, temperature: float = 0.7, max_tokens: int = 4096) -> str:
+    async def generate_response(
+        self, 
+        prompt: str, 
+        system_prompt: Optional[str] = None, 
+        model: Optional[str] = None, 
+        temperature: float = 0.7, 
+        max_tokens: int = 4096
+    ) -> str:
         client, used_key = self._get_client()
         model_name = model or self.default_model
         
@@ -41,8 +50,9 @@ class GroqClient:
             rem_reqs = headers.get("x-ratelimit-remaining-requests")
             if rem_tokens or rem_reqs:
                 logger.debug(f"Groq ({model_name}) limits — remaining tokens: {rem_tokens}, remaining requests: {rem_reqs}")
-            response = raw_response.parse()
-            return response.choices[0].message.content
+            parsed = raw_response.parse()
+            response = await parsed if asyncio.iscoroutine(parsed) else parsed
+            return response.choices[0].message.content or ""
         except APIStatusError as e:
             logger.error(f"Groq API error (status={e.status_code}): {e.message}")
             if e.status_code == 429: # Rate limit
