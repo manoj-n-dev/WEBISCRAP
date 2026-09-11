@@ -14,6 +14,18 @@ _DEFAULT_MAX_TOKENS = {
     "summarization": 4096,
 }
 
+# C6: Split models across task categories for separate rate-limit buckets
+TASK_MODEL_MAP = {
+    "extraction": "openai/gpt-oss-120b",
+    "cleaning": "openai/gpt-oss-120b",
+    "planning": "openai/gpt-oss-20b",
+    "conversation": "openai/gpt-oss-20b",
+    "validation": "openai/gpt-oss-20b",
+    "intent": "openai/gpt-oss-20b",
+    "analysis": "openai/gpt-oss-20b",
+    "summarization": "openai/gpt-oss-20b",
+}
+
 class AIRouter:
     def __init__(self):
         self.routing_rules = {
@@ -39,6 +51,7 @@ class AIRouter:
         Routes the prompt to the appropriate AI provider.
         M1: Removed the fake failover — groq_client already has @retry with tenacity.
         H13: max_tokens defaults per task category so extraction/cleaning aren't truncated.
+        C6: Routes to dedicated models per task category to isolate Groq TPM/RPM limits.
         """
         provider_name = self.routing_rules.get(task_category)
         
@@ -46,10 +59,12 @@ class AIRouter:
             logger.warning(f"Unknown task category '{task_category}', defaulting to Groq.")
             
         resolved_max_tokens = max_tokens or _DEFAULT_MAX_TOKENS.get(task_category, 4096)
+        model_to_use = TASK_MODEL_MAP.get(task_category, "openai/gpt-oss-120b")
             
         return await groq_client.generate_response(
             prompt=prompt, 
             system_prompt=system_prompt,
+            model=model_to_use,
             temperature=temperature,
             max_tokens=resolved_max_tokens,
         )

@@ -29,12 +29,19 @@ class GroqClient:
         
         try:
             logger.debug(f"Sending request to Groq ({model_name}) using key ending in {used_key[-4:]}")
-            response = await client.chat.completions.create(
+            raw_response = await client.chat.completions.with_raw_response.create(
                 messages=messages,
                 model=model_name,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            # C6: Log response rate-limit headers to observe real quota headroom
+            headers = raw_response.headers
+            rem_tokens = headers.get("x-ratelimit-remaining-tokens")
+            rem_reqs = headers.get("x-ratelimit-remaining-requests")
+            if rem_tokens or rem_reqs:
+                logger.debug(f"Groq ({model_name}) limits — remaining tokens: {rem_tokens}, remaining requests: {rem_reqs}")
+            response = raw_response.parse()
             return response.choices[0].message.content
         except APIStatusError as e:
             logger.error(f"Groq API error (status={e.status_code}): {e.message}")

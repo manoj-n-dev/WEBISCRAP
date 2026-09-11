@@ -33,7 +33,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await ApiClient.login(email, password);
+      const response = await ApiClient.login(email, password, staySignedIn);
       if (response.access_token) {
         ApiClient.setToken(response.access_token);
         router.push("/chat/new");

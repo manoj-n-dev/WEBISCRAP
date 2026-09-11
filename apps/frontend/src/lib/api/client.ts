@@ -106,13 +106,13 @@ export class ApiClient {
     return this.request("/api/auth/guest", { method: "POST" });
   }
 
-  static async login(username: string, password: string) {
+  static async login(username: string, password: string, staySignedIn: boolean = true) {
     const formData = new FormData();
     formData.append("username", username);
     formData.append("password", password);
     
     // Do NOT set Content-Type header -- browser must set it with the multipart boundary
-    return this.request("/api/auth/login", { 
+    return this.request(`/api/auth/login?remember_me=${staySignedIn}`, { 
       method: "POST",
       body: formData,
     });

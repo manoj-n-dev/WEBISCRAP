@@ -49,8 +49,21 @@ class PipelineOrchestrator:
             "metadata": {}
         }
         
+        # C3: Fetch uploaded file context for this session if available
+        if session_id:
+            uploaded_ids = await redis_store.list_uploaded_context_ids(session_id)
+            if uploaded_ids:
+                contexts = []
+                for file_id in uploaded_ids:
+                    ctx = await redis_store.get_uploaded_context(session_id, file_id)
+                    if ctx:
+                        contexts.append(ctx)
+                if contexts:
+                    pipeline_state["uploaded_context"] = "\n\n---\n\n".join(contexts)[:8000]
+        
         try:
             # 1. Start Planner
+            completed_steps = ["plan"]
             await redis_store.set_pipeline_progress(session_id, "plan")
             pipeline_state = await self.planner.run(pipeline_state, session_id)
             
@@ -60,22 +73,27 @@ class PipelineOrchestrator:
                 # 2. Analyze
                 await redis_store.set_pipeline_progress(session_id, "analyze")
                 pipeline_state = await self.analyzer.run(pipeline_state, session_id)
+                completed_steps.append("analyze")
                 
                 # 3. Browse / Fetch
                 await redis_store.set_pipeline_progress(session_id, "browse")
                 pipeline_state = await self.browser.run(pipeline_state, session_id)
+                completed_steps.append("browse")
                 
                 # 4. Extract
                 await redis_store.set_pipeline_progress(session_id, "extract")
                 pipeline_state = await self.extractor.run(pipeline_state, session_id)
+                completed_steps.append("extract")
                 
                 # 5. Clean
                 await redis_store.set_pipeline_progress(session_id, "clean")
                 pipeline_state = await self.cleaner.run(pipeline_state, session_id)
+                completed_steps.append("clean")
                 
                 # 6. Validate
                 await redis_store.set_pipeline_progress(session_id, "validate")
                 pipeline_state = await self.validator.run(pipeline_state, session_id)
+                completed_steps.append("validate")
                 
                 # 7. Save to Memory
                 pipeline_state["action"] = "save"
@@ -84,6 +102,9 @@ class PipelineOrchestrator:
                 # 7b. Load from Memory (for follow-up questions)
                 pipeline_state["action"] = "load"
                 pipeline_state = await self.memory.run(pipeline_state, session_id)
+                
+            # M5: Store actual completed steps in state
+            pipeline_state["completed_steps"] = completed_steps
                 
             # 8. Conversation / Answer
             pipeline_state = await self.conversation.run(pipeline_state, session_id)

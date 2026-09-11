@@ -32,9 +32,11 @@ class AnalyzerAgent(BaseAgent):
             return "<html><body>Static fetch failed. JS rendering likely required.</body></html>"
 
     async def _execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+        # C4: Preserve full pipeline state dict when no URL is provided
         target_url = input_data.get("target_url")
         if not target_url:
-            return {"analysis": "No URL provided."}
+            input_data["analysis"] = {"requires_js_rendering": False, "note": "No URL provided."}
+            return input_data
             
         # Fetch static HTML snippet
         html_snippet = await self._fetch_html_snippet(target_url)

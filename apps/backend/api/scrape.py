@@ -26,14 +26,14 @@ async def background_scrape_task(target_url: str, extraction_goal: str, session_
             session_id=session_id,
             owner_id=owner_id
         )
-        # Store job status in Redis so it can be polled
-        await redis_store.save_session_data(session_id, {
+        # C5: Store job status in dedicated Redis key namespace so it doesn't collide with session dataset
+        await redis_store.save_job_status(session_id, {
             "status": "done" if result.get("status") == "success" else "failed",
             "result": result
         })
     except Exception as e:
         logger.error(f"Background scrape job {session_id} failed: {e}", exc_info=True)
-        await redis_store.save_session_data(session_id, {
+        await redis_store.save_job_status(session_id, {
             "status": "failed",
             "error": "An internal error occurred during extraction."
         })
@@ -54,8 +54,8 @@ async def submit_scrape_job(
     # FIX 2: Track session under user for sidebar listing
     await redis_store.add_user_session(str(current_user.id), session_id)
     
-    # Mark as pending initially
-    await redis_store.save_session_data(session_id, {"status": "pending"})
+    # C5: Mark as pending initially in job status namespace
+    await redis_store.save_job_status(session_id, {"status": "pending"})
     
     background_tasks.add_task(
         background_scrape_task, 
@@ -84,7 +84,8 @@ async def get_scrape_status(
     if not owner_id or owner_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this job")
     
-    data = await redis_store.get_session_data(job_id)
+    # C5: Read from job status namespace
+    data = await redis_store.get_job_status(job_id)
     if not data:
         raise HTTPException(status_code=404, detail="Job not found")
     

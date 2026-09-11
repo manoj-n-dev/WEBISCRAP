@@ -74,9 +74,9 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
     const query = input;
     setInput("");
     
-    // Extract URL if one is provided in the prompt (simple heuristic)
+    // M4: Extract URL and strip any trailing punctuation
     const urlMatch = query.match(/https?:\/\/[^\s]+/);
-    const url = urlMatch ? urlMatch[0] : "";
+    const url = urlMatch ? urlMatch[0].replace(/[.,;:!?)\]}]+$/, "") : "";
     
     await submitExtraction(query, url);
   };
@@ -90,8 +90,9 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
         break;
       }
     }
+    // M4: Extract URL and strip any trailing punctuation
     const urlMatch = lastUserMsg.match(/https?:\/\/[^\s]+/);
-    const url = urlMatch ? urlMatch[0] : "";
+    const url = urlMatch ? urlMatch[0].replace(/[.,;:!?)\]}]+$/, "") : "";
     await submitExtraction(lastUserMsg, url);
   };
 
@@ -205,6 +206,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
         onChange={(e) => setInput(e.target.value)}
         onSubmit={handleSubmit}
         isLoading={isPipelineActive}
+        sessionId={activeSessionId ?? undefined}
       />
     </div>
   );

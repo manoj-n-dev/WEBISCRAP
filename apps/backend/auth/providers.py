@@ -37,6 +37,9 @@ def verify_firebase_token(token: str) -> dict:
     Verify Firebase ID token (used for Phone OTP).
     Returns a dict with user info if successful, raises exception if invalid.
     """
+    # M7: Explicit guard if Firebase Admin is not configured/initialized on the server
+    if not firebase_admin._apps:
+        raise ValueError("Phone login is not configured on this server (Firebase Admin not initialized).")
     try:
         decoded_token = auth.verify_id_token(token)
         return decoded_token

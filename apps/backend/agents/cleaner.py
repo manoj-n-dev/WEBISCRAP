@@ -21,8 +21,8 @@ class CleanerAgent(BaseAgent):
             
         logger.info(f"[{session_id}] Cleaning {len(raw_data)} items.")
         
-        # We process in chunks if the array is too large
-        chunk_size = 50
+        # H5: Process in larger chunks (150 items) to reduce sequential LLM calls
+        chunk_size = 150
         all_cleaned = []
         
         for i in range(0, len(raw_data), chunk_size):

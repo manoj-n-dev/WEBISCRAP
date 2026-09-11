@@ -12,8 +12,12 @@ class PlannerAgent(BaseAgent):
     async def _execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
         user_request = input_data.get("user_request", "")
         target_url = input_data.get("target_url", "")
+        uploaded_context = input_data.get("uploaded_context", "")
         
-        prompt = f"User Request: '{user_request}'\nTarget URL: '{target_url}'\nGenerate the plan."
+        prompt = f"User Request: '{user_request}'\nTarget URL: '{target_url}'"
+        if uploaded_context:
+            prompt += f"\n\nAttached Document Context:\n{uploaded_context}"
+        prompt += "\nGenerate the plan."
         
         # Route to planning model (Groq)
         response_text = await ai_router.generate(

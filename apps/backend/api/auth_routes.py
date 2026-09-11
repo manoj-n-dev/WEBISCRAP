@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -45,15 +45,18 @@ async def forgot_password(
 class RefreshTokenRequest(BaseModel):
     refresh_token: str | None = None
 
-def set_refresh_cookie(response: Response, token: str):
-    response.set_cookie(
-        key="refresh_token",
-        value=token,
-        httponly=True,
-        secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-    )
+def set_refresh_cookie(response: Response, token: str, remember_me: bool = True):
+    # M3: Conditionally set max_age; omit for session-only cookie when remember_me is False
+    cookie_kwargs = {
+        "key": "refresh_token",
+        "value": token,
+        "httponly": True,
+        "secure": settings.ENVIRONMENT == "production",
+        "samesite": "lax",
+    }
+    if remember_me:
+        cookie_kwargs["max_age"] = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    response.set_cookie(**cookie_kwargs)
 
 @router.post("/refresh")
 async def refresh_access_token(
@@ -151,6 +154,7 @@ async def register(
 @router.post("/login")
 async def login_access_token(
     response: Response,
+    remember_me: bool = Query(default=True),
     db: AsyncSession = Depends(get_session),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
@@ -171,7 +175,8 @@ async def login_access_token(
         raise HTTPException(status_code=400, detail="Inactive user")
         
     new_refresh = create_refresh_token(user.id)
-    set_refresh_cookie(response, new_refresh)
+    # M3: Pass remember_me to determine session vs persistent refresh cookie
+    set_refresh_cookie(response, new_refresh, remember_me=remember_me)
     
     return {
         "access_token": create_access_token(user.id),

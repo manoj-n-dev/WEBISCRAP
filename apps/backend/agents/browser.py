@@ -51,8 +51,23 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
 
     dom_snapshots = []
 
+    # C2: Resolve and validate the target hostname before launching Chromium
+    target_hostname = urllib.parse.urlparse(target_url).hostname
+    resolved_ip = None
+    if target_hostname:
+        try:
+            resolved_ip = socket.gethostbyname(target_hostname)
+            if not validate_resolved_ip(resolved_ip):
+                raise ValueError(f"Blocked SSRF attempt: {target_hostname} resolves to {resolved_ip}")
+        except socket.gaierror as e:
+            logger.warning(f"Failed to resolve target hostname {target_hostname}: {e}")
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_args = []
+        if target_hostname and resolved_ip:
+            launch_args.append(f"--host-resolver-rules=MAP {target_hostname} {resolved_ip}")
+
+        browser = p.chromium.launch(headless=True, args=launch_args)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080},
@@ -61,32 +76,21 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
         page = context.new_page()
 
         try:
-            # C4 & H4: SSRF and DNS rebinding protection
-            # Intercept all outgoing requests in Playwright to validate hostnames against internal/private IPs.
-            # To prevent DNS rebinding TOCTOU (where Chromium performs its own separate DNS lookup that
-            # could resolve to an internal/private IP after validation), we rewrite the request URL to use
-            # the validated IP address while preserving the original Host header.
+            # C2: SSRF and DNS rebinding protection for subresources without breaking SNI / HTTPS
             def ssrf_route_handler(route):
-                """Abort requests to internal/private IPs and mitigate DNS rebinding TOCTOU."""
+                """Abort requests to internal/private IPs for subresources without breaking SNI."""
                 request_url = route.request.url
                 try:
-                    parsed = urllib.parse.urlparse(request_url)
-                    hostname = parsed.hostname
+                    hostname = urllib.parse.urlparse(request_url).hostname
                     if hostname:
                         ip_addr = socket.gethostbyname(hostname)
                         if not validate_resolved_ip(ip_addr):
                             logger.warning(f"Playwright SSRF block: {request_url} resolved to {ip_addr}")
                             route.abort()
                             return
-                        
-                        # DNS rebinding fix: route directly to validated IP with original Host header
-                        headers = dict(route.request.headers)
-                        headers["host"] = hostname
-                        netloc = parsed.netloc
-                        new_netloc = netloc.replace(hostname, ip_addr, 1)
-                        rewritten_url = urllib.parse.urlunparse(parsed._replace(netloc=new_netloc))
-                        route.continue_(url=rewritten_url, headers=headers)
-                        return
+                except socket.gaierror:
+                    route.abort()
+                    return
                 except Exception as e:
                     logger.debug(f"SSRF route handler fallback for {request_url}: {e}")
                 route.continue_()

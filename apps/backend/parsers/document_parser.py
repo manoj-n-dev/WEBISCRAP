@@ -38,6 +38,15 @@ def parse_csv(file_path: str) -> str:
         logger.error(f"Error parsing CSV {file_path}: {e}")
         return f"Error extracting text from CSV: {str(e)}"
 
+def parse_excel(file_path: str) -> str:
+    """H2: Extracts text from an Excel (.xlsx / .xls) file by converting to string representation."""
+    try:
+        df = pd.read_excel(file_path)
+        return df.to_string(index=False)
+    except Exception as e:
+        logger.error(f"Error parsing Excel {file_path}: {e}")
+        return f"Error extracting text from Excel: {str(e)}"
+
 def parse_image(file_path: str) -> str:
     """Extracts text from an image using Tesseract OCR."""
     try:
@@ -58,6 +67,8 @@ def extract_text_from_file(file_path: str) -> str:
         return parse_docx(file_path)
     elif ext == ".csv":
         return parse_csv(file_path)
+    elif ext in (".xlsx", ".xls"):
+        return parse_excel(file_path)
     elif ext in [".png", ".jpg", ".jpeg", ".tiff", ".bmp"]:
         return parse_image(file_path)
     elif ext in [".txt", ".md", ".json"]:

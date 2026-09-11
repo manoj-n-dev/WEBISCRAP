@@ -25,7 +25,8 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="Filename is required")
     ext = os.path.splitext(file.filename)[1].lower()
     
-    ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.csv', '.png', '.jpg', '.jpeg'}
+    # H2: Allow Excel file uploads
+    ALLOWED_EXTENSIONS = {'.pdf', '.docx', '.csv', '.png', '.jpg', '.jpeg', '.xlsx', '.xls'}
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported file extension")
         

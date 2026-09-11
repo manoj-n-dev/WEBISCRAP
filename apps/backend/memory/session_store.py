@@ -125,7 +125,7 @@ class RedisStore:
         result = await self.client.get(f"blacklist:jti:{jti}")
         return result is not None
 
-    # --- User session index helpers (FIX 2 / C3) ---
+    # --- User session index helpers (FIX 2 / C3 / M2) ---
 
     async def add_user_session(self, user_id: str, session_id: str, ttl_seconds: int = 86400):
         """Track a session under a user (sorted set with timestamp score for recency)."""
@@ -134,14 +134,26 @@ class RedisStore:
         await self.client.zadd(key, {session_id: time.time()})
         await self.client.expire(key, ttl_seconds)
 
-    async def get_user_sessions(self, user_id: str) -> List[str]:
-        """Return session IDs for a user, most recent first."""
+    async def get_user_sessions(self, user_id: str, with_scores: bool = True) -> Any:
+        """Return session IDs for a user, most recent first. With scores if requested."""
         await self.connect()
         key = f"user_sessions:{user_id}"
-        # ZREVRANGEBYSCORE returns highest-score (most recent) first
-        return await self.client.zrevrange(key, 0, -1)
+        if with_scores:
+            # M2: Fetch with scores to allow sidebar timestamp bucketing
+            results = await self.client.zrevrange(key, 0, -1, withscores=True)
+            formatted = []
+            for item in results:
+                if isinstance(item, (tuple, list)):
+                    sid, score = item
+                else:
+                    sid, score = item, time.time()
+                sid_str = sid.decode("utf-8") if isinstance(sid, bytes) else str(sid)
+                formatted.append({"id": sid_str, "timestamp": float(score)})
+            return formatted
+        results = await self.client.zrevrange(key, 0, -1)
+        return [s.decode("utf-8") if isinstance(s, bytes) else str(s) for s in results]
 
-    # --- Uploaded context helpers (FIX 13 / M4) ---
+    # --- Uploaded context helpers (FIX 13 / C3 / M4) ---
 
     async def save_uploaded_context(self, session_id: str, file_id: str, text: str, ttl_seconds: int = 86400):
         """Store uploaded file text associated with a session."""
@@ -154,7 +166,32 @@ class RedisStore:
     async def get_uploaded_context(self, session_id: str, file_id: str) -> Optional[str]:
         """Retrieve uploaded file text for a session."""
         await self.connect()
-        return await self.client.get(f"uploaded_context:{session_id}:{file_id}")
+        raw = await self.client.get(f"uploaded_context:{session_id}:{file_id}")
+        return raw.decode("utf-8") if isinstance(raw, bytes) else raw
+
+    async def list_uploaded_context_ids(self, session_id: str) -> List[str]:
+        """C3: Retrieve all uploaded file IDs for a session."""
+        await self.connect()
+        members = await self.client.smembers(f"session_uploads:{session_id}")
+        return [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in members]
+
+    # --- Background Job Status Helpers (C5) ---
+
+    async def save_job_status(self, job_id: str, data: Dict[str, Any], ttl_seconds: int = 86400):
+        """C5: Store background scrape job status under dedicated key namespace."""
+        await self.connect()
+        key = f"job:{job_id}:status"
+        await self.client.set(key, json.dumps(data), ex=ttl_seconds)
+
+    async def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """C5: Retrieve background scrape job status from dedicated key namespace."""
+        await self.connect()
+        key = f"job:{job_id}:status"
+        raw = await self.client.get(key)
+        if not raw:
+            return None
+        text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+        return json.loads(text)
 
 redis_store = RedisStore()
 

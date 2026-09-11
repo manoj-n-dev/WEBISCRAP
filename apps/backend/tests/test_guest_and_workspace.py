@@ -7,10 +7,9 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from playwright.sync_api import sync_playwright
 
-ARTIFACTS_DIR = os.path.join(
-    os.environ.get("USERPROFILE", "C:\\Users\\manoj"),
-    ".gemini\\antigravity-ide\\brain\\716b5174-cacd-4939-8401-a22cdb4a4680"
-)
+from pathlib import Path
+ARTIFACTS_DIR = str(Path(__file__).parent / "artifacts")
+os.makedirs(ARTIFACTS_DIR, exist_ok=True)
 
 def run_workspace_test():
     print("=" * 70)

@@ -27,6 +27,8 @@ class ConversationAgent(BaseAgent):
         # For this prototype, we'll send up to 100 items.
         sample_dataset = dataset[:100]
         
+        uploaded_context = input_data.get("uploaded_context", "")
+        
         prompt = f"""
         User Query: '{user_request}'
         Language: '{detected_language}'
@@ -39,6 +41,8 @@ class ConversationAgent(BaseAgent):
         {json.dumps(sample_dataset, indent=2)}
         ```
         """
+        if uploaded_context:
+            prompt += f"\nAttached Document Context:\n{uploaded_context}\n"
         
         response_text = await ai_router.generate(
             task_category="conversation",

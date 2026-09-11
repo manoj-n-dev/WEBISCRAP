@@ -30,11 +30,19 @@ export function Sidebar() {
           ApiClient.getMe()
         ]);
         if (sessionsRes.status === "fulfilled" && sessionsRes.value?.sessions) {
-          const mapped = sessionsRes.value.sessions.map((s: string | any, i: number) => ({
-            id: typeof s === 'string' ? s : s.id,
-            title: typeof s === 'string' ? `Extraction ${i+1}` : s.title || `Extraction ${i+1}`,
-            date: "today" // simplified for MVP
-          }));
+          const now = Date.now() / 1000;
+          const oneDay = 86400;
+          const mapped = sessionsRes.value.sessions.map((s: string | any, i: number) => {
+            const id = typeof s === 'string' ? s : s.id;
+            const title = typeof s === 'string' ? `Extraction ${i+1}` : (s.title || `Extraction ${i+1}`);
+            const timestamp = typeof s === 'object' && s.timestamp ? s.timestamp : null;
+            let date: "today" | "yesterday" | "older" = "today";
+            if (timestamp) {
+              const diff = now - timestamp;
+              date = diff < oneDay ? "today" : (diff < oneDay * 2 ? "yesterday" : "older");
+            }
+            return { id, title, date };
+          });
           setSessions(mapped);
         }
         if (userRes.status === "fulfilled" && userRes.value) {
@@ -67,6 +75,7 @@ export function Sidebar() {
   );
   const todaySessions = filteredSessions.filter(s => s.date === "today");
   const yesterdaySessions = filteredSessions.filter(s => s.date === "yesterday");
+  const olderSessions = filteredSessions.filter(s => s.date === "older");
 
   // FIX 11 (M2): Real user info derivation
   const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : (user?.is_guest ? "Guest" : "User"));
@@ -122,6 +131,22 @@ export function Sidebar() {
               Yesterday
             </div>
             {yesterdaySessions.map(session => (
+              <SessionItem
+                key={session.id}
+                session={session}
+                isActive={activeSessionId === session.id}
+                onClick={() => handleSelectSession(session.id)}
+              />
+            ))}
+          </>
+        )}
+
+        {olderSessions.length > 0 && (
+          <>
+            <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">
+              Older
+            </div>
+            {olderSessions.map(session => (
               <SessionItem
                 key={session.id}
                 session={session}

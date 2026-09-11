@@ -12,9 +12,10 @@ export interface ComposerProps {
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onSubmit: () => void;
   isLoading?: boolean;
+  sessionId?: string | null;
 }
 
-export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps) {
+export function Composer({ value, onChange, onSubmit, isLoading, sessionId }: ComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -44,7 +45,8 @@ export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps
     if (!file) return;
 
     try {
-      const result = await ApiClient.uploadFile(file);
+      // C3: Pass sessionId so uploaded file context is tracked in Redis for the session
+      const result = await ApiClient.uploadFile(file, sessionId && sessionId !== "new" ? sessionId : undefined);
       // Inject parsed preview into the textarea as context
       const preview = result.preview || "File uploaded successfully.";
       const syntheticEvent = {
@@ -107,7 +109,7 @@ export function Composer({ value, onChange, onSubmit, isLoading }: ComposerProps
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx,.csv,.png,.jpg,.jpeg"
+          accept=".pdf,.docx,.csv,.png,.jpg,.jpeg,.xlsx,.xls"
           className="hidden"
           onChange={handleFileChange}
         />

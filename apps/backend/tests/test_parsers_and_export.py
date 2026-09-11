@@ -10,7 +10,7 @@ BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-from parsers.document_parser import parse_csv, extract_text_from_file
+from parsers.document_parser import parse_csv, parse_excel, extract_text_from_file
 from agents.exporter import sanitize_cell_value, export_agent, EXPORT_DIR
 
 class TestParsersAndExport(unittest.IsolatedAsyncioTestCase):
@@ -78,7 +78,8 @@ class TestParsersAndExport(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(os.path.exists(file_path))
 
         # Check content and formula escaping
-        content = open(file_path, "r", encoding="utf-8").read()
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
         self.assertIn("MacBook Pro", content)
         self.assertIn("ThinkPad X1", content)
         self.assertIn("'=1+1", content) # Sanitized!
@@ -135,6 +136,32 @@ class TestParsersAndExport(unittest.IsolatedAsyncioTestCase):
 
         # Clean up
         os.remove(file_path)
+
+    async def test_exporter_agent_missing_owner_refused(self):
+        """Test H4: ExporterAgent refuses to generate unownable files when owner_id is missing."""
+        input_data = {
+            "cleaned_data": [{"Item": "Sample"}],
+            "export_requested": "csv",
+            "owner_id": ""
+        }
+        output = await export_agent.run(input_data, session_id="test_no_owner_export")
+        self.assertIn("export_error", output)
+        self.assertIsNone(output.get("export_url"))
+
+    def test_excel_parser(self):
+        """Test H2: parse_excel extracting data from Excel (.xlsx) file."""
+        df = pd.DataFrame([{"Product": "Excel Item", "Quantity": 15}])
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as f:
+            temp_xlsx = f.name
+            f.close()
+        try:
+            df.to_excel(temp_xlsx, index=False)
+            extracted = parse_excel(temp_xlsx)
+            self.assertIn("Excel Item", extracted)
+            self.assertIn("15", extracted)
+        finally:
+            if os.path.exists(temp_xlsx):
+                os.remove(temp_xlsx)
 
 if __name__ == "__main__":
     unittest.main()

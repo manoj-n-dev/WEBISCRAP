@@ -103,16 +103,17 @@ class TestSessionStore(unittest.IsolatedAsyncioTestCase):
         await redis_store.add_user_session(self.test_user_id, sess3, ttl_seconds=60)
 
         sessions = await redis_store.get_user_sessions(self.test_user_id)
+        session_ids = [s["id"] if isinstance(s, dict) else s for s in sessions]
         # Most recent session first: sess3, sess2, sess1
-        self.assertIn(sess1, sessions)
-        self.assertIn(sess2, sessions)
-        self.assertIn(sess3, sessions)
-        self.assertEqual(sessions[0], sess3)
-        self.assertEqual(sessions[1], sess2)
-        self.assertEqual(sessions[2], sess1)
+        self.assertIn(sess1, session_ids)
+        self.assertIn(sess2, session_ids)
+        self.assertIn(sess3, session_ids)
+        self.assertEqual(session_ids[0], sess3)
+        self.assertEqual(session_ids[1], sess2)
+        self.assertEqual(session_ids[2], sess1)
 
     async def test_uploaded_context_tracking(self):
-        """Test FIX 13: save_uploaded_context and get_uploaded_context."""
+        """Test FIX 13 & C3: save_uploaded_context, get_uploaded_context, and list_uploaded_context_ids."""
         file_id = f"file_{uuid.uuid4().hex[:6]}"
         sample_text = "Extracted PDF content with product table and prices."
 
@@ -120,11 +121,29 @@ class TestSessionStore(unittest.IsolatedAsyncioTestCase):
         retrieved = await redis_store.get_uploaded_context(self.test_session_id, file_id)
         self.assertEqual(retrieved, sample_text)
 
+        # C3: Test list_uploaded_context_ids
+        ids = await redis_store.list_uploaded_context_ids(self.test_session_id)
+        self.assertIn(file_id, ids)
+
         # Cleanup
         await redis_store.delete(
             f"uploaded_context:{self.test_session_id}:{file_id}",
             f"session_uploads:{self.test_session_id}"
         )
+
+    async def test_job_status_lifecycle(self):
+        """Test C5: save_job_status and get_job_status with dedicated key namespace."""
+        job_id = f"job_{uuid.uuid4().hex[:8]}"
+        job_data = {"status": "done", "result": {"items": [1, 2, 3]}}
+
+        await redis_store.save_job_status(job_id, job_data, ttl_seconds=60)
+        retrieved = await redis_store.get_job_status(job_id)
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved["status"], "done")
+        self.assertEqual(retrieved["result"]["items"], [1, 2, 3])
+
+        # Cleanup
+        await redis_store.delete(f"job:{job_id}:status")
 
 if __name__ == "__main__":
     unittest.main()

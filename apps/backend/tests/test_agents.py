@@ -10,12 +10,28 @@ if BACKEND_DIR not in sys.path:
 
 from agents.conversation import conversation_agent
 from agents.validator import validator_agent
+from agents.analyzer import analyzer_agent
 from ai.key_manager import KeyManager
 from memory.session_store import redis_store
 
 class TestAgents(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await redis_store.close()
+
+    async def test_analyzer_agent_no_url_preserves_state(self):
+        """Test C4: AnalyzerAgent preserves pipeline state when target_url is empty."""
+        input_data = {
+            "user_request": "Hello, how can I help?",
+            "target_url": "",
+            "owner_id": "test_owner_123",
+            "metadata": {"test": True}
+        }
+        res = await analyzer_agent.run(input_data, session_id="test_no_url_sess")
+        self.assertEqual(res["user_request"], "Hello, how can I help?")
+        self.assertEqual(res["owner_id"], "test_owner_123")
+        self.assertEqual(res["target_url"], "")
+        self.assertIn("analysis", res)
+        self.assertFalse(res["analysis"].get("requires_js_rendering"))
 
     def test_key_manager_rotation_and_cooldown(self):
         """Test API key round-robin selection and cooldown marking."""

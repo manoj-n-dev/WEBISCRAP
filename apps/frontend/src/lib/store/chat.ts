@@ -124,7 +124,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       
       updateMessage(aiMsgId, {
         status: "completed",
-        completedSteps: ["plan", "analyze", "browse", "extract", "clean", "validate"],
+        completedSteps: pipelineState.completed_steps || (pipelineState.is_new_scrape === false ? ["plan"] : ["plan", "analyze", "browse", "extract", "clean", "validate"]),
         data: Array.isArray(extractionData) ? extractionData : [extractionData],
         content: conversationResponse,
         totalRows: Array.isArray(extractionData) ? extractionData.length : 1,

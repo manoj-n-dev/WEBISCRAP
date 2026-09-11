@@ -20,12 +20,21 @@ class ExtractorAgent(BaseAgent):
             input_data["extracted_data"] = []
             return input_data
             
+        # H5: Deduplicate repeated snapshots across pagination to cut unnecessary LLM calls
+        unique_snapshots = []
+        seen_snapshots = set()
+        for snap in dom_snapshots:
+            snap_hash = hash(snap.strip())
+            if snap_hash not in seen_snapshots:
+                seen_snapshots.add(snap_hash)
+                unique_snapshots.append(snap)
+
         all_extracted_data = []
         
         # We might have multiple snapshots (e.g. from pagination)
         # We'll process them one by one to avoid context length limits
-        for i, html_chunk in enumerate(dom_snapshots):
-            logger.info(f"[{session_id}] Extracting from snapshot {i+1}/{len(dom_snapshots)}")
+        for i, html_chunk in enumerate(unique_snapshots):
+            logger.info(f"[{session_id}] Extracting from snapshot {i+1}/{len(unique_snapshots)}")
             
             # Ensure we are not sending excessive tokens.
             if len(html_chunk) > 20000:

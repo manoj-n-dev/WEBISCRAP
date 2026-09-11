@@ -51,23 +51,23 @@ async def audit_logging_middleware(request: Request, call_next):
     )
     return response
 
-# C6: Never combine "*" with allow_credentials=True.
-# Use explicit origins in both dev and production.
+# C6 & M6: Never combine "*" with allow_credentials=True.
+# Tighten CORS in production to only settings.FRONTEND_URL.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=[settings.FRONTEND_URL] if settings.ENVIRONMENT == "production" else [settings.FRONTEND_URL, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # C5: Single registration point for all routers. No api_router composition.
-# M4: Rate limiter applied to auth as well (prevents guest account spam).
+# M4 & H6: Rate limiter applied to all endpoints (including auth, upload, and export).
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"], dependencies=[Depends(rate_limiter)])
 app.include_router(chat_router, prefix="/api/chat", tags=["Chat"], dependencies=[Depends(rate_limiter)])
 app.include_router(scrape_router, prefix="/api/scrape", tags=["Scrape"], dependencies=[Depends(rate_limiter)])
-app.include_router(export_router, prefix="/api/export", tags=["Export"])
-app.include_router(upload_router, prefix="/api/upload", tags=["Upload"])
+app.include_router(export_router, prefix="/api/export", tags=["Export"], dependencies=[Depends(rate_limiter)])
+app.include_router(upload_router, prefix="/api/upload", tags=["Upload"], dependencies=[Depends(rate_limiter)])
 
 
 @app.get("/health")

@@ -14,7 +14,7 @@ export interface ExportPanelProps {
 
 const formats = [
   { id: "csv", label: "CSV", icon: FileText, desc: "For spreadsheets" },
-  { id: "excel", label: "Excel", icon: FileSpreadsheet, desc: ".xls format" },
+  { id: "excel", label: "Excel", icon: FileSpreadsheet, desc: ".xls (CSV/TSV compatible)" },
   { id: "json", label: "JSON", icon: FileJson, desc: "For developers" },
   { id: "md", label: "Markdown", icon: FileCode, desc: "Table format" },
   { id: "pdf", label: "PDF", icon: FileText, desc: "Print ready" },

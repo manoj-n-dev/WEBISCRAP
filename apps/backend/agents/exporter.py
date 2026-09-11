@@ -36,7 +36,11 @@ class ExportAgent(BaseAgent):
         export_id = str(uuid.uuid4())
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         owner_prefix = input_data.get("owner_id", "")
-        base_filename = f"{owner_prefix}_webiscrap_{timestamp}_{export_id[:8]}" if owner_prefix else f"webiscrap_{timestamp}_{export_id[:8]}"
+        # H4: Refuse to generate exports without owner_id to prevent permanent 403 download lockout
+        if not owner_prefix:
+            logger.error(f"[{session_id}] Export attempted with no owner_id — refusing to generate an unownable file.")
+            return {**input_data, "export_error": "Missing owner context; export not generated."}
+        base_filename = f"{owner_prefix}_webiscrap_{timestamp}_{export_id[:8]}"
         file_path = ""
         download_url = ""
         
