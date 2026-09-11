@@ -128,6 +128,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                       cols={Object.keys(msg.data[0] || {}).length} 
                       totalRows={msg.totalRows || msg.data.length} 
                       data={msg.data} 
+                      sessionId={sessionId !== "new" ? sessionId : (activeSessionId && activeSessionId !== "new" ? activeSessionId : undefined)}
                       className="mt-4"
                     />
                   )}
@@ -154,7 +155,10 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
 
                   {msg.status === "completed" && (
                     <div className="flex gap-[12px] mt-4 flex-wrap">
-                      <Button onClick={() => router.push(`/dataset/${activeSessionId}`)}>
+                      <Button onClick={() => {
+                        const targetSid = (sessionId && sessionId !== "new") ? sessionId : (activeSessionId && activeSessionId !== "new" ? activeSessionId : null);
+                        if (targetSid) router.push(`/dataset/${targetSid}`);
+                      }}>
                         <FileDown className="w-[16px] h-[16px]" />
                         Open in Dataset View
                       </Button>

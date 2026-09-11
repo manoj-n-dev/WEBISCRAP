@@ -17,6 +17,7 @@ export interface DataCardProps {
   totalRows?: number;
   cached?: boolean;
   className?: string;
+  sessionId?: string;
 }
 
 export function DataCard({
@@ -26,11 +27,14 @@ export function DataCard({
   totalRows = rows,
   cached = false,
   className,
+  sessionId,
 }: DataCardProps) {
   const router = useRouter();
   const { activeSessionId } = useChatStore();
   
   if (!data || data.length === 0) return null;
+  
+  const targetSession = (sessionId && sessionId !== "new") ? sessionId : (activeSessionId && activeSessionId !== "new" ? activeSessionId : null);
   
   // M8: Union keys across all rows to handle heterogeneous data
   const allKeys = new Set<string>();
@@ -52,7 +56,7 @@ export function DataCard({
           <Button variant="icon" onClick={() => handleExport("csv")} title="Download CSV">
             <Download className="w-[15px] h-[15px]" />
           </Button>
-          <Button variant="icon" onClick={() => activeSessionId && router.push(`/dataset/${activeSessionId}`)} title="Open in Dataset View">
+          <Button variant="icon" onClick={() => targetSession && router.push(`/dataset/${targetSession}`)} title="Open in Dataset View">
             <Maximize2 className="w-[15px] h-[15px]" />
           </Button>
         </div>

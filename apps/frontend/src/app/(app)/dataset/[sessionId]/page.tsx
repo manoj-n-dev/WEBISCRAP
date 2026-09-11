@@ -16,22 +16,38 @@ import { ApiClient } from "@/lib/api/client";
 const generateColumns = (data: any[]): ColumnDef<any>[] => {
   if (!data || data.length === 0) return [];
   
-  // M8: Union keys across all rows to handle heterogeneous data
+  // Union keys across all rows to handle heterogeneous data
   const allKeys = new Set<string>();
-  data.forEach(row => Object.keys(row).forEach(k => allKeys.add(k)));
+  data.forEach(row => {
+    if (row && typeof row === "object") {
+      Object.keys(row).forEach(k => allKeys.add(k));
+    }
+  });
   
-  // Exclude 'conf' from standard keys since we want a custom renderer for it
-  allKeys.delete('conf');
+  // Exclude internal keys from standard columns
+  allKeys.delete("conf");
+  allKeys.delete("_flagged");
   
   const cols: ColumnDef<any>[] = Array.from(allKeys).map(key => ({
-    accessorKey: key,
-    header: key.toUpperCase(),
+    id: key,
+    accessorFn: (row: any) => row?.[key],
+    header: key.replace(/_/g, " ").toUpperCase(),
+    cell: ({ getValue }) => {
+      const val = getValue();
+      if (val === null || val === undefined) {
+        return <span className="text-text-dim italic">—</span>;
+      }
+      if (typeof val === "object") {
+        return <span className="font-mono text-[11px]">{JSON.stringify(val)}</span>;
+      }
+      return <span>{String(val)}</span>;
+    },
   }));
   
-  // Remove the fake per-row confidence if it doesn't exist
-  if (data[0].conf !== undefined) {
+  if (data.some(row => row && row.conf !== undefined)) {
     cols.push({
-      accessorKey: "conf",
+      id: "conf",
+      accessorFn: (row: any) => row?.conf,
       header: "CONFIDENCE",
       cell: ({ row }) => <ConfidenceBar score={row.original.conf} />
     });
@@ -63,6 +79,7 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
         return;
       }
       try {
+        setIsLoading(true);
         const data = await ApiClient.getSessionData(sessionId);
         setApiResponse(data);
       } catch (err) {
@@ -72,30 +89,40 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
       }
     }
     
-    if (!lastExtraction?.data || lastExtraction.data.length === 0) {
-      fetchData();
-    } else {
-      setIsLoading(false);
-    }
-  }, [sessionId, lastExtraction]);
+    fetchData();
+  }, [sessionId]);
 
   const rawData = useMemo(() => {
-    if (lastExtraction?.data && lastExtraction.data.length > 0) {
+    if (apiResponse) {
+      if (Array.isArray(apiResponse.cleaned_data) && apiResponse.cleaned_data.length > 0) {
+        return apiResponse.cleaned_data;
+      }
+      if (Array.isArray(apiResponse.data?.cleaned_data) && apiResponse.data.cleaned_data.length > 0) {
+        return apiResponse.data.cleaned_data;
+      }
+      if (Array.isArray(apiResponse.extracted_data) && apiResponse.extracted_data.length > 0) {
+        return apiResponse.extracted_data;
+      }
+      if (Array.isArray(apiResponse.data?.extracted_data) && apiResponse.data.extracted_data.length > 0) {
+        return apiResponse.data.extracted_data;
+      }
+      if (Array.isArray(apiResponse.data) && apiResponse.data.length > 0) {
+        return apiResponse.data;
+      }
+      if (Array.isArray(apiResponse.result?.data) && apiResponse.result.data.length > 0) {
+        return apiResponse.result.data;
+      }
+      if (Array.isArray(apiResponse) && apiResponse.length > 0) {
+        return apiResponse;
+      }
+    }
+    if (lastExtraction?.data && Array.isArray(lastExtraction.data) && lastExtraction.data.length > 0) {
       return lastExtraction.data;
     }
-    if (apiResponse?.cleaned_data && Array.isArray(apiResponse.cleaned_data) && apiResponse.cleaned_data.length > 0) {
-      return apiResponse.cleaned_data;
-    }
-    if (apiResponse?.extracted_data && Array.isArray(apiResponse.extracted_data) && apiResponse.extracted_data.length > 0) {
-      return apiResponse.extracted_data;
-    }
-    if (Array.isArray(apiResponse) && apiResponse.length > 0) {
-      return apiResponse;
-    }
     return [];
-  }, [lastExtraction, apiResponse]);
+  }, [apiResponse, lastExtraction]);
 
-  // FIX 12: Filter rawData based on search query and optional flagged filter
+  // Filter rawData based on search query and optional flagged filter
   const filteredData = useMemo(() => {
     let result = rawData;
     if (flaggedOnly) {
@@ -113,7 +140,6 @@ export default function DatasetPage({ params }: { params: Promise<{ sessionId: s
   const columns = useMemo(() => generateColumns(rawData), [rawData]);
   
   const totalRows = rawData.length;
-  // FIX 10 (M1): Use actual validation metrics from apiResponse.validation or lastExtraction
   const avgConf = (lastExtraction?.confidenceScore !== undefined && lastExtraction.confidenceScore !== null)
     ? lastExtraction.confidenceScore
     : (apiResponse?.validation?.confidence_score != null ? Math.round(apiResponse.validation.confidence_score) : 100);

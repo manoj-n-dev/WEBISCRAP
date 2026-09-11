@@ -71,7 +71,16 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
   - Registration duplicate-email race condition handling with graceful 400 responses.
   - Upload context persistence associating document text with active chat sessions in Redis.
   - Automated Playwright browser installation built directly into `setup.py`.
-- ✅ **17 Bug Report Fixes Completed**: All critical (C1-C5), high (H1-H5), medium (M1-M8), and polish issues from the security and integration audit have been resolved and verified.
+- ✅ **Dataset View Fix & High-Reliability Data Binding**:
+  - Direct route-keyed session fetching on navigation eliminating cross-session Zustand store masking.
+  - Safe fallback resolution on "Open in Dataset View" navigation ensuring valid UUID routing.
+  - Robust payload unwrapping supporting both flat and nested backend dictionary structures (`cleaned_data`, `data.cleaned_data`, `extracted_data`, arrays).
+  - Safe TanStack Table column accessors (`accessorFn`) and cell formatting for nested objects and nullish values.
+- ✅ **Verified Dependency & Environment Cleanliness**:
+  - Clean Python virtual environment (`apps/backend/venv`) with 100% passing test suite (37/37 tests).
+  - Clean Next.js 16 build (`npm run build`) with zero TypeScript errors.
+  - Clean repository with zero uncommitted or lingering runtime artifacts in `uploads/` or `exports/`.
+- ✅ **Audit 3 Bug Report Fixes Completed**: All critical (C1-C6), high (H1-H6), medium (M1-M7), and low (L1-L3) issues resolved and verified.
 
 ---
 
