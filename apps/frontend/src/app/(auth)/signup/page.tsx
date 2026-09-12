@@ -34,6 +34,10 @@ export default function SignupPage() {
     return null;
   };
 
+  const [signupSuccess, setSignupSuccess] = React.useState(false);
+  const [resendStatus, setResendStatus] = React.useState<string | null>(null);
+  const [resending, setResending] = React.useState(false);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -50,20 +54,27 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Register the user
+      // 1. Register the user (creates unverified account & dispatches verification email)
       await ApiClient.register(email, password);
-      
-      // 2. Log them in to get the token
-      const response = await ApiClient.login(email, password);
-      
-      if (response.access_token) {
-        ApiClient.setToken(response.access_token);
-        router.push("/chat/new");
-      }
+      // 2. Display verification pending confirmation
+      setSignupSuccess(true);
     } catch (err: any) {
       setError(err.message || "Failed to sign up");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResending(true);
+    setResendStatus(null);
+    try {
+      const res: any = await ApiClient.resendVerification(email);
+      setResendStatus(res.message || "Verification email resent successfully.");
+    } catch (err: any) {
+      setResendStatus(err.message || "Failed to resend. Please try again in a few minutes.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -140,6 +151,40 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  if (signupSuccess) {
+    return (
+      <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500 text-center max-w-md mx-auto">
+        <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary mx-auto mb-5">
+          <Mail className="w-7 h-7" />
+        </div>
+        <h1 className="text-[22px] font-display font-semibold mb-[8px] text-white">Check Your Inbox</h1>
+        <p className="text-[14px] text-text-dim mb-[24px]">
+          We have sent a verification email to <strong className="text-white">{email}</strong>. Please click the link in that email to verify and activate your account.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <Link href="/login" className="w-full">
+            <Button className="w-full">Go to Sign In</Button>
+          </Link>
+          <Button
+            variant="ghost"
+            onClick={handleResendVerification}
+            disabled={resending}
+            className="w-full text-xs"
+          >
+            {resending ? "Sending..." : "Resend Verification Email"}
+          </Button>
+        </div>
+
+        {resendStatus && (
+          <p className="text-xs text-emerald-400 mt-4 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded">
+            {resendStatus}
+          </p>
+        )}
+      </Card>
+    );
+  }
 
   return (
     <>

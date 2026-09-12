@@ -59,17 +59,22 @@ def verify_google_token(token: str) -> dict:
             requests.Request(), 
             settings.GOOGLE_CLIENT_ID
         )
+        if not idinfo.get("email_verified", False):
+            raise ValueError("Google account email is not verified by Google.")
         return idinfo
     except Exception as e_google:
         # Fallback to Firebase verify_id_token if client authenticated via Firebase Google popup
         if firebase_admin._apps:
             try:
                 decoded = auth.verify_id_token(token)
+                if not decoded.get("email_verified", False):
+                    raise ValueError("Firebase account email is not verified.")
                 return {
                     "email": decoded.get("email"),
                     "sub": decoded.get("uid"),
                     "name": decoded.get("name"),
                     "picture": decoded.get("picture"),
+                    "email_verified": True,
                 }
             except Exception as e_fb:
                 logger.error(f"Google and Firebase token verification failed: {e_google} | {e_fb}")

@@ -20,13 +20,26 @@ from api.scrape import router as scrape_router
 from api.export import router as export_router
 from api.upload import router as upload_router
 
+from fastapi.responses import JSONResponse
+
 # Configure loguru
 logger.remove()
 logger.add(sys.stdout, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting WEBISCRAP API...")
+    logger.info(f"Starting WEBISCRAP API in {settings.ENVIRONMENT} mode...")
+    # Production security assertions (C-04 / Section 16)
+    if settings.ENVIRONMENT == "production":
+        if not settings.JWT_SECRET or settings.JWT_SECRET == "dev-secret-key-change-in-production" or len(settings.JWT_SECRET) < 32:
+            raise RuntimeError(
+                "CRITICAL PRODUCTION ERROR: In production mode, JWT_SECRET must be explicitly set "
+                "to a cryptographically secure key of at least 32 characters."
+            )
+        if not settings.DATABASE_URL:
+            raise RuntimeError("CRITICAL PRODUCTION ERROR: DATABASE_URL must be configured.")
+        if not settings.REDIS_URL:
+            raise RuntimeError("CRITICAL PRODUCTION ERROR: REDIS_URL must be configured.")
     yield
     logger.info("Shutting down WEBISCRAP API...")
 
@@ -36,6 +49,16 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Section 20: Safe global exception handler prevents leaking stack traces or python internals
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Unhandled server exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again later."}
+    )
+
 
 @app.middleware("http")
 async def audit_logging_middleware(request: Request, call_next):

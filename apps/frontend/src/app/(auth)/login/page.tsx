@@ -28,10 +28,16 @@ export default function LoginPage() {
   const [otp, setOtp] = React.useState("");
   const [confirmationResult, setConfirmationResult] = React.useState<any>(null);
 
+  const [isUnverified, setIsUnverified] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
+  const [resendNotice, setResendNotice] = React.useState<string | null>(null);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setIsUnverified(false);
+    setResendNotice(null);
     try {
       const response = await ApiClient.login(email, password, staySignedIn);
       if (response.access_token) {
@@ -39,9 +45,27 @@ export default function LoginPage() {
         router.push("/chat/new");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to sign in");
+      const msg = err.message || "Failed to sign in";
+      setError(msg);
+      if (err.status === 403 || msg.toLowerCase().includes("not verified")) {
+        setIsUnverified(true);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) return;
+    setResending(true);
+    setResendNotice(null);
+    try {
+      const res: any = await ApiClient.resendVerification(email);
+      setResendNotice(res.message || "Verification email sent. Check your inbox.");
+    } catch (err: any) {
+      setResendNotice(err.message || "Failed to resend. Please try again later.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -190,7 +214,25 @@ export default function LoginPage() {
           <Button variant="primary" type="submit" className="w-full mt-[12px]" disabled={loading}>
             {loading ? "Signing in..." : "Sign In"}
           </Button>
-          {error && <div className="text-red-500 text-sm mt-2 text-center">{error}</div>}
+
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mt-2 text-center space-y-1.5">
+              <div>{error}</div>
+              {isUnverified && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="underline text-primary hover:text-primary/80 font-medium cursor-pointer"
+                  >
+                    {resending ? "Sending link..." : "Resend Verification Email"}
+                  </button>
+                  {resendNotice && <div className="text-emerald-400 mt-1">{resendNotice}</div>}
+                </div>
+              )}
+            </div>
+          )}
         </form>
 
         <div className="flex items-center gap-[16px] my-[24px]">

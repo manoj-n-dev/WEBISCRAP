@@ -41,6 +41,16 @@ async def run_reset_password_tests():
         created_user_ids.append(user_id)
         print(f"  --> Registered user {test_email} (ID: {user_id})")
 
+        # 1b. Verify user starts unverified and login is blocked with 403
+        unverified_res = await client.post("/api/auth/login", data={"username": test_email, "password": old_password})
+        assert unverified_res.status_code == 403, f"Expected 403 for unverified user, got {unverified_res.status_code}"
+        dev_verify = reg_res.json().get("dev_verify_url")
+        assert dev_verify, "dev_verify_url should be returned in dev mode"
+        v_tok = dev_verify.split("token=")[-1]
+        v_res = await client.get(f"/api/auth/verify-email?token={v_tok}")
+        assert v_res.status_code == 200, f"Verification failed: {v_res.text}"
+        print(f"  --> Verified user {test_email}")
+
         # 2. Request password reset
         print("\n[TEST 2] Requesting Password Reset Link (/api/auth/forgot-password)")
         forgot_res = await client.post("/api/auth/forgot-password", json={"email": test_email})

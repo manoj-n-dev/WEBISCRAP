@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 from fastapi import Request
@@ -68,6 +69,22 @@ class Settings(BaseSettings):
     @property
     def groq_keys_list(self) -> List[str]:
         return [k.strip() for k in self.GROQ_API_KEYS.split(",") if k.strip()]
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        """
+        C-04 Production Secret Fallback Protection:
+        Fail fast at startup in production if default/weak secrets are detected or
+        critical datastores are not configured.
+        """
+        if self.ENVIRONMENT.lower() == "production":
+            if not self.JWT_SECRET or self.JWT_SECRET == "dev-secret-key-change-in-production" or len(self.JWT_SECRET) < 32:
+                raise ValueError("CRITICAL: JWT_SECRET must be configured with a random secure string of at least 32 characters in production.")
+            if not self.DATABASE_URL:
+                raise ValueError("CRITICAL: DATABASE_URL must be configured in production.")
+            if not self.REDIS_URL:
+                raise ValueError("CRITICAL: REDIS_URL must be configured in production.")
+        return self
 
 settings = Settings()
 

@@ -41,6 +41,11 @@ async def get_current_user(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
         
+    # Validate token_version to enforce immediate session invalidation upon password reset
+    token_version = payload.get("token_version", 1)
+    if user.token_version != token_version:
+        raise credentials_exception
+        
     return user
 
 async def get_current_active_user(

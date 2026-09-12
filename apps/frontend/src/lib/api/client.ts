@@ -1,9 +1,38 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// FIX 7 (H3): Access token stored in-memory instead of localStorage.
-// This prevents XSS from reading the token. The refresh token is already
-// stored as an httpOnly cookie and is never accessible to JS.
+// In-memory access token storage (immune to localStorage XSS attacks)
 let accessToken: string | null = null;
+
+// Single-flight refresh lock (Section 12 / Refresh Race Condition)
+// Concurrently arriving 401s share a single refresh request rather than rotating/revoking out from under each other
+let refreshPromise: Promise<string | null> | null = null;
+
+async function performSilentRefresh(): Promise<string | null> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        accessToken = data.access_token;
+        return data.access_token as string;
+      }
+    } catch {
+      // Refresh failed — user is not authenticated or session invalid
+    }
+    return null;
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+}
 
 export class ApiClient {
   /** Set the in-memory access token (called after login/refresh). */
@@ -17,27 +46,13 @@ export class ApiClient {
   }
 
   /**
-   * Bootstrap auth on page load by attempting a silent refresh.
+   * Bootstrap auth on page load by attempting a single silent refresh.
    * Returns true if auth was restored, false otherwise.
    */
   static async initAuth(): Promise<boolean> {
     if (accessToken) return true;
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        accessToken = data.access_token;
-        return true;
-      }
-    } catch {
-      // Refresh failed — user is not authenticated
-    }
-    return false;
+    const token = await performSilentRefresh();
+    return !!token;
   }
 
   private static async request(endpoint: string, options: RequestInit = {}) {
@@ -64,36 +79,28 @@ export class ApiClient {
     }
 
     if (!response.ok) {
+      // Handle 401 using single-flight refresh mechanism
       if (response.status === 401 && endpoint !== "/api/auth/refresh") {
-        try {
-          const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({}) // Backend will read from cookie
+        const newToken = await performSilentRefresh();
+        if (newToken) {
+          headers.set("Authorization", `Bearer ${newToken}`);
+          response = await fetch(`${API_BASE_URL}${endpoint}`, { 
+            ...options, 
+            headers,
+            credentials: "include"
           });
-          if (refreshRes.ok) {
-            const data = await refreshRes.json();
-            accessToken = data.access_token;
-            // Retry the original request
-            headers.set("Authorization", `Bearer ${data.access_token}`);
-            response = await fetch(`${API_BASE_URL}${endpoint}`, { 
-              ...options, 
-              headers,
-              credentials: "include"
-            });
-            if (response.ok) {
-              if (response.headers.get("content-type")?.includes("application/json")) return response.json();
-              return response.blob();
-            }
+          if (response.ok) {
+            if (response.headers.get("content-type")?.includes("application/json")) return response.json();
+            return response.blob();
           }
-        } catch (e) {
-          // Refresh failed, fall through to error handling
         }
       }
       
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `API Error: ${response.statusText}`);
+      const err = new Error(errorData.detail || `API Error: ${response.statusText}`) as any;
+      err.status = response.status;
+      err.detail = errorData.detail;
+      throw err;
     }
 
     if (response.headers.get("content-type")?.includes("application/json")) {
@@ -111,7 +118,7 @@ export class ApiClient {
     formData.append("username", username);
     formData.append("password", password);
     
-    // Do NOT set Content-Type header -- browser must set it with the multipart boundary
+    // Do NOT set Content-Type header -- browser sets multipart boundary
     return this.request(`/api/auth/login?remember_me=${staySignedIn}`, { 
       method: "POST",
       body: formData,
@@ -120,6 +127,26 @@ export class ApiClient {
 
   static async register(email: string, password: string, full_name?: string) {
     return this.request("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password, full_name }),
+    });
+  }
+
+  static async verifyEmail(token: string) {
+    return this.request(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+      method: "GET",
+    });
+  }
+
+  static async resendVerification(email: string) {
+    return this.request("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  static async convertGuest(email: string, password: string, full_name?: string) {
+    return this.request("/api/auth/convert-guest", {
       method: "POST",
       body: JSON.stringify({ email, password, full_name }),
     });
@@ -164,7 +191,6 @@ export class ApiClient {
     return this.request(`/api/chat/${sessionId}/history`, { method: "GET" });
   }
 
-  // H4: File upload
   static async uploadFile(file: File, sessionId?: string) {
     const formData = new FormData();
     formData.append("file", file);
@@ -175,27 +201,22 @@ export class ApiClient {
     });
   }
 
-  // H6: Fetch session data for dataset view
   static async getSessionData(sessionId: string) {
     return this.request(`/api/chat/${sessionId}/data`, { method: "GET" });
   }
 
-  // H9: Fetch session list for sidebar
   static async getSessions() {
     return this.request("/api/chat/sessions", { method: "GET" });
   }
 
-  // M9: Fetch pipeline progress
   static async getProgress(sessionId: string) {
     return this.request(`/api/chat/${sessionId}/progress`, { method: "GET" });
   }
 
-  // FIX 11 (M2): Fetch current user info
   static async getMe() {
     return this.request("/api/auth/me", { method: "GET" });
   }
 
-  // M5: Logout
   static async logout() {
     try {
       await this.request("/api/auth/logout", {
@@ -208,4 +229,3 @@ export class ApiClient {
     accessToken = null;
   }
 }
-
