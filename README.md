@@ -202,7 +202,7 @@ WEBISCRAP underwent a full security and architectural audit across both backend 
 | **M5** | 🟡 Medium | `models/base.py` | `updated_at` timestamp never updated on record modification. | Configured automatic timestamp refresh hooks for database updates. |
 | **M6** | 🟡 Medium | `base.py` / `security.py` | Inconsistent naive vs. timezone-aware datetimes (`utcnow` vs `now(timezone.utc)`). | Standardized all datetime operations across backend to timezone-aware UTC. |
 | **M7** | 🟡 Medium | `rate_limit.py` / `main.py` | Rate limiter and audit logger lacked reverse-proxy IP handling. | Added `TRUST_PROXY_HEADERS` support with trusted proxy header parsing (`X-Forwarded-For`). |
-| **M8** | 🟡 Medium | `setup.py` | Missing automated Playwright Chromium browser binary installation. | Added `playwright install chromium` step to backend setup runner. |
+| **M8** | 🟡 Medium | `dev.py` | Missing automated Playwright Chromium browser binary installation. | Added `playwright install chromium` step to backend setup runner. |
 
 ---
 
@@ -285,7 +285,7 @@ cp .env.example .env
 # Edit .env with your Groq API keys, database URL, and Redis URL
 
 # 4. Quick Start (Run Both Backend & Frontend)
-python setup.py
+python dev.py
 ```
 
 The API will be available at `http://localhost:8000` and the UI at `http://localhost:3000`.
