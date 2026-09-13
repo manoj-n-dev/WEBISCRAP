@@ -95,6 +95,13 @@ async def upload_file(
         from parsers.document_parser import extract_text_from_file
         parsed_text = extract_text_from_file(file_path)
         
+        # H-06: Delete raw file immediately after parsing — only parsed text is persisted in Redis.
+        # Render's filesystem is ephemeral; we must not rely on it for durable storage.
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass  # Non-critical: file will be garbage-collected on next restart anyway
+        
         # FIX 13 (M4): Associate uploaded file context with the chat session in Redis
         if session_id:
             await redis_store.save_uploaded_context(session_id, file_id, parsed_text)
