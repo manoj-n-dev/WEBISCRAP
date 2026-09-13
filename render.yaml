@@ -64,6 +64,16 @@ services:
         sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_CLIENT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_X509_CERT_URL
+        sync: false
 
   # ─── 2. Background Queue Worker (Redis Durable Scrape Worker) ──────────────
   - type: worker
@@ -71,7 +81,7 @@ services:
     runtime: docker
     dockerfilePath: apps/backend/Dockerfile
     dockerContext: apps/backend
-    dockerCommand: python scrape_worker.py
+    dockerCommand: python -m workers.scrape_worker
     plan: free
     region: oregon
     autoDeploy: true

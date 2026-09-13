@@ -62,7 +62,7 @@ class RedisStore:
             return json.loads(data)
         return None
 
-    async def save_session_data(self, session_id: str, data: Union[Dict[str, Any], List[Any]], ttl_seconds: int = 86400):
+    async def save_session_data(self, session_id: str, data: Union[Dict[str, Any], List[Any]], ttl_seconds: int = 1209600):
         await self.connect()
         await self.client.set(
             f"session:{session_id}:data",
@@ -71,7 +71,7 @@ class RedisStore:
         )
         logger.info(f"[{session_id}] Session data saved to Redis with {ttl_seconds}s TTL.")
 
-    async def set_session_owner(self, session_id: str, owner_id: str, ttl_seconds: int = 86400):
+    async def set_session_owner(self, session_id: str, owner_id: str, ttl_seconds: int = 1209600):
         await self.connect()
         await self.client.set(
             f"session:{session_id}:owner",
@@ -87,7 +87,7 @@ class RedisStore:
         await self.connect()
         key = f"session:{session_id}:history"
         await self.client.rpush(key, json.dumps(message))  # type: ignore[misc]
-        await self.client.expire(key, 86400) # Keep history for 1 day
+        await self.client.expire(key, 1209600) # Keep history for 14 days
 
     async def get_conversation_history(self, session_id: str) -> list[Dict[str, str]]:
         await self.connect()
@@ -127,7 +127,7 @@ class RedisStore:
 
     # --- User session index helpers (FIX 2 / C3 / M2) ---
 
-    async def add_user_session(self, user_id: str, session_id: str, ttl_seconds: int = 86400):
+    async def add_user_session(self, user_id: str, session_id: str, ttl_seconds: int = 1209600):
         """Track a session under a user (sorted set with timestamp score for recency)."""
         await self.connect()
         key = f"user_sessions:{user_id}"
@@ -155,7 +155,7 @@ class RedisStore:
 
     # --- Uploaded context helpers (FIX 13 / C3 / M4) ---
 
-    async def save_uploaded_context(self, session_id: str, file_id: str, text: str, ttl_seconds: int = 86400):
+    async def save_uploaded_context(self, session_id: str, file_id: str, text: str, ttl_seconds: int = 1209600):
         """Store uploaded file text associated with a session."""
         await self.connect()
         key = f"uploaded_context:{session_id}:{file_id}"

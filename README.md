@@ -69,7 +69,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
   - Idempotent database migrations for `is_verified` and `token_version`.
   - Complete email verification and seamless guest-to-permanent account conversion flows.
 - ✅ **Phase 2: Critical & High Hardening**:
-  - Durable Redis scraping job queue worker (`scrape_worker.py`) preventing job loss on server restarts (H-05).
+  - Durable Redis scraping job queue worker (`workers/scrape_worker.py`) preventing job loss on server restarts (H-05).
   - Stateless upload and streaming export pipeline (`/api/export/{format}`) eliminating ephemeral disk dependency (H-06, H-07).
   - LLM prompt injection delimiter boundaries `<untrusted_source_content>` & `<security_policy>` (H-08).
   - Browser navigation guardrails (`_is_safe_pagination_element`) preventing automated state-changing clicks (H-09).
@@ -378,7 +378,7 @@ WEBISCRAP is architected for zero-downtime, scalable deployment across **Render*
 3. Click **New +** → **Blueprint** and select the repository.
 4. Render automatically parses [render.yaml](render.yaml) and provisions:
    - **`webiscrap-api`**: Docker Web Service running FastAPI with automatic health monitoring on `/health`.
-   - **`webiscrap-worker`**: Docker Background Worker executing `python scrape_worker.py` to dequeue durable Redis scraping jobs.
+   - **`webiscrap-worker`**: Docker Background Worker running `python -m workers.scrape_worker` to dequeue durable Redis scraping jobs.
 5. In the Render Dashboard, fill in your production environment variables (see `apps/backend/.env.production.example`):
    - `DATABASE_URL`: Neon PostgreSQL connection string (`postgresql+asyncpg://...`)
    - `REDIS_URL`: Upstash or Render Redis connection string (`rediss://...`)
