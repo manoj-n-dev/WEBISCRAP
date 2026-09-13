@@ -47,6 +47,7 @@ class TestHealthCheckModule:
         """Verify health router exposes /health/live and /health/ready."""
         from core.health import router
         paths = [getattr(route, "path", "") for route in router.routes]
+        assert "/health" in paths, f"Missing /health in {paths}"
         assert "/health/live" in paths, f"Missing /health/live in {paths}"
         assert "/health/ready" in paths, f"Missing /health/ready in {paths}"
 

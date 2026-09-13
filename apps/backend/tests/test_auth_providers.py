@@ -1,4 +1,4 @@
-import asyncio
+import unittest
 import sys
 import os
 import httpx
@@ -9,21 +9,17 @@ if BACKEND_DIR not in sys.path:
 
 from main import app
 
-async def test_oauth_endpoints():
-    print("\n--- Testing Google & Phone Auth Endpoint Guards ---")
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=10.0) as client:
-        # Test invalid Google token
-        res = await client.post("/api/auth/google", json={"id_token": "invalid_fake_google_token"})
-        assert res.status_code == 400, f"Expected 400 for fake token, got {res.status_code}"
-        print(f"  --> Google invalid token rejected: {res.json()['detail']}")
+class TestAuthProviders(unittest.IsolatedAsyncioTestCase):
+    async def test_oauth_endpoints(self):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", timeout=10.0) as client:
+            # Test invalid Google token
+            res = await client.post("/api/auth/google", json={"id_token": "invalid_fake_google_token"})
+            self.assertEqual(res.status_code, 400)
 
-        # Test invalid Phone token
-        res = await client.post("/api/auth/phone", json={"id_token": "invalid_fake_phone_token"})
-        assert res.status_code == 400, f"Expected 400 for fake phone token, got {res.status_code}"
-        print(f"  --> Phone invalid token rejected: {res.json()['detail']}")
-
-    print("--- Google & Phone Endpoint Guards PASSED ---\n")
+            # Test invalid Phone token
+            res = await client.post("/api/auth/phone", json={"id_token": "invalid_fake_phone_token"})
+            self.assertEqual(res.status_code, 400)
 
 if __name__ == "__main__":
-    asyncio.run(test_oauth_endpoints())
+    unittest.main()

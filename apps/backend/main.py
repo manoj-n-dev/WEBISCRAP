@@ -118,11 +118,12 @@ app.include_router(export_router, prefix="/api/export", tags=["Export"], depende
 app.include_router(upload_router, prefix="/api/upload", tags=["Upload"], dependencies=[Depends(rate_limiter)])
 
 
-# Legacy /health endpoint preserved for backward compatibility — redirects to /health/live behavior
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "environment": settings.ENVIRONMENT}
-
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+    # Render injects PORT dynamically; fallback to 8000 for local development
+    port = int(os.environ.get("PORT", 8000))
+    is_dev = settings.ENVIRONMENT.lower() == "development"
+
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=is_dev)

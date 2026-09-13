@@ -13,6 +13,7 @@ if BACKEND_DIR not in sys.path:
 from main import app
 from memory.session_store import redis_store
 from database.connection import engine
+from auth.security import create_verification_token
 
 class TestApiEndpoints(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -81,7 +82,19 @@ class TestApiEndpoints(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(dup_res.status_code, 400)
         self.assertIn("already exists", dup_res.json()["detail"])
 
-        # 4. Login
+        # Unverified user cannot login -> 403 Forbidden
+        unverified_login = await self.client.post("/api/auth/login", data={
+            "username": self.email,
+            "password": self.password
+        })
+        self.assertEqual(unverified_login.status_code, 403)
+
+        # Verify email using single-use verification token
+        verify_token = create_verification_token(uuid.UUID(reg_data["id"]))
+        verify_res = await self.client.get(f"/api/auth/verify-email?token={verify_token}")
+        self.assertEqual(verify_res.status_code, 200)
+
+        # 4. Login after verification
         login_res = await self.client.post("/api/auth/login", data={
             "username": self.email,
             "password": self.password
@@ -156,17 +169,23 @@ class TestApiEndpoints(unittest.IsolatedAsyncioTestCase):
         - If a session has no owner, User B is blocked (403).
         - User A can access their own session.
         """
-        # Register User A
+        # Register User A and verify email
         user_a_email = f"user_a_{uuid.uuid4().hex[:6]}@example.com"
         reg_a = await self.client.post("/api/auth/register", json={"email": user_a_email, "password": "UserPass123!"})
         user_a_id = reg_a.json()["id"]
+        token_a_verify = create_verification_token(uuid.UUID(user_a_id))
+        await self.client.get(f"/api/auth/verify-email?token={token_a_verify}")
 
         login_a = await self.client.post("/api/auth/login", data={"username": user_a_email, "password": "UserPass123!"})
         token_a = login_a.json()["access_token"]
 
-        # Register User B
+        # Register User B and verify email
         user_b_email = f"user_b_{uuid.uuid4().hex[:6]}@example.com"
-        await self.client.post("/api/auth/register", json={"email": user_b_email, "password": "UserPass123!"})
+        reg_b = await self.client.post("/api/auth/register", json={"email": user_b_email, "password": "UserPass123!"})
+        user_b_id = reg_b.json()["id"]
+        token_b_verify = create_verification_token(uuid.UUID(user_b_id))
+        await self.client.get(f"/api/auth/verify-email?token={token_b_verify}")
+
         login_b = await self.client.post("/api/auth/login", data={"username": user_b_email, "password": "UserPass123!"})
         token_b = login_b.json()["access_token"]
 

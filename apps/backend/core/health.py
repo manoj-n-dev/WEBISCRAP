@@ -31,16 +31,19 @@ def reset_startup_time():
     _startup_time = time.time()
 
 
-# ─── Liveness Probe ──────────────────────────────────────────────────────────
+# ─── Liveness / Keep-Alive Probe ──────────────────────────────────────────────
 
+@router.get("/health", status_code=status.HTTP_200_OK)
 @router.get("/health/live", status_code=status.HTTP_200_OK)
 async def liveness():
     """
-    Kubernetes / Render liveness probe.
-    Returns 200 if the process is alive. No dependency checks.
+    Kubernetes / Render liveness and external keep-alive probe.
+    Returns HTTP 200 immediately if the application process is alive.
+    Zero external dependency checks (no DB, no Redis, no AI, no scraping).
+    Safe to call every 5 minutes indefinitely.
     """
     return {
-        "status": "alive",
+        "status": "ok",
         "environment": settings.ENVIRONMENT,
         "uptime_seconds": round(time.time() - _startup_time, 2),
     }
