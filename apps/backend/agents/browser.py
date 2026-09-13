@@ -8,6 +8,7 @@ import httpx
 import re
 import socket
 import urllib.parse
+from core.config import settings
 
 
 # Configurable limits
@@ -51,14 +52,17 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
 
     dom_snapshots = []
 
-    # C2: Resolve and validate the target hostname before launching Chromium
+    # C2 & H-12: Validate the target URL against SSRF before launching Chromium
+    if not validate_target_url(target_url):
+        raise ValueError(f"Blocked SSRF attempt: {target_url} failed security validation")
+
     target_hostname = urllib.parse.urlparse(target_url).hostname
     resolved_ip = None
     if target_hostname:
         try:
-            resolved_ip = socket.gethostbyname(target_hostname)
-            if not validate_resolved_ip(resolved_ip):
-                raise ValueError(f"Blocked SSRF attempt: {target_hostname} resolves to {resolved_ip}")
+            addr_infos = socket.getaddrinfo(target_hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            if addr_infos:
+                resolved_ip = addr_infos[0][4][0]
         except socket.gaierror as e:
             logger.warning(f"Failed to resolve target hostname {target_hostname}: {e}")
 
@@ -67,33 +71,41 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
         if target_hostname and resolved_ip:
             launch_args.append(f"--host-resolver-rules=MAP {target_hostname} {resolved_ip}")
 
+        # H-10: Do NOT ignore HTTPS certificate errors by default in production
+        allow_insecure_ssl = getattr(settings, "ALLOW_INSECURE_SSL", False) and settings.ENVIRONMENT.lower() == "development"
+
         browser = p.chromium.launch(headless=True, args=launch_args)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080},
-            ignore_https_errors=True,
+            ignore_https_errors=allow_insecure_ssl,
         )
         page = context.new_page()
 
         try:
-            # C2: SSRF and DNS rebinding protection for subresources without breaking SNI / HTTPS
+            # C2 & H-11 & H-12: SSRF and DNS rebinding protection for subresources (Fail-Closed)
             def ssrf_route_handler(route):
-                """Abort requests to internal/private IPs for subresources without breaking SNI."""
+                """Abort requests to internal/private IPs for subresources (Fail-Closed)."""
                 request_url = route.request.url
                 try:
                     hostname = urllib.parse.urlparse(request_url).hostname
                     if hostname:
-                        ip_addr = socket.gethostbyname(hostname)
-                        if not validate_resolved_ip(ip_addr):
-                            logger.warning(f"Playwright SSRF block: {request_url} resolved to {ip_addr}")
-                            route.abort()
-                            return
-                except socket.gaierror:
-                    route.abort()
-                    return
+                        # H-12: Validate all addresses returned for this host
+                        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+                        for addr_info in addr_infos:
+                            ip_addr: str = str(addr_info[4][0])  # typeshed: str|int; str() is safe
+                            if not validate_resolved_ip(ip_addr):
+                                logger.warning(f"Playwright SSRF block: {request_url} resolved to unsafe IP {ip_addr}")
+                                route.abort()
+                                return
+                    route.continue_()
                 except Exception as e:
-                    logger.debug(f"SSRF route handler fallback for {request_url}: {e}")
-                route.continue_()
+                    # H-11: Fail-closed on unexpected errors or DNS failures
+                    logger.warning(f"SSRF route handler error for {request_url}, aborting (fail-closed): {e}")
+                    try:
+                        route.abort()
+                    except Exception:
+                        pass
             
             page.route("**/*", ssrf_route_handler)
             page.goto(target_url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_MS)
