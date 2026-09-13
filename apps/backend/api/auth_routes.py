@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import Any, Optional
 import re
 import uuid
-import logging
+from loguru import logger
 
 from database.connection import get_session
 from models.user import User, UserRegisterRequest, UserRead
@@ -34,8 +34,7 @@ from core.rate_limit import (
     guest_rate_limiter,
 )
 from auth.providers import verify_google_token, verify_firebase_token
-
-logger = logging.getLogger(__name__)
+from core.audit_logger import audit_log, get_request_id
 
 router = APIRouter()
 
@@ -125,6 +124,8 @@ async def register(
     verify_token = create_verification_token(new_user.id)
     verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
     email_res = await send_verification_email(user_in.email, verify_url)
+
+    audit_log.auth_event("register", user_id=str(new_user.id), email=new_user.email or user_in.email)
     
     response_payload = {
         "id": str(new_user.id),
@@ -182,7 +183,7 @@ async def verify_email(
     if jti:
         await redis_store.blacklist_jti(jti, 86400) # 24 hour TTL
         
-    logger.info(f"Email verified successfully for user {user.email}")
+    audit_log.auth_event("email_verified", user_id=str(user.id), email=user.email or "")
     return {"message": "Email verified successfully! You can now log in."}
 
 @router.post("/resend-verification", dependencies=[Depends(resend_verification_rate_limiter)])
@@ -248,6 +249,8 @@ async def login_access_token(
         
     new_refresh = create_refresh_token(user.id, token_version=user.token_version)
     set_refresh_cookie(response, new_refresh, remember_me=remember_me)
+
+    audit_log.auth_event("login_success", user_id=str(user.id), email=user.email or "")
     
     return {
         "access_token": create_access_token(user.id, token_version=user.token_version),
@@ -385,7 +388,7 @@ async def reset_password(
     if jti:
         await redis_store.blacklist_jti(jti, settings.RESET_TOKEN_EXPIRE_MINUTES * 60)
         
-    logger.info(f"Password reset successfully completed; sessions invalidated for user {user.email}")
+    audit_log.auth_event("password_reset_complete", user_id=str(user.id), email=user.email or "")
     return {"message": "Password updated successfully. You can now log in with your new password."}
 
 # --- 6. GUEST ACCOUNT CREATION & SECURE CONVERSION ---
@@ -405,6 +408,8 @@ async def create_guest_user(
     
     new_refresh = create_refresh_token(user.id, token_version=user.token_version)
     set_refresh_cookie(response, new_refresh)
+
+    audit_log.auth_event("guest_created", user_id=str(user.id))
     
     return {
         "access_token": create_access_token(user.id, token_version=user.token_version),
@@ -586,4 +591,5 @@ async def logout(
             await redis_store.blacklist_jti(jti, expiry_seconds)
             
     response.delete_cookie("refresh_token")
+    audit_log.auth_event("logout", user_id=str(current_user.id), email=current_user.email or "")
     return {"message": "Successfully logged out"}

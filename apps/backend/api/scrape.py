@@ -9,6 +9,7 @@ from auth.dependencies import get_current_user
 from models.user import User
 from agents.orchestrator import orchestrator
 from memory.session_store import redis_store
+from core.audit_logger import audit_log
 import uuid
 
 router = APIRouter()
@@ -62,6 +63,13 @@ async def submit_scrape_job(
         "owner_id": str(current_user.id),
     }
     await redis_store.enqueue_scrape_job(job_payload)
+
+    audit_log.data_event(
+        "scrape_job_submitted",
+        user_id=str(current_user.id),
+        session_id=session_id,
+        target_url=request.target_url,
+    )
     
     return {
         "status": "accepted",
