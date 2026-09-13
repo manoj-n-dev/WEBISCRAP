@@ -41,7 +41,15 @@ class AnalyzerAgent(BaseAgent):
         # Fetch static HTML snippet
         html_snippet = await self._fetch_html_snippet(target_url)
         
-        prompt = f"Target URL: '{target_url}'\nHTML Snippet:\n```html\n{html_snippet}\n```\nAnalyze the structure."
+        prompt = f"""
+        Target URL: '{target_url}'
+        
+        <untrusted_source_content>
+        {html_snippet}
+        </untrusted_source_content>
+        
+        Analyze the structure according to your task guidelines.
+        """
         
         # Route to analysis model
         response_text = await ai_router.generate(

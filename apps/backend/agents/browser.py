@@ -156,9 +156,64 @@ def _smart_scroll(page) -> str:
     return page.content()
 
 
+# H-09: Forbidden dangerous action keywords for browser automation clicking
+DANGEROUS_CLICK_KEYWORDS = {
+    "submit", "buy", "cart", "checkout", "pay", "order", "purchase",
+    "delete", "remove", "drop", "destroy", "logout", "log out", "sign out",
+    "login", "log in", "sign in", "register", "signup", "cancel", "terminate",
+    "post", "send", "publish", "update", "modify"
+}
+
+def _is_safe_pagination_element(page, element, selector: str) -> bool:
+    """
+    H-09: Enforce strict guardrails against arbitrary state-changing button clicks.
+    Validates that a candidate element is exclusively a benign navigation or pagination control.
+    """
+    selector_lower = selector.lower()
+    for forbidden in DANGEROUS_CLICK_KEYWORDS:
+        if forbidden in selector_lower:
+            logger.warning(f"[Browser Guardrail] Rejected dangerous selector containing '{forbidden}': {selector}")
+            return False
+
+    try:
+        tag_name = page.evaluate("(el) => el.tagName", element)
+        btn_type = page.evaluate("(el) => (el.getAttribute('type') || '').toLowerCase()", element)
+        if btn_type == "submit":
+            logger.warning(f"[Browser Guardrail] Rejected element with type='submit': {selector}")
+            return False
+
+        text_content = (page.evaluate("(el) => el.textContent || ''", element) or "").strip().lower()
+        aria_label = (page.evaluate("(el) => el.getAttribute('aria-label') || ''", element) or "").strip().lower()
+        title_attr = (page.evaluate("(el) => el.getAttribute('title') || ''", element) or "").strip().lower()
+
+        combined_text = f"{text_content} {aria_label} {title_attr}"
+
+        # Check for forbidden state-changing action keywords in element text
+        for forbidden in DANGEROUS_CLICK_KEYWORDS:
+            # Word boundary or standalone match
+            if f" {forbidden} " in f" {combined_text} " or combined_text == forbidden:
+                logger.warning(f"[Browser Guardrail] Rejected element containing forbidden action '{forbidden}': '{combined_text}'")
+                return False
+
+        # Positive indicator: must resemble pagination/navigation
+        safe_indicators = ["next", "more", "load more", "show more", ">", "»", "›", "page", "weiter", "suivant", "siguiente"]
+        has_safe_indicator = any(ind in combined_text for ind in safe_indicators)
+        is_page_number = text_content.isdigit() or (len(text_content) <= 4 and text_content.strip().isdigit())
+
+        if not (has_safe_indicator or is_page_number):
+            logger.warning(f"[Browser Guardrail] Rejected element lacking pagination indicators: '{combined_text}' (selector: {selector})")
+            return False
+
+        return True
+    except Exception as e:
+        logger.warning(f"[Browser Guardrail] Element safety inspection failed: {e}")
+        return False
+
+
 def _paginate_by_clicking(page, selector: str) -> List[str]:
     """
     Clicks a pagination button/link repeatedly to collect data from multiple pages.
+    Guarded by H-09 safe pagination element verification.
     """
     dom_snapshots = []
 
@@ -171,6 +226,11 @@ def _paginate_by_clicking(page, selector: str) -> List[str]:
             next_btn = page.query_selector(selector)
             if not next_btn or not next_btn.is_visible():
                 logger.info(f"Pagination: no more pages after {i+1} clicks")
+                break
+
+            # H-09: Validate element safety before clicking
+            if not _is_safe_pagination_element(page, next_btn, selector):
+                logger.warning(f"Pagination halted: element at '{selector}' is not a verified safe pagination control.")
                 break
 
             next_btn.click()

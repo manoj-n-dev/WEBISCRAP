@@ -1,7 +1,7 @@
 import json
 import asyncio
 import redis.asyncio as redis
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from core.config import settings
 from loguru import logger
 import time
@@ -55,14 +55,14 @@ class RedisStore:
         if self.redis_client and keys:
             await self.client.delete(*keys)
 
-    async def get_session_data(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session_data(self, session_id: str) -> Optional[Union[Dict[str, Any], List[Any]]]:
         await self.connect()
         data = await self.client.get(f"session:{session_id}:data")
         if data:
             return json.loads(data)
         return None
 
-    async def save_session_data(self, session_id: str, data: Dict[str, Any], ttl_seconds: int = 86400):
+    async def save_session_data(self, session_id: str, data: Union[Dict[str, Any], List[Any]], ttl_seconds: int = 86400):
         await self.connect()
         await self.client.set(
             f"session:{session_id}:data",
@@ -175,16 +175,16 @@ class RedisStore:
         members = await self.client.smembers(f"session_uploads:{session_id}")  # type: ignore[misc]
         return [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in members]
 
-    # --- Background Job Status Helpers (C5) ---
+    # --- Background Job Status & Durable Queue Helpers (H-05 / C5) ---
 
     async def save_job_status(self, job_id: str, data: Dict[str, Any], ttl_seconds: int = 86400):
-        """C5: Store background scrape job status under dedicated key namespace."""
+        """Store background scrape job status under dedicated key namespace."""
         await self.connect()
         key = f"job:{job_id}:status"
         await self.client.set(key, json.dumps(data), ex=ttl_seconds)
 
     async def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """C5: Retrieve background scrape job status from dedicated key namespace."""
+        """Retrieve background scrape job status from dedicated key namespace."""
         await self.connect()
         key = f"job:{job_id}:status"
         raw = await self.client.get(key)
@@ -192,6 +192,61 @@ class RedisStore:
             return None
         text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
         return json.loads(text)
+
+    async def enqueue_scrape_job(self, job_data: Dict[str, Any]) -> str:
+        """
+        H-05: Push a durable scrape job into the Redis queue.
+        Persists across server restarts and container recycling.
+        """
+        await self.connect()
+        job_id = job_data["job_id"]
+        queue_key = "queue:scrape_jobs"
+        await self.save_job_status(job_id, {
+            "job_id": job_id,
+            "status": "queued",
+            "target_url": job_data.get("target_url"),
+            "extraction_goal": job_data.get("extraction_goal"),
+            "owner_id": job_data.get("owner_id"),
+            "created_at": time.time(),
+        })
+        await self.client.rpush(queue_key, json.dumps(job_data))  # type: ignore[misc]
+        return job_id
+
+    async def dequeue_scrape_job(self, timeout: int = 2) -> Optional[Dict[str, Any]]:
+        """
+        H-05: Atomically pop the next pending scrape job from the Redis queue.
+        Uses blpop with a timeout for blocking async polling.
+        """
+        await self.connect()
+        queue_key = "queue:scrape_jobs"
+        try:
+            res = await self.client.blpop(queue_key, timeout=timeout)  # type: ignore[misc]
+            if not res:
+                return None
+            # res is tuple: (key, value)
+            raw_job = res[1]
+            text = raw_job.decode("utf-8") if isinstance(raw_job, bytes) else raw_job
+            return json.loads(text)
+        except Exception as e:
+            logger.warning(f"Error popping from scrape job queue: {e}")
+            return None
+
+    async def update_job_status(
+        self,
+        job_id: str,
+        status: str,
+        result: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None
+    ):
+        """H-05: Atomically update status and output of a scrape job."""
+        current = await self.get_job_status(job_id) or {"job_id": job_id}
+        current["status"] = status
+        current["updated_at"] = time.time()
+        if result is not None:
+            current["result"] = result
+        if error is not None:
+            current["error"] = error
+        await self.save_job_status(job_id, current)
 
     async def delete_session(self, session_id: str):
         """Clean up all Redis keys associated with a session."""

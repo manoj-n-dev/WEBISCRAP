@@ -35,13 +35,12 @@ class ExtractorAgent(BaseAgent):
                     html_chunk = html_chunk[:20000]
                     
                 prompt = f"""
-                Extraction Goal: {extraction_goal}
+                User Extraction Goal: {extraction_goal}
                 Expected Fields: {expected_fields}
                 
-                HTML Content:
-                ```html
+                <untrusted_source_content>
                 {html_chunk}
-                ```
+                </untrusted_source_content>
                 """
                 extracted = await self._run_extraction_prompt(prompt, session_id, f"snapshot {i+1}")
                 all_extracted_data.extend(extracted)
@@ -54,13 +53,12 @@ class ExtractorAgent(BaseAgent):
             chunks = [uploaded_context[i:i+chunk_size] for i in range(0, len(uploaded_context), chunk_size)]
             for i, doc_chunk in enumerate(chunks[:5]): # Up to 5 chunks
                 prompt = f"""
-                Extraction Goal: {extraction_goal}
+                User Extraction Goal: {extraction_goal}
                 Expected Fields: {expected_fields}
                 
-                Document / Text Content:
-                ```text
+                <untrusted_source_content>
                 {doc_chunk}
-                ```
+                </untrusted_source_content>
                 """
                 extracted = await self._run_extraction_prompt(prompt, session_id, f"doc chunk {i+1}")
                 all_extracted_data.extend(extracted)

@@ -44,34 +44,35 @@ class ExportAgent(BaseAgent):
         file_path = ""
         download_url = ""
         
+        valid_formats = {"csv", "excel", "json", "markdown"}
+        if export_format not in valid_formats:
+            logger.warning(f"[{session_id}] Unsupported export format: {export_format}")
+            input_data["export_url"] = None
+            return input_data
+
         try:
             df = pd.DataFrame(dataset)
-            # C7: Sanitize all cell values before export
+            # C7: Sanitize all cell values before export to prevent formula injection
             df = df.map(sanitize_cell_value)
             
-            if export_format == "csv":
-                file_path = os.path.join(EXPORT_DIR, f"{base_filename}.csv")
-                df.to_csv(file_path, index=False)
-            elif export_format == "excel":
-                file_path = os.path.join(EXPORT_DIR, f"{base_filename}.xlsx")
-                df.to_excel(file_path, index=False)
-            elif export_format == "json":
-                file_path = os.path.join(EXPORT_DIR, f"{base_filename}.json")
-                df.to_json(file_path, orient="records", indent=2)
-            elif export_format == "markdown":
-                file_path = os.path.join(EXPORT_DIR, f"{base_filename}.md")
-                md_table = df.to_markdown(index=False)
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(md_table)
-            else:
-                logger.warning(f"[{session_id}] Unsupported export format: {export_format}")
-                input_data["export_url"] = None
-                return input_data
-                
-            # Assume we have an endpoint that serves files from the exports directory
-            download_url = f"/api/export/download/{os.path.basename(file_path)}"
+            # H-07: Use streaming export endpoint rather than relying on ephemeral local disk
+            download_url = f"/api/export/{export_format}?session_id={session_id}"
             
-            logger.info(f"[{session_id}] Export generated: {file_path}")
+            # Optionally write local copy if EXPORT_DIR is writable (for local debugging)
+            try:
+                if export_format == "csv":
+                    df.to_csv(os.path.join(EXPORT_DIR, f"{base_filename}.csv"), index=False)
+                elif export_format == "excel":
+                    df.to_excel(os.path.join(EXPORT_DIR, f"{base_filename}.xlsx"), index=False)
+                elif export_format == "json":
+                    df.to_json(os.path.join(EXPORT_DIR, f"{base_filename}.json"), orient="records", indent=2)
+                elif export_format == "markdown":
+                    with open(os.path.join(EXPORT_DIR, f"{base_filename}.md"), "w", encoding="utf-8") as f:
+                        f.write(df.to_markdown(index=False))
+            except Exception as disk_err:
+                logger.debug(f"Ephemeral disk write bypassed: {disk_err}")
+                
+            logger.info(f"[{session_id}] Export ready via persistent streaming URL: {download_url}")
             
         except Exception as e:
             logger.error(f"[{session_id}] Export generation failed: {str(e)}")

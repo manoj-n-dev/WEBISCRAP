@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import Any, Dict
 from pydantic import BaseModel
@@ -41,34 +41,32 @@ async def background_scrape_task(target_url: str, extraction_goal: str, session_
 @router.post("/", response_model=Dict[str, Any])
 async def submit_scrape_job(
     request: ScrapeRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
-    Submit a scraping job to run in the background. Useful for long-running extractions.
+    H-05: Submit a scraping job to run in the durable Redis background queue.
+    Job persists across server restarts and Render recycling.
     """
     session_id = str(uuid.uuid4())
     
-    # C2: Set session ownership before scheduling the background task
+    # Set session ownership before scheduling
     await redis_store.set_session_owner(session_id, str(current_user.id))
-    # FIX 2: Track session under user for sidebar listing
+    # Track session under user for sidebar listing
     await redis_store.add_user_session(str(current_user.id), session_id)
     
-    # C5: Mark as pending initially in job status namespace
-    await redis_store.save_job_status(session_id, {"status": "pending"})
-    
-    background_tasks.add_task(
-        background_scrape_task, 
-        request.target_url, 
-        request.extraction_goal, 
-        session_id,
-        str(current_user.id)
-    )
+    # Enqueue in durable Redis job queue
+    job_payload = {
+        "job_id": session_id,
+        "target_url": request.target_url,
+        "extraction_goal": request.extraction_goal,
+        "owner_id": str(current_user.id),
+    }
+    await redis_store.enqueue_scrape_job(job_payload)
     
     return {
         "status": "accepted",
         "job_id": session_id,
-        "message": "Scrape job submitted to background."
+        "message": "Scrape job enqueued to durable background queue."
     }
 
 @router.get("/{job_id}")

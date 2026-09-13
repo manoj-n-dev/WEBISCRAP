@@ -19,6 +19,7 @@ from api.chat import router as chat_router
 from api.scrape import router as scrape_router
 from api.export import router as export_router
 from api.upload import router as upload_router
+from workers.scrape_worker import scrape_worker
 
 from fastapi.responses import JSONResponse
 
@@ -40,7 +41,14 @@ async def lifespan(app: FastAPI):
             raise RuntimeError("CRITICAL PRODUCTION ERROR: DATABASE_URL must be configured.")
         if not settings.REDIS_URL:
             raise RuntimeError("CRITICAL PRODUCTION ERROR: REDIS_URL must be configured.")
+            
+    # H-05: Start durable Redis scrape queue worker
+    await scrape_worker.start()
+    
     yield
+    
+    # H-05: Gracefully stop scrape worker on shutdown
+    await scrape_worker.stop()
     logger.info("Shutting down WEBISCRAP API...")
 
 app = FastAPI(
