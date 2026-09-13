@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:3000"
+    BACKEND_CORS_ORIGINS: str = ""
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60

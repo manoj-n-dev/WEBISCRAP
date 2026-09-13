@@ -65,13 +65,24 @@ def validate_password(password: str | None) -> None:
 def set_refresh_cookie(response: Response, token: str, remember_me: bool = True):
     """Set secure HttpOnly cookie for refresh token."""
     max_age = (settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60) if remember_me else None
+    is_prod = settings.ENVIRONMENT == "production"
     response.set_cookie(
         key="refresh_token",
         value=token,
         max_age=max_age,
         httponly=True,
-        secure=settings.ENVIRONMENT == "production",
-        samesite="lax",
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
+    )
+
+def clear_refresh_cookie(response: Response):
+    """Clear the refresh token cookie with matching cross-origin security flags."""
+    is_prod = settings.ENVIRONMENT == "production"
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
     )
 
 # --- 1. REGISTRATION WITH STRICT DTO & EMAIL VERIFICATION ---
@@ -590,6 +601,6 @@ async def logout(
             expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
             await redis_store.blacklist_jti(jti, expiry_seconds)
             
-    response.delete_cookie("refresh_token")
+    clear_refresh_cookie(response)
     audit_log.auth_event("logout", user_id=str(current_user.id), email=current_user.email or "")
     return {"message": "Successfully logged out"}

@@ -96,10 +96,21 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.add_middleware(RequestTracingMiddleware)
 
 # C6 & M6: Never combine "*" with allow_credentials=True.
-# Tighten CORS in production to only settings.FRONTEND_URL.
+# Tighten CORS in production to trusted frontend origins.
+cors_origins = [settings.FRONTEND_URL]
+if settings.BACKEND_CORS_ORIGINS:
+    for origin in settings.BACKEND_CORS_ORIGINS.split(","):
+        clean_origin = origin.strip()
+        if clean_origin and clean_origin not in cors_origins:
+            cors_origins.append(clean_origin)
+if settings.ENVIRONMENT != "production":
+    for local_origin in ["http://localhost:3000", "http://127.0.0.1:3000"]:
+        if local_origin not in cors_origins:
+            cors_origins.append(local_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL] if settings.ENVIRONMENT == "production" else [settings.FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

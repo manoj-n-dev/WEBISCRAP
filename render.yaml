@@ -1,0 +1,100 @@
+# ==============================================================================
+# WEBISCRAP — Render Blueprint Deployment Specification
+# Infrastructure-as-Code for Render Web Service + Redis Scraping Queue Worker
+# ==============================================================================
+
+version: "1"
+
+services:
+  # ─── 1. Backend Web Service (FastAPI API) ──────────────────────────────────
+  - type: web
+    name: webiscrap-api
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+        # PostgreSQL with asyncpg driver, e.g. postgresql+asyncpg://user:pass@host:port/dbname?ssl=require
+      - key: REDIS_URL
+        sync: false
+        # Redis connection URL, e.g. rediss://default:token@host:port
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: GROQ_API_KEYS
+        sync: false
+        # Comma-separated Groq API keys for rotation
+      - key: FRONTEND_URL
+        sync: false
+        # Production frontend URL on Vercel, e.g. https://webiscrap.vercel.app
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+        # Optional comma-separated additional origins (e.g. preview domains)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_TLS
+        value: "true"
+      - key: EMAILS_FROM_EMAIL
+        value: "noreply@webiscrap.com"
+      - key: EMAILS_FROM_NAME
+        value: "WEBISCRAP"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+
+  # ─── 2. Background Queue Worker (Redis Durable Scrape Worker) ──────────────
+  - type: worker
+    name: webiscrap-worker
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: apps/backend
+    dockerCommand: python scrape_worker.py
+    plan: free
+    region: oregon
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromService:
+          name: webiscrap-api
+          type: web
+          envVarKey: DATABASE_URL
+      - key: REDIS_URL
+        fromService:
+          name: webiscrap-api
+          type: web
+          envVarKey: REDIS_URL
+      - key: GROQ_API_KEYS
+        fromService:
+          name: webiscrap-api
+          type: web
+          envVarKey: GROQ_API_KEYS
+      - key: JWT_SECRET
+        fromService:
+          name: webiscrap-api
+          type: web
+          envVarKey: JWT_SECRET
