@@ -48,6 +48,7 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 - [Installation](#-installation)
 - [Configuration](#️-configuration)
 - [Roadmap](#️-roadmap)
+- [Production Deployment Guide](#-production-deployment-guide)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Team](#-team)
@@ -56,31 +57,38 @@ Not a scraping tool. Not a selector builder. **A research assistant that happens
 
 ## 🚀 Current Status
 
-**Where we are:**
-- ✅ The **FastAPI Backend** is 100% complete, hardened, and verified with zero import errors or circular module shadowing.
-- ✅ The **9-Agent AI Pipeline** runs exclusively on **Groq** (LLaMA 3.3 70B) with automatic key rotation and failover.
-- ✅ **Authentication**: Email/Password, Google OAuth, Firebase Phone OTP, and Guest Mode. Access tokens are stored strictly **in-memory** (XSS protection) with automatic silent refresh via secure `httpOnly` cookies.
-- ✅ **Token Security**: Refresh token rotation automatically blacklists old JTIs in Redis to prevent reuse attacks.
-- ✅ **10-key rotation** with automatic failover, cooldown, and load balancing for Groq.
-- ✅ Successfully tested on both **static** (HackerNews) and **dynamic/JS** (Quotes to Scrape) websites using Playwright.
-- ✅ **Frontend UI** fully built in Next.js 16 (Turbopack) with a highly customized cinematic HUD glassmorphism design.
-- ✅ **Production & Security Hardening**:
-  - Fail-closed IDOR session authorization across all endpoints.
-  - SSRF protection with DNS-rebinding TOCTOU mitigation via Playwright request rewriting.
-  - Reverse-proxy-aware sliding-window IP rate limiting (`TRUST_PROXY_HEADERS`) and audit logging middleware.
-  - Registration duplicate-email race condition handling with graceful 400 responses.
-  - Upload context persistence associating document text with active chat sessions in Redis.
-  - Automated Playwright browser installation built directly into `setup.py`.
-- ✅ **Dataset View Fix & High-Reliability Data Binding**:
-  - Direct route-keyed session fetching on navigation eliminating cross-session Zustand store masking.
-  - Safe fallback resolution on "Open in Dataset View" navigation ensuring valid UUID routing.
-  - Robust payload unwrapping supporting both flat and nested backend dictionary structures (`cleaned_data`, `data.cleaned_data`, `extracted_data`, arrays).
-  - Safe TanStack Table column accessors (`accessorFn`) and cell formatting for nested objects and nullish values.
-- ✅ **Verified Dependency & Environment Cleanliness**:
-  - Clean Python virtual environment (`apps/backend/venv`) with 100% passing test suite (37/37 tests).
-  - Clean Next.js 16 build (`npm run build`) with zero TypeScript errors.
-  - Clean repository with zero uncommitted or lingering runtime artifacts in `uploads/` or `exports/`.
-- ✅ **Audit 3 Bug Report Fixes Completed**: All critical (C1-C6), high (H1-H6), medium (M1-M7), and low (L1-L3) issues resolved and verified.
+**Production Readiness Status: 100% COMPLETE & VERIFIED**
+- ✅ **Phase 1: Production Authentication & Security**:
+  - Mass-assignment defense via strict `UserRegisterRequest` DTO (C-01).
+  - Positive JWT token type validation (`type="access"`, `type="refresh"`, etc.) preventing type-confusion attacks (C-02).
+  - Global session invalidation upon password reset via `token_version` binding (C-03).
+  - Production secrets fail-fast startup assertions (C-04).
+  - Zero-leak SMTP credentials (no reset/verification URLs logged in production) (H-01).
+  - Strict HttpOnly cookie-only refresh tokens (H-02).
+  - Tiered sliding-window rate limiting with in-memory fallback during Redis outages (H-03).
+  - Idempotent database migrations for `is_verified` and `token_version`.
+  - Complete email verification and seamless guest-to-permanent account conversion flows.
+- ✅ **Phase 2: Critical & High Hardening**:
+  - Durable Redis scraping job queue worker (`scrape_worker.py`) preventing job loss on server restarts (H-05).
+  - Stateless upload and streaming export pipeline (`/api/export/{format}`) eliminating ephemeral disk dependency (H-06, H-07).
+  - LLM prompt injection delimiter boundaries `<untrusted_source_content>` & `<security_policy>` (H-08).
+  - Browser navigation guardrails (`_is_safe_pagination_element`) preventing automated state-changing clicks (H-09).
+  - Enforced HTTPS certificate verification in Playwright (`ignore_https_errors=False`) (H-10).
+  - Fail-closed SSRF route handler with dual-stack IPv4/IPv6 validation (H-11, H-12).
+  - Bounded streaming response limits on static fetches (H-13).
+  - Magic-byte file upload validation and image decompression limits (M-01).
+- ✅ **Phase 3: Production Infrastructure**:
+  - Independent health monitoring probes: `/health/live` (process alive), `/health/ready` (PostgreSQL + Redis deep check), and lightweight `/health` (orchestrator & keep-alive monitor).
+  - Production database connection pooling with pre-ping, auto-recycle (270s), and backoff retries.
+  - Structured JSON audit logging with request correlation IDs (`X-Request-ID`).
+  - Dynamic `PORT` binding for container cloud runtimes.
+- ✅ **Phase 4: Render + Vercel Deployment**:
+  - Multi-stage production `Dockerfile` with Playwright Chromium and non-root `appuser`.
+  - Infrastructure-as-code `render.yaml` Blueprint defining both the API Web Service and the durable Redis Scrape Worker.
+  - Frontend `vercel.json` with security headers and Next.js Turbopack optimization.
+  - Cross-site credentials support (`SameSite=None; Secure=True`) between Vercel (`*.vercel.app`) and Render (`*.onrender.com`).
+- ✅ **Automated Test Suite**:
+  - **100% passing tests** across all regression suites (`test_phase3_infrastructure.py`, `test_phase2_hardening.py`, `test_production_auth.py`, `test_reset_password.py`, `test_api_endpoints.py`, `test_parsers_and_export.py`).
 
 ---
 
@@ -355,7 +363,44 @@ TRUST_PROXY_HEADERS=false
 - [x] Full validation metadata surfaced in frontend dataset view
 - [x] Complete security & integration audit (17 fixes: C1-C5, H1-H5, M1-M8)
 - [x] Zero-warning package restructuring & module shadowing resolution
-- [ ] Deployment to Vercel (Frontend) + Render (Backend)
+- [x] Production Deployment Infrastructure (Render Blueprint + Dockerfile + Vercel)
+- [x] Phase 1–4 Production Hardening & Full Regression Audit (100% Passed)
+
+---
+
+## 🌐 Production Deployment Guide
+
+WEBISCRAP is architected for zero-downtime, scalable deployment across **Render** (Backend API + Queue Worker) and **Vercel** (Next.js Frontend).
+
+### 1. Backend on Render (`render.yaml`)
+1. Create a free account on [Render](https://render.com).
+2. Connect your GitHub repository to Render.
+3. Click **New +** → **Blueprint** and select the repository.
+4. Render automatically parses [render.yaml](render.yaml) and provisions:
+   - **`webiscrap-api`**: Docker Web Service running FastAPI with automatic health monitoring on `/health`.
+   - **`webiscrap-worker`**: Docker Background Worker executing `python scrape_worker.py` to dequeue durable Redis scraping jobs.
+5. In the Render Dashboard, fill in your production environment variables (see `apps/backend/.env.production.example`):
+   - `DATABASE_URL`: Neon PostgreSQL connection string (`postgresql+asyncpg://...`)
+   - `REDIS_URL`: Upstash or Render Redis connection string (`rediss://...`)
+   - `GROQ_API_KEYS`: Comma-separated Groq API keys for automatic failover
+   - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://webiscrap.vercel.app`)
+   - `BACKEND_CORS_ORIGINS`: Allowed production frontend origins
+
+### 2. Frontend on Vercel (`vercel.json`)
+1. Create an account on [Vercel](https://vercel.com).
+2. Import the `WEBISCRAP` repository and set the **Root Directory** to `apps/frontend`.
+3. Set the following Environment Variables in Project Settings:
+   - `NEXT_PUBLIC_API_URL`: Your Render backend URL (e.g., `https://webiscrap-api.onrender.com`)
+   - `NEXT_PUBLIC_APP_URL`: Your Vercel canonical URL (e.g., `https://webiscrap.vercel.app`)
+4. Deploy. Vercel automatically applies security headers configured in [vercel.json](apps/frontend/vercel.json).
+
+### 3. External Keep-Alive Monitor (Preventing Render Cold Starts)
+Free Render web services sleep after 15 minutes of inactivity. Set up a free external uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com) or [Cron-Job.org](https://cron-job.org)):
+- **Monitor Type**: HTTP(s)
+- **URL**: `https://<your-render-api>.onrender.com/health`
+- **Interval**: Every 5 minutes
+- **Expected Response**: HTTP 200 `{"status": "ok", ...}`
+- *(Note: The `/health` probe has zero external dependencies, no database queries, and no Redis operations, making it 100% safe to ping indefinitely).*
 
 ---
 
