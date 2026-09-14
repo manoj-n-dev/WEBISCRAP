@@ -7,9 +7,9 @@ import { DataCard } from "@/components/chat/DataCard";
 import { Composer } from "@/components/chat/Composer";
 import { Button } from "@/components/ui/Button";
 import { FileDown, RefreshCw } from "lucide-react";
-import { useChatStore } from "@/lib/store/chat";
 import { useRouter } from "next/navigation";
-import { ApiClient } from "@/lib/api/client";
+import { useChatStore } from "@/lib/store/chat";
+import { ApiClient, API_BASE_URL } from "@/lib/api/client";
 
 export default function ChatPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const resolvedParams = React.use(params);
@@ -167,7 +167,7 @@ export default function ChatPage({ params }: { params: Promise<{ sessionId: stri
                         <Button 
                           variant="default" 
                           onClick={() => {
-                            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                            const baseUrl = API_BASE_URL;
                             const token = ApiClient.getToken();
                             
                             // Download using fetch to send auth header

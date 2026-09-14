@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ArrowRight, Mail } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +21,7 @@ export default function ForgotPasswordPage() {
     setErrorMessage("");
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/auth/forgot-password`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
