@@ -10,7 +10,7 @@ import { Divider } from "@/components/ui/Divider";
 import { Mail, Lock, Phone, UserRound, ArrowRight, X } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import { getFirebaseAuth, getGoogleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
+import { getFirebaseAuth, getGoogleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, formatFirebaseAuthError } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -98,7 +98,8 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       if (err.code === "auth/popup-closed-by-user") return;
-      setError(err.message || "Google sign-in failed");
+      const msg = formatFirebaseAuthError(err);
+      if (msg) setError(msg);
     } finally {
       setLoading(false);
     }
@@ -134,7 +135,8 @@ export default function LoginPage() {
       setConfirmationResult(confirmation);
       setOtpSent(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send OTP");
+      const msg = formatFirebaseAuthError(err);
+      if (msg) setError(msg);
     } finally {
       setLoading(false);
     }
@@ -153,7 +155,8 @@ export default function LoginPage() {
         router.push("/chat/new");
       }
     } catch (err: any) {
-      setError(err.message || "Invalid OTP");
+      const msg = formatFirebaseAuthError(err);
+      setError(msg || "Invalid OTP code. Please try again.");
     } finally {
       setLoading(false);
     }
