@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Query
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from typing import Any, Optional
 import re
@@ -11,6 +13,7 @@ from loguru import logger
 from database.connection import get_session
 from models.user import User, UserRegisterRequest, UserRead
 from auth.security import (
+    normalize_email,
     get_password_hash,
     verify_password,
     create_access_token,
@@ -99,7 +102,8 @@ async def register(
     validate_password(user_in.password)
     
     # Check if user already exists
-    statement = select(User).where(User.email == user_in.email)
+    email = normalize_email(user_in.email)
+    statement = select(User).where(func.lower(User.email) == email)
     result = await db.exec(statement)
     existing_user = result.first()
     if existing_user:
@@ -110,9 +114,9 @@ async def register(
         
     # Explicit User model construction: privileged fields are hardcoded to safe defaults
     new_user = User(
-        email=user_in.email,
+        email=email,
         full_name=user_in.full_name,
-        hashed_password=get_password_hash(user_in.password),
+        hashed_password=await run_in_threadpool(get_password_hash, user_in.password),   # bcrypt is CPU-bound
         is_active=True,
         is_verified=False,
         is_superuser=False,
@@ -134,7 +138,10 @@ async def register(
     # Generate single-use email verification token
     verify_token = create_verification_token(new_user.id)
     verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
-    email_res = await send_verification_email(user_in.email, verify_url)
+    email_res = await send_verification_email(email, verify_url)
+    email_sent = bool(email_res.get("sent"))
+    if not email_sent:
+        logger.error(f"Registration verification email NOT sent (method={email_res.get('method')}): {email_res.get('error')}")
 
     audit_log.auth_event("register", user_id=str(new_user.id), email=new_user.email or user_in.email)
     
@@ -143,7 +150,12 @@ async def register(
         "email": new_user.email,
         "full_name": new_user.full_name,
         "is_verified": False,
-        "message": "Registration successful. Please check your email to verify your account before logging in."
+        "email_sent": email_sent,
+        "message": (
+            "Registration successful. Please check your email to verify your account before logging in."
+            if email_sent else
+            "Account created, but we could not send the verification email right now. Use 'Resend verification' in a minute."
+        ),
     }
     # Dev/test only helper: never return token or URL in production
     if settings.ENVIRONMENT != "production" and email_res.get("verify_url"):
@@ -167,9 +179,6 @@ async def verify_email(
         raise HTTPException(status_code=400, detail="Invalid or expired verification token.")
         
     jti = payload.get("jti")
-    if jti and await redis_store.is_jti_blacklisted(jti):
-        raise HTTPException(status_code=400, detail="Verification token has already been used.")
-        
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid verification token payload.")
@@ -183,6 +192,9 @@ async def verify_email(
         
     if user.is_verified:
         return {"message": "Email is already verified. You can now log in."}
+
+    if jti and await redis_store.is_jti_blacklisted(jti):
+        raise HTTPException(status_code=400, detail="Verification token has already been used.")
         
     # Mark user as verified
     user.is_verified = True
@@ -205,7 +217,7 @@ async def resend_verification(
     """
     Resend verification email. Always returns a generic response to prevent account enumeration.
     """
-    statement = select(User).where(User.email == request.email)
+    statement = select(User).where(func.lower(User.email) == normalize_email(request.email))
     result = await db.exec(statement)
     user = result.first()
     
@@ -216,7 +228,10 @@ async def resend_verification(
         email_res = await send_verification_email(user.email, verify_url)
         if settings.ENVIRONMENT != "production" and email_res.get("verify_url"):
             verify_url = email_res.get("verify_url")
-        logger.info(f"Resent verification email to {user.email}")
+        if email_res.get("sent"):
+            logger.info("Resent verification email")
+        else:
+            logger.error(f"Resend verification FAILED (method={email_res.get('method')}): {email_res.get('error')}")
         
     response_payload = {
         "message": "If an account with this email exists and requires verification, a new link has been sent."
@@ -238,14 +253,14 @@ async def login_access_token(
     """
     OAuth2 password login with login-verification guard and token-version binding.
     """
-    statement = select(User).where(User.email == form_data.username)
+    statement = select(User).where(func.lower(User.email) == normalize_email(form_data.username))
     result = await db.exec(statement)
     user = result.first()
     
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
         
-    if not user.hashed_password or not verify_password(form_data.password, user.hashed_password):
+    if not user.hashed_password or not await run_in_threadpool(verify_password, form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
         
     if not user.is_active:
@@ -331,7 +346,7 @@ async def forgot_password(
     """
     Generate single-use password reset token with uniform generic response.
     """
-    statement = select(User).where(User.email == request.email)
+    statement = select(User).where(func.lower(User.email) == normalize_email(request.email))
     result = await db.exec(statement)
     user = result.first()
     
@@ -342,7 +357,10 @@ async def forgot_password(
         email_res = await send_password_reset_email(user.email, reset_url)
         if settings.ENVIRONMENT != "production" and email_res.get("reset_url"):
             reset_url = email_res.get("reset_url")
-        logger.info(f"Password reset initiated for {user.email}")
+        if email_res.get("sent"):
+            logger.info("Password reset email sent")
+        else:
+            logger.error(f"Password reset email FAILED (method={email_res.get('method')}): {email_res.get('error')}")
     
     response_payload = {"message": "If that email is in our system, we have sent a reset link."}
     if settings.ENVIRONMENT != "production" and reset_url:
@@ -444,7 +462,7 @@ async def convert_guest_account(
     validate_password(req.password)
     
     # Ensure desired email is not taken
-    statement = select(User).where(User.email == req.email)
+    statement = select(User).where(func.lower(User.email) == normalize_email(req.email))
     result = await db.exec(statement)
     existing_user = result.first()
     if existing_user and existing_user.id != current_user.id:
@@ -495,12 +513,12 @@ async def login_google(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
         
-    email = idinfo.get("email")
+    email = normalize_email(idinfo.get("email") or "")
     google_id = idinfo.get("sub")
     if not email:
         raise HTTPException(status_code=400, detail="Google token does not contain a valid email.")
         
-    statement = select(User).where((User.google_id == google_id) | (User.email == email))
+    statement = select(User).where((User.google_id == google_id) | (func.lower(User.email) == email))
     result = await db.exec(statement)
     user = result.first()
     
@@ -508,6 +526,7 @@ async def login_google(
         # New Google user: Google has already verified this email
         user = User(
             email=email,
+            full_name=(idinfo.get("name") or None),
             google_id=google_id,
             is_active=True,
             is_verified=True,
@@ -577,7 +596,7 @@ async def login_phone(
 
 # --- 8. CURRENT USER & LOGOUT ---
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead, response_model_exclude={"token_version", "is_superuser", "google_id"})
 async def read_users_me(
     current_user: User = Depends(get_current_user)
 ) -> Any:
@@ -588,19 +607,30 @@ async def read_users_me(
 async def logout(
     request: Request,
     response: Response,
-    current_user: User = Depends(get_current_user)
+    db: AsyncSession = Depends(get_session),
 ) -> Any:
-    """
-    Logout by invalidating the refresh token and clearing cookie.
-    """
+    """Logout by invalidating the refresh token and clearing the cookie.
+    Deliberately does NOT require a valid access token: an expired token used to make logout fail (401) and leave the
+    refresh cookie alive. Guest accounts are ephemeral, so their chats are deleted on logout."""
+    user_id = None
     refresh_token = request.cookies.get("refresh_token")
     if refresh_token:
         payload = decode_refresh_token(refresh_token)
-        if payload and payload.get("jti"):
-            jti = str(payload.get("jti"))
-            expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-            await redis_store.blacklist_jti(jti, expiry_seconds)
-            
+        if payload:
+            user_id = payload.get("sub")
+            if payload.get("jti"):
+                expiry_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+                await redis_store.blacklist_jti(str(payload["jti"]), expiry_seconds)
+
+    if user_id:
+        try:
+            user = (await db.exec(select(User).where(User.id == user_id))).first()
+            if user and user.is_guest:
+                for sess in await redis_store.get_user_sessions(str(user.id)):
+                    await redis_store.delete_session(sess["id"])
+            audit_log.auth_event("logout", user_id=str(user_id), email=(user.email if user else "") or "")
+        except Exception as e:
+            logger.warning(f"Logout cleanup skipped: {e}")
+
     clear_refresh_cookie(response)
-    audit_log.auth_event("logout", user_id=str(current_user.id), email=current_user.email or "")
     return {"message": "Successfully logged out"}

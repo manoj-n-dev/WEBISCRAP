@@ -118,3 +118,7 @@ def decode_verification_token(token: str) -> Optional[dict]:
         return None
 
 
+def normalize_email(value: str) -> str:
+    """Canonical form for lookups. Registration lowercases, so login / reset / resend must too
+    (phones auto-capitalise and autofill can change case)."""
+    return (value or "").strip().lower()
