@@ -34,7 +34,9 @@ def reset_startup_time():
 # ─── Liveness / Keep-Alive Probe ──────────────────────────────────────────────
 
 @router.get("/health", status_code=status.HTTP_200_OK)
+@router.head("/health", status_code=status.HTTP_200_OK)
 @router.get("/health/live", status_code=status.HTTP_200_OK)
+@router.head("/health/live", status_code=status.HTTP_200_OK)
 async def liveness():
     """
     Kubernetes / Render liveness and external keep-alive probe.
