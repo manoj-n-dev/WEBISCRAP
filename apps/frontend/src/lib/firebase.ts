@@ -75,6 +75,27 @@ export async function signInWithGooglePopup(): Promise<string> {
   return await result.user.getIdToken();
 }
 
+/** Sign out the current Firebase Auth session. Call on logout to prevent the cached Google/Firebase
+ *  credential from automatically re-authenticating the user when they return to the login page. */
+export async function signOutFirebase(): Promise<void> {
+  if (!isFirebaseConfigured()) return;
+  try {
+    const [{ initializeApp, getApps }, { getAuth, signOut }] = await Promise.all([
+      import("firebase/app"),
+      import("firebase/auth"),
+    ]);
+    const app = getApps().length ? getApps()[0] : initializeApp({
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    });
+    await signOut(getAuth(app));
+  } catch {
+    // best-effort — suppress any errors
+  }
+}
+
 export function formatFirebaseAuthError(err: unknown): string {
   const e = err as { code?: string; message?: string } | null;
   switch (e?.code) {

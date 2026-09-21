@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 
@@ -148,18 +148,18 @@ export function CustomCursor() {
         </div>
       </div>
 
-      {/* Central Precise Point */}
+      {/* Central Diamond Point — precision targeting / HUD aesthetic */}
       <div
         ref={dotRef}
-        className="fixed top-0 left-0 -ml-[2.5px] -mt-[2.5px] pointer-events-none will-change-transform"
+        className="fixed top-0 left-0 -ml-[5px] -mt-[5px] pointer-events-none will-change-transform"
       >
         <div
-          className={`w-[5px] h-[5px] rounded-full transition-transform duration-150 ${
+          className={`w-[10px] h-[10px] border transition-all duration-150 ${
             isHovered
-              ? "scale-150 bg-cyan shadow-[0_0_10px_#4fd8ff]"
+              ? "rotate-[225deg] scale-150 bg-cyan/30 border-cyan shadow-[0_0_12px_#4fd8ff,0_0_4px_#4fd8ff]"
               : isClicking
-              ? "scale-75 bg-signal-300 shadow-[0_0_6px_#6cb2ff]"
-              : "bg-signal-400 shadow-[0_0_6px_rgba(79,216,255,0.8)]"
+              ? "rotate-45 scale-75 bg-signal-400/40 border-signal-300 shadow-[0_0_8px_rgba(79,216,255,0.9)]"
+              : "rotate-45 bg-signal-400/20 border-signal-400 shadow-[0_0_8px_rgba(79,216,255,0.6)]"
           }`}
         />
       </div>

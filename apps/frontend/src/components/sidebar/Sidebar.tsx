@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/Input";
 import { Plus, Search, MessageSquare, LogOut, Trash2, Pencil, Check, X, Settings } from "lucide-react";
 import { useChatStore, type SessionSummary } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
+import { signOutFirebase } from "@/lib/firebase";
+import { useSound } from "@/lib/useSound";
 
 export interface SidebarUser {
   id?: string;
@@ -32,6 +34,7 @@ const DAY = 86400;
 
 export function Sidebar({ user, open, onNavigate, onUserUpdated, onOpenAccount, onOpenSettings }: SidebarProps) {
   const router = useRouter();
+  const sound = useSound();
   const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession, renameSession } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUser, setCurrentUser] = useState<SidebarUser | null>(user);
@@ -79,8 +82,10 @@ export function Sidebar({ user, open, onNavigate, onUserUpdated, onOpenAccount, 
     }
   };
   const handleLogout = async () => {
-    await ApiClient.logout();
-    useChatStore.getState().resetAll();       // nothing from this identity may survive in memory
+    sound.play("logout");
+    await ApiClient.logout();          // clears backend cookie + sets just_logged_out flag
+    await signOutFirebase();            // purge Firebase/Google cached credential
+    useChatStore.getState().resetAll(); // nothing from this identity may survive in memory
     router.replace("/login");
   };
 

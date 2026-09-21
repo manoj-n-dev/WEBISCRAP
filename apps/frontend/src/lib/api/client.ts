@@ -226,8 +226,11 @@ export class ApiClient {
     try {
       await this.request("/api/auth/logout", { method: "POST", body: JSON.stringify({}) }, { timeoutMs: 8000 });
     } catch {
-      // best-effort
+      // best-effort — the cookie must still be cleared client-side
     }
     accessToken = null;
+    // Mark an explicit logout so the login page suppresses any Google OAuth auto-redirect result
+    // that would otherwise silently re-authenticate the user immediately (the loop bug).
+    try { localStorage.setItem("webiscrap_just_logged_out", "1"); } catch { /* ignore */ }
   }
 }

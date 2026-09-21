@@ -24,6 +24,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ApiClient } from "@/lib/api/client";
+import { useSound } from "@/lib/useSound";
 import type { SidebarUser } from "@/components/sidebar/Sidebar";
 
 export interface AccountSettingsModalProps {
@@ -48,10 +49,12 @@ export function AccountSettingsModal({
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
+  const sound = useSound();
+
   // Settings states with localStorage persistence
   const [cursorEnabled, setCursorEnabled] = useState(true);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Sync initial tab and name on open
   useEffect(() => {
@@ -66,23 +69,33 @@ export function AccountSettingsModal({
         if (savedCursor !== null) setCursorEnabled(savedCursor !== "false");
         const savedAnim = localStorage.getItem("webiscrap_animations_enabled");
         if (savedAnim !== null) setAnimationsEnabled(savedAnim !== "false");
-        const savedSound = localStorage.getItem("webiscrap_sound_enabled");
-        if (savedSound !== null) setSoundEnabled(savedSound === "true");
+        const savedSound = localStorage.getItem("webiscrap_sounds_enabled");
+        if (savedSound !== null) setSoundEnabled(savedSound !== "false");
+        else setSoundEnabled(true); // default ON
       } catch {
         // Safe fallback if local storage is restricted
       }
     }
   }, [isOpen, initialTab, user?.full_name]);
 
+  // Play open sound when modal opens
+  useEffect(() => {
+    if (isOpen) sound.play("open");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   // Handle ESC key to close
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        sound.play("close");
+        onClose();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, sound]);
 
   if (!isOpen) return null;
 
@@ -102,12 +115,14 @@ export function AccountSettingsModal({
     try {
       const updated = await ApiClient.updateMe({ full_name: fullName.trim() });
       setSavedSuccess(true);
+      sound.play("success");
       if (onUserUpdated && updated) {
         onUserUpdated(updated);
       }
       setTimeout(() => setSavedSuccess(false), 2500);
-    } catch (err: any) {
-      setError(err?.message || "Failed to update profile");
+    } catch (err: unknown) {
+      sound.play("error");
+      setError((err as { message?: string })?.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -150,10 +165,10 @@ export function AccountSettingsModal({
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
-    try {
-      localStorage.setItem("webiscrap_sound_enabled", String(next));
-    } catch {
-      // ignore
+    sound.setEnabled(next);
+    if (next) {
+      // Play immediately so the user hears what they just enabled
+      setTimeout(() => sound.play("notify"), 50);
     }
   };
 
@@ -164,7 +179,7 @@ export function AccountSettingsModal({
       aria-labelledby="account-settings-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-[16px] bg-black/75 backdrop-blur-md animate-in"
     >
-      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0" onClick={() => { sound.play("close"); onClose(); }} aria-hidden="true" />
 
       <Card
         variant="strong"
@@ -189,7 +204,7 @@ export function AccountSettingsModal({
           </div>
           <Button
             variant="icon"
-            onClick={onClose}
+            onClick={() => { sound.play("close"); onClose(); }}
             className="border-none text-text-dim hover:text-text-hi"
             title="Close"
             aria-label="Close"
@@ -202,7 +217,7 @@ export function AccountSettingsModal({
         <div className="flex items-center gap-[6px] p-[3px] bg-black/40 border border-hair rounded-[8px] mb-[20px]">
           <button
             type="button"
-            onClick={() => setActiveTab("account")}
+            onClick={() => { sound.play("click"); setActiveTab("account"); }}
             className={`flex-1 flex items-center justify-center gap-[8px] py-[7px] text-[12.5px] font-medium rounded-[6px] transition-all cursor-pointer ${
               activeTab === "account"
                 ? "bg-white/10 text-white shadow-[0_2px_8px_rgba(0,0,0,0.3)] border border-white/10"
@@ -214,7 +229,7 @@ export function AccountSettingsModal({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("settings")}
+            onClick={() => { sound.play("click"); setActiveTab("settings"); }}
             className={`flex-1 flex items-center justify-center gap-[8px] py-[7px] text-[12.5px] font-medium rounded-[6px] transition-all cursor-pointer ${
               activeTab === "settings"
                 ? "bg-white/10 text-white shadow-[0_2px_8px_rgba(0,0,0,0.3)] border border-white/10"

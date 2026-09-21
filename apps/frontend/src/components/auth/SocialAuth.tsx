@@ -49,6 +49,14 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     const checkRedirect = async () => {
       if (typeof window === "undefined") return;
 
+      // If the user explicitly just logged out, skip ALL auto-redirect checks to prevent
+      // the auto-relogin loop where Google/Firebase cached credentials would immediately log them back in.
+      const justLoggedOut = localStorage.getItem("webiscrap_just_logged_out") === "1";
+      if (justLoggedOut) {
+        try { localStorage.removeItem("webiscrap_just_logged_out"); } catch { /* ignore */ }
+        return;
+      }
+
       // 1. Check direct Google OAuth implicit flow hash (#id_token=...)
       if (window.location.hash.includes("id_token=")) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -81,6 +89,7 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
       isMounted = false;
     };
   }, [finish, onError]);
+
 
   const handleGoogleSignIn = async () => {
     setBusy(true);
