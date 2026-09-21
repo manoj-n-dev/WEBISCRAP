@@ -203,7 +203,7 @@ export default function LandingPage() {
             <p className="text-text-mid max-w-[580px] mx-auto">The final-year engineering team that designed, developed, and deployed WEBISCRAP.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-[16px]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[16px]">
             {[
               { name: "Manoj N", role: "Lead Architect", icon: Code2, focus: "Architecture & Core" },
               { name: "Bhavya", role: "AI Pipeline", icon: Cpu, focus: "Prompt & LLM Swarm" },

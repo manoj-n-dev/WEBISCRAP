@@ -177,13 +177,13 @@ export function AccountSettingsModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-settings-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-[16px] bg-black/75 backdrop-blur-md animate-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-[16px] bg-black/75 backdrop-blur-md animate-in"
     >
       <div className="fixed inset-0" onClick={() => { sound.play("close"); onClose(); }} aria-hidden="true" />
 
       <Card
         variant="strong"
-        className="relative z-10 w-full max-w-[520px] p-[24px] sm:p-[28px] bg-panel-strong border-glass-border-strong shadow-[0_24px_64px_rgba(0,0,0,0.7)] animate-[scaleIn_0.25s_cubic-bezier(0.16,1,0.3,1)_both]"
+        className="relative z-10 w-full sm:max-w-[520px] p-[20px] sm:p-[28px] bg-panel-strong border-glass-border-strong shadow-[0_24px_64px_rgba(0,0,0,0.7)] animate-[scaleIn_0.25s_cubic-bezier(0.16,1,0.3,1)_both] rounded-t-[20px] sm:rounded-[22px] max-h-[90dvh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-[14px] border-b border-hair mb-[18px]">

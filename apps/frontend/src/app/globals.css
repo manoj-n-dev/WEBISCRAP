@@ -65,6 +65,24 @@ body {
   overflow-x: hidden;
 }
 
+/* ── Mobile touch optimizations ────────────────────────────────────────────────────────────────────── */
+/* Remove 300ms tap delay on mobile browsers */
+a, button, [role="button"], label, summary {
+  touch-action: manipulation;
+}
+/* iOS Safari: prevent auto-zoom on focus when font-size < 16px */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+/* Minimum 44×44px touch targets on mobile */
+@media (max-width: 767px) {
+  button, [role="button"] {
+    min-height: 44px;
+  }
+}
+
 @keyframes pulseGlow {
   0%, 100% { filter: drop-shadow(0 0 6px rgba(20, 119, 245, 0.35)); }
   50% { filter: drop-shadow(0 0 18px rgba(79, 216, 255, 0.55)); }

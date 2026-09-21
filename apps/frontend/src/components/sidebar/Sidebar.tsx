@@ -66,6 +66,7 @@ export function Sidebar({ user, open, onNavigate, onUserUpdated, onOpenAccount, 
   };
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this chat and its data?")) return;
+    sound.play("error");           // distinctive soft audio cue for a destructive action
     const wasActive = activeSessionId === id;
     try {
       await removeSession(id);
@@ -280,7 +281,7 @@ function SessionItem({
         <MessageSquare className="w-[14px] h-[14px] shrink-0 text-text-dim" />
         <span className="truncate">{session.title}</span>
       </button>
-      <div className="flex items-center gap-[2px] shrink-0 lg:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+      <div className="flex items-center gap-[2px] shrink-0 opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button
           onClick={(e) => {
             e.stopPropagation();
