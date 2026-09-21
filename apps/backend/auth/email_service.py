@@ -11,172 +11,213 @@ from loguru import logger
 from core.config import settings
 
 def _build_reset_email_html(reset_url: str, user_email: str) -> str:
-    return f"""<!DOCTYPE html>
-<html>
+    escaped_email = _html.escape(user_email)
+    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    expire_minutes = settings.RESET_TOKEN_EXPIRE_MINUTES
+    return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reset Your WEBISCRAP Password</title>
-  <style>
-    body {{
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0d0f12;
-      color: #e6edf3;
-      margin: 0;
-      padding: 30px;
-    }}
-    .container {{
-      max-width: 520px;
-      margin: 0 auto;
-      background-color: #161b22;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 36px;
-    }}
-    .logo {{
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: #58a6ff;
-      margin-bottom: 24px;
-    }}
-    h1 {{
-      font-size: 22px;
-      margin: 0 0 16px;
-      color: #ffffff;
-    }}
-    p {{
-      font-size: 14px;
-      line-height: 1.6;
-      color: #8b949e;
-      margin: 0 0 24px;
-    }}
-    .button {{
-      display: inline-block;
-      background-color: #238636;
-      color: #ffffff !important;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 12px 28px;
-      border-radius: 6px;
-      margin-bottom: 24px;
-    }}
-    .link-alt {{
-      font-size: 12px;
-      word-break: break-all;
-      color: #58a6ff;
-    }}
-    .footer {{
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 12px;
-      color: #484f58;
-    }}
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="logo"><img src="{settings.FRONTEND_URL.rstrip('/')}/logo-mark.png" width="32" height="32" alt="" style="vertical-align:middle;margin-right:8px"> WEBISCRAP</div>
-    <h1>Password Reset Request</h1>
-    <p>Hello,</p>
-    <p>We received a request to reset your password for your account associated with <strong>{_html.escape(user_email)}</strong>. This link will expire in {settings.RESET_TOKEN_EXPIRE_MINUTES} minutes.</p>
-    <div>
-      <a href="{reset_url}" class="button" target="_blank">Reset Password</a>
-    </div>
-    <p>If the button doesn't work, copy and paste this link into your browser:</p>
-    <p class="link-alt">{reset_url}</p>
-    <div class="footer">
-      If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; background-color: #06080d; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #06080d; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Container Card -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #0d1117; border: 1px solid #21262d; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.5);">
+          <!-- Top Cyber Glow Accent Line -->
+          <tr>
+            <td height="3" style="background-color: #1477f5; background-image: linear-gradient(90deg, #1477f5, #00d2ff, #1477f5); font-size: 0; line-height: 0;">&nbsp;</td>
+          </tr>
+          <!-- Content Area -->
+          <tr>
+            <td style="padding: 36px 36px 32px 36px;">
+              <!-- Header with Logo and Badge -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{frontend_url}/logo-mark.png" width="32" height="32" alt="WEBISCRAP" style="vertical-align: middle; margin-right: 10px; display: inline-block; border: 0;" />
+                    <span style="font-size: 18px; font-weight: 700; letter-spacing: 1.5px; color: #ffffff; vertical-align: middle; display: inline-block;">WEBISCRAP</span>
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="display: inline-block; padding: 4px 10px; font-family: monospace, Consolas, Courier; font-size: 10.5px; font-weight: 600; color: #4fd8ff; background-color: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 4px; text-transform: uppercase; letter-spacing: 0.8px;">SECURITY NOTICE</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Heading -->
+              <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 600; color: #ffffff; letter-spacing: -0.3px; line-height: 1.3;">Password Reset Request</h1>
+              
+              <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #c9d1d9;">Hello,</p>
+              
+              <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #8b949e;">
+                We received an authorized request to reset the password for your account associated with <strong style="color: #ffffff;">{escaped_email}</strong>.
+              </p>
+
+              <!-- Expiration Notice Callout -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #071324; border: 1px solid #143560; border-radius: 8px; margin-bottom: 26px;">
+                <tr>
+                  <td style="padding: 12px 16px; font-size: 13px; color: #79c0ff; line-height: 1.5;">
+                    <strong style="color: #ffffff;">&#9201; Security Window:</strong> This password reset link will expire in <strong>{expire_minutes} minutes</strong>.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Action Button -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 0 28px 0;">
+                <tr>
+                  <td align="center" bgcolor="#1477f5" style="border-radius: 8px; background-color: #1477f5; box-shadow: 0 4px 16px rgba(20, 119, 245, 0.35);">
+                    <a href="{reset_url}" target="_blank" style="font-size: 14px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff; text-decoration: none; padding: 13px 32px; display: inline-block; border-radius: 8px; letter-spacing: 0.2px;">Reset Password &rarr;</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback Section -->
+              <p style="margin: 0 0 8px 0; font-size: 12.5px; color: #8b949e; line-height: 1.5;">
+                If the button above does not work, copy and paste this link into your browser:
+              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #05070a; border: 1px solid #1b2230; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 12px 14px; word-break: break-all; font-family: monospace, Consolas, Courier; font-size: 11.5px; line-height: 1.5; color: #4fd8ff;">
+                    <a href="{reset_url}" target="_blank" style="color: #4fd8ff; text-decoration: underline;">{reset_url}</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Reassurance Note -->
+              <p style="margin: 0 0 24px 0; font-size: 12.5px; line-height: 1.6; color: #6e7681;">
+                If you did not request a password reset, you can safely ignore this email. Your account credentials remain secure and no changes have been made.
+              </p>
+
+              <!-- Footer Divider -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="border-top: 1px solid #21262d; padding-top: 20px;">
+                    <p style="margin: 0 0 6px 0; font-size: 11.5px; color: #484f58; line-height: 1.5;">
+                      WEBISCRAP &bull; Autonomous Web Scraping &amp; AI Extraction Engine
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #484f58;">
+                      <a href="{frontend_url}/privacy" style="color: #6e7681; text-decoration: none; margin-right: 12px;">Privacy Policy</a>
+                      <a href="{frontend_url}/terms" style="color: #6e7681; text-decoration: none; margin-right: 12px;">Terms of Service</a>
+                      <a href="{frontend_url}/docs" style="color: #6e7681; text-decoration: none;">Documentation</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-"""
+</html>"""
 
 def _build_verification_email_html(verify_url: str, user_email: str) -> str:
-    return f"""<!DOCTYPE html>
-<html>
+    escaped_email = _html.escape(user_email)
+    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Verify Your WEBISCRAP Email</title>
-  <style>
-    body {{
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0d0f12;
-      color: #e6edf3;
-      margin: 0;
-      padding: 30px;
-    }}
-    .container {{
-      max-width: 520px;
-      margin: 0 auto;
-      background-color: #161b22;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 36px;
-    }}
-    .logo {{
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      color: #58a6ff;
-      margin-bottom: 24px;
-    }}
-    h1 {{
-      font-size: 22px;
-      margin: 0 0 16px;
-      color: #ffffff;
-    }}
-    p {{
-      font-size: 14px;
-      line-height: 1.6;
-      color: #8b949e;
-      margin: 0 0 24px;
-    }}
-    .button {{
-      display: inline-block;
-      background-color: #1f6feb;
-      color: #ffffff !important;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 12px 28px;
-      border-radius: 6px;
-      margin-bottom: 24px;
-    }}
-    .link-alt {{
-      font-size: 12px;
-      word-break: break-all;
-      color: #58a6ff;
-    }}
-    .footer {{
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 12px;
-      color: #484f58;
-    }}
-  </style>
 </head>
-<body>
-  <div class="container">
-    <div class="logo"><img src="{settings.FRONTEND_URL.rstrip('/')}/logo-mark.png" width="32" height="32" alt="" style="vertical-align:middle;margin-right:8px"> WEBISCRAP</div>
-    <h1>Verify Your Email Address</h1>
-    <p>Welcome to WEBISCRAP!</p>
-    <p>Please confirm your email address (<strong>{_html.escape(user_email)}</strong>) to activate your account and access intelligent web scraping and extraction.</p>
-    <div>
-      <a href="{verify_url}" class="button" target="_blank">Verify Email Address</a>
-    </div>
-    <p>If the button doesn't work, copy and paste this link into your browser:</p>
-    <p class="link-alt">{verify_url}</p>
-    <div class="footer">
-      This verification link will expire in 24 hours. If you did not create a WEBISCRAP account, please ignore this email.
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; background-color: #06080d; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #06080d; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Container Card -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #0d1117; border: 1px solid #21262d; border-radius: 12px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.5);">
+          <!-- Top Cyber Glow Accent Line -->
+          <tr>
+            <td height="3" style="background-color: #1477f5; background-image: linear-gradient(90deg, #1477f5, #00d2ff, #1477f5); font-size: 0; line-height: 0;">&nbsp;</td>
+          </tr>
+          <!-- Content Area -->
+          <tr>
+            <td style="padding: 36px 36px 32px 36px;">
+              <!-- Header with Logo and Badge -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{frontend_url}/logo-mark.png" width="32" height="32" alt="WEBISCRAP" style="vertical-align: middle; margin-right: 10px; display: inline-block; border: 0;" />
+                    <span style="font-size: 18px; font-weight: 700; letter-spacing: 1.5px; color: #ffffff; vertical-align: middle; display: inline-block;">WEBISCRAP</span>
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="display: inline-block; padding: 4px 10px; font-family: monospace, Consolas, Courier; font-size: 10.5px; font-weight: 600; color: #4fd8ff; background-color: rgba(0, 210, 255, 0.08); border: 1px solid rgba(0, 210, 255, 0.25); border-radius: 4px; text-transform: uppercase; letter-spacing: 0.8px;">ACCOUNT ACTIVATION</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Heading -->
+              <h1 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 600; color: #ffffff; letter-spacing: -0.3px; line-height: 1.3;">Verify Your Email Address</h1>
+              
+              <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #c9d1d9;">Welcome to WEBISCRAP!</p>
+              
+              <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #8b949e;">
+                Please confirm your email address (<strong style="color: #ffffff;">{escaped_email}</strong>) to activate your account and start extracting structured data from any website.
+              </p>
+
+              <!-- Expiration Notice Callout -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #071324; border: 1px solid #143560; border-radius: 8px; margin-bottom: 26px;">
+                <tr>
+                  <td style="padding: 12px 16px; font-size: 13px; color: #79c0ff; line-height: 1.5;">
+                    <strong style="color: #ffffff;">&#9201; Expiration:</strong> This activation link will remain active for <strong>24 hours</strong>.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Action Button -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 0 0 28px 0;">
+                <tr>
+                  <td align="center" bgcolor="#1477f5" style="border-radius: 8px; background-color: #1477f5; box-shadow: 0 4px 16px rgba(20, 119, 245, 0.35);">
+                    <a href="{verify_url}" target="_blank" style="font-size: 14px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff; text-decoration: none; padding: 13px 32px; display: inline-block; border-radius: 8px; letter-spacing: 0.2px;">Verify Email Address &rarr;</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback Section -->
+              <p style="margin: 0 0 8px 0; font-size: 12.5px; color: #8b949e; line-height: 1.5;">
+                If the button above does not work, copy and paste this link into your browser:
+              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #05070a; border: 1px solid #1b2230; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 12px 14px; word-break: break-all; font-family: monospace, Consolas, Courier; font-size: 11.5px; line-height: 1.5; color: #4fd8ff;">
+                    <a href="{verify_url}" target="_blank" style="color: #4fd8ff; text-decoration: underline;">{verify_url}</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Reassurance Note -->
+              <p style="margin: 0 0 24px 0; font-size: 12.5px; line-height: 1.6; color: #6e7681;">
+                If you did not register for an account on WEBISCRAP, please disregard this email.
+              </p>
+
+              <!-- Footer Divider -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="border-top: 1px solid #21262d; padding-top: 20px;">
+                    <p style="margin: 0 0 6px 0; font-size: 11.5px; color: #484f58; line-height: 1.5;">
+                      WEBISCRAP &bull; Autonomous Web Scraping &amp; AI Extraction Engine
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #484f58;">
+                      <a href="{frontend_url}/privacy" style="color: #6e7681; text-decoration: none; margin-right: 12px;">Privacy Policy</a>
+                      <a href="{frontend_url}/terms" style="color: #6e7681; text-decoration: none; margin-right: 12px;">Terms of Service</a>
+                      <a href="{frontend_url}/docs" style="color: #6e7681; text-decoration: none;">Documentation</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
-</html>
-"""
+</html>"""
 
 def _plain_text(intro: str, url: str, note: str) -> str:
     return f"{intro}\n\n{url}\n\n{note}\n\n— WEBISCRAP"

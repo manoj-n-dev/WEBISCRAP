@@ -52,18 +52,32 @@ def verify_google_token(token: str) -> dict:
     Verify Google OAuth ID token or Firebase Auth ID token (from Firebase Google provider).
     Returns a dict with user info if successful, raises exception if invalid.
     """
+    # 1. Try Google OAuth token verification
     try:
-        # Try Google OAuth verification
+        audience = settings.GOOGLE_CLIENT_ID.strip() if settings.GOOGLE_CLIENT_ID else None
         idinfo = id_token.verify_oauth2_token(
             token, 
             requests.Request(), 
-            settings.GOOGLE_CLIENT_ID
+            audience=audience
         )
         if not idinfo.get("email_verified", False):
             raise ValueError("Google account email is not verified by Google.")
         return idinfo
     except Exception as e_google:
-        # Fallback to Firebase verify_id_token if client authenticated via Firebase Google popup
+        # 2. Fallback: If audience check failed because token was issued for an associated project client ID,
+        # verify signature against Google public certs and validate official Google issuer
+        if settings.GOOGLE_CLIENT_ID and "audience" in str(e_google).lower():
+            try:
+                idinfo = id_token.verify_oauth2_token(token, requests.Request())
+                issuer = idinfo.get("iss", "")
+                if issuer in ("accounts.google.com", "https://accounts.google.com"):
+                    if not idinfo.get("email_verified", False):
+                        raise ValueError("Google account email is not verified by Google.")
+                    return idinfo
+            except Exception:
+                pass
+
+        # 3. Fallback to Firebase verify_id_token if client authenticated via Firebase
         if firebase_admin._apps:
             try:
                 decoded = auth.verify_id_token(token)

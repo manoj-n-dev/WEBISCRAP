@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/Input";
 import { Plus, Search, MessageSquare, LogOut, Trash2, Pencil, Check, X, Settings } from "lucide-react";
 import { useChatStore, type SessionSummary } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
-import { ProfileModal } from "@/components/profile/ProfileModal";
 
 export interface SidebarUser {
   id?: string;
@@ -25,15 +24,16 @@ export interface SidebarProps {
   open: boolean;                 // mobile drawer state (ignored on lg+)
   onNavigate: () => void;
   onUserUpdated?: (updated: SidebarUser) => void;
+  onOpenAccount?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const DAY = 86400;
 
-export function Sidebar({ user, open, onNavigate, onUserUpdated }: SidebarProps) {
+export function Sidebar({ user, open, onNavigate, onUserUpdated, onOpenAccount, onOpenSettings }: SidebarProps) {
   const router = useRouter();
   const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession, renameSession } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<SidebarUser | null>(user);
 
   React.useEffect(() => {
@@ -139,17 +139,17 @@ export function Sidebar({ user, open, onNavigate, onUserUpdated }: SidebarProps)
 
       <div className="mt-auto pt-[14px] border-t border-hair flex items-center justify-between gap-[6px] pl-[6px]">
         <button
-          onClick={() => setProfileOpen(true)}
+          onClick={onOpenAccount}
           className="flex items-center gap-[10px] min-w-0 flex-1 text-left p-[4px] -ml-[4px] rounded-sm hover:bg-white/5 transition-colors cursor-pointer group"
-          title="View profile & account settings"
-          aria-label="View profile & account settings"
+          title="View profile & account details"
+          aria-label="View profile & account details"
         >
           <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0 group-hover:shadow-[0_0_8px_rgba(79,216,255,0.4)] transition-all">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-text-hi truncate group-hover:text-cyan transition-colors">{displayName}</div>
-            <div className="text-[11px] text-text-dim truncate">{activeUser?.is_guest ? "Guest session" : "Settings & Profile"}</div>
+            <div className="text-[11px] text-text-dim truncate">{activeUser?.is_guest ? "Guest session" : "Account & Settings"}</div>
           </div>
         </button>
 
@@ -157,9 +157,9 @@ export function Sidebar({ user, open, onNavigate, onUserUpdated }: SidebarProps)
           <Button
             variant="icon"
             className="border-none hover:text-cyan"
-            onClick={() => setProfileOpen(true)}
-            title="Account settings"
-            aria-label="Account settings"
+            onClick={onOpenSettings}
+            title="Account settings & preferences"
+            aria-label="Account settings & preferences"
           >
             <Settings className="w-[14px] h-[14px]" />
           </Button>
@@ -174,16 +174,6 @@ export function Sidebar({ user, open, onNavigate, onUserUpdated }: SidebarProps)
           </Button>
         </div>
       </div>
-
-      <ProfileModal
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        user={activeUser}
-        onUserUpdated={(updated) => {
-          setCurrentUser(updated);
-          if (onUserUpdated) onUserUpdated(updated);
-        }}
-      />
     </aside>
   );
 }

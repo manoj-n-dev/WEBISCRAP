@@ -6,7 +6,7 @@ import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ApiClient } from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chat";
-import { formatFirebaseAuthError, isFirebaseConfigured, signInWithGoogleRedirect, getGoogleRedirectResult } from "@/lib/firebase";
+import { formatFirebaseAuthError, isFirebaseConfigured, signInWithGooglePopup, getGoogleRedirectResult } from "@/lib/firebase";
 
 export interface SocialAuthProps {
   disabled?: boolean;
@@ -14,8 +14,8 @@ export interface SocialAuthProps {
 }
 
 /**
- * Google sign-in via Firebase OAuth Redirect (navigates current tab to Google Accounts, no popups)
- * with automatic redirect token resolution on page mount.
+ * Google sign-in via Firebase OAuth Popup (reliable cross-origin communication via postMessage,
+ * immune to browser storage-partitioning redirect loops) with lazy redirect result fallback.
  */
 export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const router = useRouter();
@@ -39,7 +39,7 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     }
   }, [onError, router]);
 
-  // Listen for Google OAuth redirect callback on page mount
+  // Listen for Google OAuth redirect callback on page mount if user arrived via redirect
   useEffect(() => {
     let isMounted = true;
     const checkRedirect = async () => {
@@ -66,10 +66,14 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     setBusy(true);
     onError(null);
     try {
-      await signInWithGoogleRedirect();
+      const token = await signInWithGooglePopup();
+      if (token) {
+        await finish(token);
+      }
     } catch (e) {
       const msg = formatFirebaseAuthError(e);
       if (msg) onError(msg);
+    } finally {
       setBusy(false);
     }
   };
@@ -79,7 +83,7 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     <div className="flex flex-col gap-[12px]">
       <Button onClick={handleGoogleSignIn} disabled={off} className="w-full justify-start pl-[20px]">
         <GoogleGlyph />
-        {busy ? "Redirecting to Google..." : "Google"}
+        {busy ? "Signing in with Google..." : "Google"}
       </Button>
 
       <Button

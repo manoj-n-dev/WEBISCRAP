@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, ArrowLeft, Home, Settings } from "lucide-react";
 import { Sidebar, type SidebarUser } from "@/components/sidebar/Sidebar";
 import { Button } from "@/components/ui/Button";
-import { ProfileModal } from "@/components/profile/ProfileModal";
+import { AccountSettingsModal } from "@/components/profile/AccountSettingsModal";
 import { useChatStore } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
 import { WarmUp } from "@/components/system/WarmUp";
@@ -17,7 +17,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<SidebarUser | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalTab, setAccountModalTab] = useState<"account" | "settings">("settings");
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   const sessions = useChatStore((s) => s.sessions);
   const slowAuth = useSlowHint(!authReady);
@@ -65,7 +66,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="bg-field"></div>
 
       {drawerOpen && <div className="fixed inset-0 z-30 bg-black/60 lg:hidden" onClick={() => setDrawerOpen(false)} aria-hidden />}
-      <Sidebar user={user} open={drawerOpen} onNavigate={() => setDrawerOpen(false)} onUserUpdated={(u) => setUser(u)} />
+      <Sidebar
+        user={user}
+        open={drawerOpen}
+        onNavigate={() => setDrawerOpen(false)}
+        onUserUpdated={(u) => setUser(u)}
+        onOpenAccount={() => {
+          setAccountModalTab("account");
+          setAccountModalOpen(true);
+        }}
+        onOpenSettings={() => {
+          setAccountModalTab("settings");
+          setAccountModalOpen(true);
+        }}
+      />
 
       <div className="flex-1 min-w-0 relative z-10 flex flex-col h-dvh overflow-hidden">
         <header className="h-[56px] sm:h-[60px] border-b border-hair flex items-center justify-between gap-[10px] px-[12px] sm:px-[20px] shrink-0 bg-[rgba(5,7,12,0.6)] backdrop-blur-md">
@@ -92,9 +106,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-[8px] shrink-0">
             <button
-              onClick={() => setProfileOpen(true)}
-              title="Account settings & profile"
-              aria-label="Account settings & profile"
+              onClick={() => {
+                setAccountModalTab("settings");
+                setAccountModalOpen(true);
+              }}
+              title="Account settings & preferences"
+              aria-label="Account settings & preferences"
               className="text-[12px] text-text-dim hover:text-text-hi px-2.5 py-1 rounded border border-white/5 hover:border-white/15 hover:border-cyan/30 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Settings className="w-[14px] h-[14px] text-cyan" />
@@ -114,9 +131,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>
       </div>
 
-      <ProfileModal
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
+      <AccountSettingsModal
+        isOpen={accountModalOpen}
+        initialTab={accountModalTab}
+        onClose={() => setAccountModalOpen(false)}
         user={user}
         onUserUpdated={(updated) => setUser(updated)}
       />

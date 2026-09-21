@@ -113,11 +113,16 @@ html { -webkit-text-size-adjust: 100%; }
 
 /* ── Custom cursor: hide system cursor on desktop (fine pointer = mouse/trackpad only) ──────────────── */
 @media (pointer: fine) {
-  body { cursor: none; }
+  body:not(.no-custom-cursor) { cursor: none; }
   /* Restore visible text cursor inside text inputs so users know where to click */
   input, textarea, [contenteditable] { cursor: text; }
-  /* Restore pointer on clickable native elements (backup safety net) */
-  a, button, [role="button"], select, label, summary { cursor: none; }
+  /* Restore pointer on clickable native elements when custom cursor is active */
+  body:not(.no-custom-cursor) a, 
+  body:not(.no-custom-cursor) button, 
+  body:not(.no-custom-cursor) [role="button"], 
+  body:not(.no-custom-cursor) select, 
+  body:not(.no-custom-cursor) label, 
+  body:not(.no-custom-cursor) summary { cursor: none; }
 }
 
 /* ── Missing animation keyframes ────────────────────────────────────────────────────────────────────── */

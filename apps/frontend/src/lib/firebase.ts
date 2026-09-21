@@ -63,8 +63,16 @@ export async function signInWithGooglePopup(): Promise<string> {
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   });
-  const result = await signInWithPopup(getAuth(app), new GoogleAuthProvider());
-  return result.user.getIdToken();
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  const result = await signInWithPopup(getAuth(app), provider);
+
+  // Extract the genuine Google OAuth ID token from the result credential
+  const credential = GoogleAuthProvider.credentialFromResult(result);
+  if (credential?.idToken) {
+    return credential.idToken;
+  }
+  return await result.user.getIdToken();
 }
 
 export function formatFirebaseAuthError(err: unknown): string {

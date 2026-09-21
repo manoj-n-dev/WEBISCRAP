@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 
@@ -9,15 +9,29 @@ export function CustomCursor() {
   const [isHovered, setIsHovered] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(true);
+  const [isEnabled, setIsEnabled] = useState(true);
 
   useEffect(() => {
     // Only mount on devices with a fine pointer (desktop mouse/trackpad), not touch screens
     const hasFinePointer = window.matchMedia("(pointer: fine)").matches;
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Check user preference
+    const saved = localStorage.getItem("webiscrap_cursor_enabled");
+    if (saved === "false") {
+      setIsEnabled(false);
+      document.body.classList.add("no-custom-cursor");
+    }
+
+    const onToggle = (e: Event) => {
+      const customEvent = e as CustomEvent<{ enabled: boolean }>;
+      setIsEnabled(customEvent.detail.enabled);
+    };
+    window.addEventListener("webiscrap_cursor_toggle", onToggle);
+
     if (!hasFinePointer || prefersReducedMotion) {
       setIsTouchDevice(true);
-      return;
+      return () => window.removeEventListener("webiscrap_cursor_toggle", onToggle);
     }
     setIsTouchDevice(false);
 
@@ -87,7 +101,7 @@ export function CustomCursor() {
     };
   }, [visible]);
 
-  if (isTouchDevice) return null;
+  if (isTouchDevice || !isEnabled) return null;
 
   return (
     <div
