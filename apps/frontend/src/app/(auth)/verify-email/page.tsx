@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { CheckCircle2, AlertCircle, Mail, ArrowRight, Loader2 } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
 
-export default function VerifyEmailPage() {
+function VerifyEmailInner() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -152,5 +152,13 @@ export default function VerifyEmailPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <React.Suspense fallback={<div className="text-center text-text-dim text-sm">Loading…</div>}>
+      <VerifyEmailInner />
+    </React.Suspense>
   );
 }

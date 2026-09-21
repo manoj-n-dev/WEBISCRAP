@@ -1,147 +1,265 @@
 import { create } from "zustand";
-import { ApiClient } from "../api/client";
+import { ApiClient, ApiError } from "../api/client";
+
+export type ChatMode = "extraction" | "followup" | "idle";
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  status: "uploading" | "ready" | "error";
+  kind?: string;
+  rows?: number | null;
+  error?: string;
+}
+
+export interface MessageError {
+  code?: string;
+  message: string;
+  retryAfter?: number;
+  scope?: string;
+}
 
 export interface Message {
   id: string;
   role: "user" | "ai";
-  content: string | React.ReactNode;
-  data?: any[];
+  content: string;
   status?: "running" | "completed" | "error";
+  mode?: ChatMode;
+  attachments?: Attachment[];
+  data?: any[];
+  resultRows?: any[] | null;
+  resultCount?: number | null;
   completedSteps?: string[];
   totalRows?: number;
+  totalCols?: number;
   confidenceScore?: number;
   validationNotes?: string;
   flaggedFields?: number;
   exportUrl?: string;
+  warnings?: string[];
+  error?: MessageError;
+}
+
+export interface SessionSummary {
+  id: string;
+  title: string;
+  timestamp: number;
 }
 
 interface ChatState {
+  userId: string | null;
   activeSessionId: string | null;
-  sessions: any[];
+  sessions: SessionSummary[];
+  sessionsLoaded: boolean;
   messages: Message[];
+  pendingAttachments: Attachment[];
   isPipelineActive: boolean;
   error: string | null;
-  
+
+  bindUser: (userId: string) => void;
+  resetAll: () => void;
+  startNewChat: () => void;
   setActiveSession: (id: string) => void;
   fetchSessionHistory: (id: string) => Promise<void>;
+  loadSessions: () => Promise<void>;
+  removeSession: (id: string) => Promise<void>;
+  addAttachments: (files: File[]) => Promise<void>;
+  removeAttachment: (id: string) => void;
   addMessage: (msg: Message) => void;
   updateMessage: (id: string, updates: Partial<Message>) => void;
   submitExtraction: (message: string, url: string) => Promise<void>;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  activeSessionId: null,
-  sessions: [],
-  messages: [],
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const ACCEPTED = [".pdf", ".docx", ".csv", ".xlsx", ".xls", ".png", ".jpg", ".jpeg"];
+
+const initial = {
+  activeSessionId: null as string | null,
+  sessions: [] as SessionSummary[],
+  sessionsLoaded: false,
+  messages: [] as Message[],
+  pendingAttachments: [] as Attachment[],
   isPipelineActive: false,
-  error: null,
-  
-  setActiveSession: (id) => {
-    set({ activeSessionId: id });
-    if (id === "new") {
-      set({ messages: [], error: null });
-    } else {
-      get().fetchSessionHistory(id);
-    }
+  error: null as string | null,
+};
+
+/** A dataset exists in this chat if any earlier AI message carried rows. */
+export function chatHasDataset(messages: Message[]): boolean {
+  return messages.some((m) => m.role === "ai" && ((m.totalRows ?? 0) > 0 || (m.data?.length ?? 0) > 0));
+}
+
+export const useChatStore = create<ChatState>((set, get) => ({
+  userId: null,
+  ...initial,
+
+  /** Called after /me: if the signed-in identity changed, drop everything that belonged to the previous one. */
+  bindUser: (userId) => {
+    const current = get().userId;
+    // The sessions list is always fetched with the CURRENT token, so it is already scoped to this identity and is kept
+    // (getMe and loadSessions now run in parallel). Everything else that belonged to the previous identity is dropped.
+    if (current && current !== userId) set({ ...initial, sessions: get().sessions, sessionsLoaded: get().sessionsLoaded, userId });
+    else set({ userId });
   },
-  
-  fetchSessionHistory: async (id: string) => {
+
+  /** Logout / account switch: nothing from the previous identity may stay in memory. */
+  resetAll: () => set({ userId: null, ...initial }),
+
+  startNewChat: () => set({ activeSessionId: null, messages: [], pendingAttachments: [], error: null }),
+
+  setActiveSession: (id) => {
+    const { activeSessionId, messages } = get();
+    if (activeSessionId === id && messages.length > 0) return;   // already loaded (or just created here): never clobber it
+    set({ activeSessionId: id, messages: [], pendingAttachments: [], error: null });
+    void get().fetchSessionHistory(id);
+  },
+
+  fetchSessionHistory: async (id) => {
     try {
-      const result = await ApiClient.getHistory(id);
-      if (result && result.history) {
-        // H7/H8: Hydrate messages from history array
-        const historyMessages = result.history.map((item: any, i: number) => {
-          if (item.role === "user") {
-            return { id: `hist-${i}`, role: "user", content: item.content };
-          } else {
-            return {
-              id: `hist-${i}`,
-              role: "ai",
-              content: item.content,
-              status: "completed",
-              // We just display the conversation content for history MVP
-            };
-          }
-        });
-        set({ messages: historyMessages, error: null });
+      const [historyRes, dataRes] = await Promise.allSettled([ApiClient.getHistory(id), ApiClient.getSessionData(id, 200)]);
+      if (get().activeSessionId !== id) return;                  // user navigated away meanwhile
+      if (historyRes.status !== "fulfilled") throw historyRes.reason;
+
+      const history: Message[] = (historyRes.value.history || []).map((item: any, i: number) =>
+        item.role === "user"
+          ? { id: `hist-${i}`, role: "user" as const, content: String(item.content ?? "") }
+          : { id: `hist-${i}`, role: "ai" as const, content: String(item.content ?? ""), status: "completed" as const, mode: "followup" as const },
+      );
+
+      // Re-attach the dataset (preview) + quality info to the most recent AI answer so the table is not lost on reload
+      if (dataRes.status === "fulfilled" && dataRes.value?.cleaned_data?.length) {
+        const d = dataRes.value;
+        const lastAi = [...history].reverse().find((m) => m.role === "ai");
+        const patch: Partial<Message> = {
+          mode: "extraction",
+          data: d.cleaned_data,
+          totalRows: d.total_rows ?? d.cleaned_data.length,
+          totalCols: Object.keys(d.cleaned_data[0] || {}).length,
+          confidenceScore: d.validation?.confidence_score,
+          validationNotes: d.validation?.validation_notes,
+          flaggedFields: d.validation?.flagged_rows_count || 0,
+        };
+        if (lastAi) Object.assign(lastAi, patch);
       }
+      set({ messages: history, error: null });
     } catch (err) {
       console.error("Failed to fetch session history:", err);
-      set({ error: "Failed to load session history" });
+      set({ error: "Failed to load this chat" });
     }
   },
 
+  loadSessions: async () => {
+    try {
+      const res = await ApiClient.getSessions();
+      set({ sessions: (res.sessions || []) as SessionSummary[], sessionsLoaded: true });
+    } catch {
+      set({ sessionsLoaded: true });
+    }
+  },
+
+  removeSession: async (id) => {
+    await ApiClient.deleteSession(id);
+    set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
+    if (get().activeSessionId === id) get().startNewChat();
+  },
+
+  /** Files become real attachments (chips) uploaded to the chat's session - they are NOT pasted into the text box. */
+  addAttachments: async (files) => {
+    let sid = get().activeSessionId;
+    if (!sid) {
+      sid = crypto.randomUUID();
+      set({ activeSessionId: sid });
+    }
+    for (const file of files) {
+      const id = crypto.randomUUID();
+      const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
+      const base: Attachment = { id, name: file.name, size: file.size, status: "uploading" };
+      if (!ACCEPTED.includes(ext)) {
+        set((s) => ({ pendingAttachments: [...s.pendingAttachments, { ...base, status: "error", error: "Unsupported file type" }] }));
+        continue;
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        set((s) => ({ pendingAttachments: [...s.pendingAttachments, { ...base, status: "error", error: "File is larger than 20 MB" }] }));
+        continue;
+      }
+      set((s) => ({ pendingAttachments: [...s.pendingAttachments, base] }));
+      try {
+        const res = await ApiClient.uploadFile(file, sid);
+        set((s) => ({
+          pendingAttachments: s.pendingAttachments.map((a) => (a.id === id ? { ...a, status: "ready", kind: res.kind, rows: res.rows } : a)),
+        }));
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : "Upload failed";
+        set((s) => ({ pendingAttachments: s.pendingAttachments.map((a) => (a.id === id ? { ...a, status: "error", error: msg } : a)) }));
+      }
+    }
+  },
+
+  removeAttachment: (id) => set((s) => ({ pendingAttachments: s.pendingAttachments.filter((a) => a.id !== id) })),
+
   addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
   updateMessage: (id, updates) =>
-    set((state) => ({
-      messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-    })),
-    
-  submitExtraction: async (message: string, url: string) => {
-    const { addMessage, updateMessage, activeSessionId } = get();
-    
-    // Add user message
-    const userMsgId = crypto.randomUUID();
-    addMessage({ id: userMsgId, role: "user", content: message });
-    
-    // Add AI placeholder message
+    set((state) => ({ messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)) })),
+
+  submitExtraction: async (message, url) => {
+    const { addMessage, updateMessage, messages } = get();
+    const attachments = get().pendingAttachments.filter((a) => a.status === "ready");
+    const hasDataset = chatHasDataset(messages);
+    const isFollowUp = hasDataset && !url && attachments.length === 0;
+
+    // The session id is created HERE, before the request, so live progress can be polled from the very first run.
+    let sid = get().activeSessionId;
+    if (!sid) sid = crypto.randomUUID();
+
+    const text = message.trim() || (attachments.length ? `Extract the data from ${attachments.map((a) => a.name).join(", ")}` : "");
+    addMessage({ id: crypto.randomUUID(), role: "user", content: text, attachments });
     const aiMsgId = crypto.randomUUID();
-    addMessage({ 
-      id: aiMsgId, 
-      role: "ai", 
-      content: `I'll extract the data from ${url || 'the requested site'}. Launching the pipeline...`,
+    addMessage({
+      id: aiMsgId,
+      role: "ai",
+      content: isFollowUp ? "" : url ? `Extracting data from ${url}…` : attachments.length ? "Reading your file…" : "Working on it…",
       status: "running",
-      completedSteps: []
+      mode: isFollowUp ? "followup" : "extraction",
+      completedSteps: [],
     });
-    
-    set({ isPipelineActive: true, error: null });
-    
+    set({ activeSessionId: sid, pendingAttachments: [], isPipelineActive: true, error: null });
+
     try {
-      const sid = (activeSessionId && activeSessionId !== "new") ? activeSessionId : undefined;
-      const result = await ApiClient.submitExtraction(message, url, sid);
-      
-      // Update session if it's new
-      if (result.session_id && result.session_id !== activeSessionId) {
-        set({ activeSessionId: result.session_id });
-      }
-      
-      // H2: Properly handle pipeline errors (e.g. LLM failures, timeouts) that return HTTP 200 but status="error"
-      if (result.status === "error") {
-        throw new Error(result.message || "An error occurred during extraction.");
-      }
-      
-      // The backend returns { status: "success", data: { cleaned_data: [...], ... } }
-      // The actual rows live in result.data.cleaned_data (or result.data.extracted_data as fallback)
-      const pipelineState = result.data || {};
-      const extractionData = pipelineState.cleaned_data 
-        || pipelineState.extracted_data 
-        || (Array.isArray(pipelineState) ? pipelineState : []);
-      
-      const conversationResponse = pipelineState.conversation_response?.response_text 
-        || `Extraction complete. I found ${Array.isArray(extractionData) ? extractionData.length : 1} items matching your criteria.`;
-        
-      const validation = pipelineState.validation || {};
-      
+      const result = await ApiClient.submitExtraction(text, url, sid);
+      if (result.status === "error") throw new ApiError(result.message || "Something went wrong.", 500, { code: result.code });
+
+      const p = result.data || {};
+      const rows: any[] = Array.isArray(p.cleaned_data) ? p.cleaned_data : [];
+      const validation = p.validation || {};
+      const ranExtraction = p.mode === "extraction" && !p.extraction_empty;
+
       updateMessage(aiMsgId, {
         status: "completed",
-        completedSteps: pipelineState.completed_steps || (pipelineState.is_new_scrape === false ? ["plan"] : ["plan", "analyze", "browse", "extract", "clean", "validate"]),
-        data: Array.isArray(extractionData) ? extractionData : [extractionData],
-        content: conversationResponse,
-        totalRows: Array.isArray(extractionData) ? extractionData.length : 1,
-        confidenceScore: validation.confidence_score,
-        validationNotes: validation.validation_notes,
+        mode: p.mode,
+        content: p.conversation_response?.response_text || "Done.",
+        completedSteps: p.completed_steps || [],
+        data: ranExtraction ? rows : undefined,
+        resultRows: p.result_rows ?? null,
+        resultCount: p.conversation_response?.result_count ?? null,
+        totalRows: p.dataset_rows ?? rows.length,
+        totalCols: p.dataset_cols,
+        confidenceScore: ranExtraction ? validation.confidence_score : undefined,
+        validationNotes: ranExtraction ? validation.validation_notes : undefined,
         flaggedFields: validation.flagged_rows_count || 0,
-        exportUrl: pipelineState.export_url,
+        exportUrl: p.export_url,
+        warnings: p.warnings,
       });
-      
-    } catch (err: any) {
+      void get().loadSessions();
+    } catch (err) {
+      const e = err as ApiError;
       updateMessage(aiMsgId, {
         status: "error",
-        content: `Failed to complete extraction: ${err.message}`
+        content: "",
+        error: { code: e.code, message: e.message || "Something went wrong.", retryAfter: e.retryAfter, scope: e.scope },
       });
-      set({ error: err.message });
+      set({ error: e.message });
     } finally {
       set({ isPipelineActive: false });
     }
-  }
+  },
 }));

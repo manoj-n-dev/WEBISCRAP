@@ -62,7 +62,7 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <Card variant="strong" className="p-[32px] w-full max-w-md mx-auto text-center">
+      <Card variant="strong" className="p-[22px] sm:p-[32px] w-full max-w-md mx-auto text-center">
         <div className="w-[48px] h-[48px] rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-6 h-6" />
         </div>
@@ -78,7 +78,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-md mx-auto">
+    <Card variant="strong" className="p-[22px] sm:p-[32px] animate-in w-full max-w-md mx-auto">
       <div className="text-center mb-[28px]">
         <h1 className="text-[24px] font-display font-semibold mb-[8px]">Create new password</h1>
         <p className="text-[14px] text-text-dim">Your new password must be different from previous passwords.</p>

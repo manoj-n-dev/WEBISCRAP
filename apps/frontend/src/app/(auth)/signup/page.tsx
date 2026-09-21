@@ -7,9 +7,9 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Divider } from "@/components/ui/Divider";
-import { Mail, Lock, Phone, X, Wand2 } from "lucide-react";
+import { Mail, Lock, Wand2 } from "lucide-react";
 import { ApiClient } from "@/lib/api/client";
-import { getFirebaseAuth, getGoogleProvider, signInWithPopup, RecaptchaVerifier, signInWithPhoneNumber, formatFirebaseAuthError } from "@/lib/firebase";
+import { SocialAuth } from "@/components/auth/SocialAuth";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -20,13 +20,6 @@ export default function SignupPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Phone OTP state
-  const [showPhoneModal, setShowPhoneModal] = React.useState(false);
-  const [phoneNumber, setPhoneNumber] = React.useState("");
-  const [otpSent, setOtpSent] = React.useState(false);
-  const [otp, setOtp] = React.useState("");
-  const [confirmationResult, setConfirmationResult] = React.useState<any>(null);
-
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) return "Password must be at least 8 characters";
     if (!/[A-Z]/.test(pwd)) return "Password must contain at least one uppercase letter";
@@ -35,6 +28,7 @@ export default function SignupPage() {
   };
 
   const [signupSuccess, setSignupSuccess] = React.useState(false);
+  const [emailSent, setEmailSent] = React.useState(true);
   const [resendStatus, setResendStatus] = React.useState<string | null>(null);
   const [resending, setResending] = React.useState(false);
 
@@ -55,8 +49,8 @@ export default function SignupPage() {
     setError(null);
     try {
       // 1. Register the user (creates unverified account & dispatches verification email)
-      await ApiClient.register(email, password);
-      // 2. Display verification pending confirmation
+      const res: any = await ApiClient.register(email, password);
+      setEmailSent(res?.email_sent !== false);
       setSignupSuccess(true);
     } catch (err: any) {
       setError(err.message || "Failed to sign up");
@@ -78,92 +72,19 @@ export default function SignupPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await signInWithPopup(getFirebaseAuth(), getGoogleProvider());
-      const idToken = await result.user.getIdToken();
-      const response = await ApiClient.googleLogin(idToken);
-      if (response.access_token) {
-        ApiClient.setToken(response.access_token);
-        router.push("/chat/new");
-      }
-    } catch (err: any) {
-      if (err.code === "auth/popup-closed-by-user") return;
-      const msg = formatFirebaseAuthError(err);
-      if (msg) setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const recaptchaVerifierRef = React.useRef<any>(null);
-
-  React.useEffect(() => {
-    return () => {
-      if (recaptchaVerifierRef.current) {
-        try {
-          recaptchaVerifierRef.current.clear();
-        } catch(e) {}
-      }
-    };
-  }, []);
-
-  const handleSendOTP = async () => {
-    if (!phoneNumber.trim()) {
-      setError("Enter a valid phone number with country code (e.g. +91...)");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const recaptchaContainer = document.getElementById("recaptcha-container");
-      if (!recaptchaContainer) return;
-      
-      if (!recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(getFirebaseAuth(), recaptchaContainer, { size: "invisible" });
-      }
-      const confirmation = await signInWithPhoneNumber(getFirebaseAuth(), phoneNumber, recaptchaVerifierRef.current);
-      setConfirmationResult(confirmation);
-      setOtpSent(true);
-    } catch (err: any) {
-      const msg = formatFirebaseAuthError(err);
-      if (msg) setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (!otp.trim() || !confirmationResult) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await confirmationResult.confirm(otp);
-      const idToken = await result.user.getIdToken();
-      const response = await ApiClient.phoneLogin(idToken);
-      if (response.access_token) {
-        ApiClient.setToken(response.access_token);
-        router.push("/chat/new");
-      }
-    } catch (err: any) {
-      const msg = formatFirebaseAuthError(err);
-      setError(msg || "Invalid OTP code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (signupSuccess) {
     return (
-      <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500 text-center max-w-md mx-auto">
+      <Card variant="strong" className="p-[22px] sm:p-[32px] animate-in text-center max-w-md mx-auto">
         <div className="w-14 h-14 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary mx-auto mb-5">
           <Mail className="w-7 h-7" />
         </div>
         <h1 className="text-[22px] font-display font-semibold mb-[8px] text-white">Check Your Inbox</h1>
         <p className="text-[14px] text-text-dim mb-[24px]">
-          We have sent a verification email to <strong className="text-white">{email}</strong>. Please click the link in that email to verify and activate your account.
+          {emailSent ? (
+            <>We sent a verification email to <strong className="text-white">{email}</strong>. Click the link in it to activate your account. Check your spam folder too.</>
+          ) : (
+            <>Your account was created, but we couldn&apos;t send the verification email to <strong className="text-white">{email}</strong> right now. Tap &ldquo;Resend Verification Email&rdquo; below in a moment.</>
+          )}
         </p>
 
         <div className="flex flex-col gap-3">
@@ -191,8 +112,7 @@ export default function SignupPage() {
 
   return (
     <>
-      <div id="recaptcha-container"></div>
-      <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Card variant="strong" className="p-[22px] sm:p-[32px] animate-in">
         <div className="text-center mb-[28px]">
           <h1 className="text-[24px] font-display font-semibold mb-[8px]">Create an Account</h1>
           <p className="text-[14px] text-text-dim">Join WEBISCRAP to start extracting data</p>
@@ -222,16 +142,15 @@ export default function SignupPage() {
                 type="button"
                 tabIndex={-1}
                 onClick={() => {
-                  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-                  let pass = "";
-                  // ensure at least 1 uppercase, 1 lowercase, 1 number, 1 special char
-                  pass += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
-                  pass += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
-                  pass += "0123456789"[Math.floor(Math.random() * 10)];
-                  pass += "!@#$%^&*"[Math.floor(Math.random() * 8)];
-                  for (let i = 0; i < 8; i++) pass += chars[Math.floor(Math.random() * chars.length)];
-                  // shuffle string
-                  pass = pass.split('').sort(() => 0.5 - Math.random()).join('');
+                  const pick = (set: string) => set[crypto.getRandomValues(new Uint32Array(1))[0] % set.length];
+                  const all = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+                  const chars = [pick("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), pick("abcdefghijklmnopqrstuvwxyz"), pick("0123456789"), pick("!@#$%^&*")];
+                  for (let i = 0; i < 10; i++) chars.push(pick(all));
+                  for (let i = chars.length - 1; i > 0; i--) {          // Fisher-Yates with a CSPRNG
+                    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+                    [chars[i], chars[j]] = [chars[j], chars[i]];
+                  }
+                  const pass = chars.join("");
                   setPassword(pass);
                   setConfirmPassword(pass);
                 }}
@@ -266,29 +185,7 @@ export default function SignupPage() {
           <Divider className="flex-1" />
         </div>
 
-        <div className="flex flex-col gap-[12px]">
-          <Button 
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full justify-start pl-[20px] bg-white/5 border-glass-border-strong text-text-hi hover:bg-white/10 hover:border-glass-border-strong hover:text-white group"
-          >
-            <svg className="w-[18px] h-[18px] mr-[8px] opacity-80 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-              <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-            Google
-          </Button>
-          <Button 
-            onClick={() => { setShowPhoneModal(true); setError(null); }}
-            disabled={loading}
-            className="w-full justify-start pl-[20px] bg-white/5 border-glass-border-strong text-text-hi hover:bg-white/10 hover:border-glass-border-strong hover:text-white group"
-          >
-            <Phone className="w-[18px] h-[18px] mr-[8px] opacity-80 group-hover:opacity-100 transition-opacity" />
-            Phone OTP
-          </Button>
-        </div>
+        <SocialAuth disabled={loading} onError={setError} />
 
         <div className="mt-[24px] text-center text-[12px] text-text-dim">
           By continuing, you agree to our <Link href="/terms" className="text-text-mid hover:text-text-hi transition-colors underline decoration-hair underline-offset-4">Terms</Link> & <Link href="/privacy" className="text-text-mid hover:text-text-hi transition-colors underline decoration-hair underline-offset-4">Privacy</Link>
@@ -302,54 +199,6 @@ export default function SignupPage() {
         </div>
       </Card>
 
-      {/* Phone OTP Modal */}
-      {showPhoneModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <Card variant="strong" className="p-[32px] w-[400px] animate-in fade-in zoom-in-95 duration-200 relative">
-            <button 
-              onClick={() => { setShowPhoneModal(false); setOtpSent(false); setOtp(""); setPhoneNumber(""); }}
-              className="absolute top-[16px] right-[16px] text-text-dim hover:text-text-hi transition-colors cursor-pointer"
-            >
-              <X className="w-[18px] h-[18px]" />
-            </button>
-            <h2 className="text-[20px] font-display font-semibold mb-[8px]">Phone Login</h2>
-            <p className="text-[13px] text-text-dim mb-[20px]">
-              {otpSent ? "Enter the OTP sent to your phone." : "Enter your phone number with country code."}
-            </p>
-
-            {!otpSent ? (
-              <div className="flex flex-col gap-[14px]">
-                <Input
-                  type="tel"
-                  placeholder="+91 9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  icon={<Phone className="w-[16px] h-[16px]" />}
-                  disabled={loading}
-                />
-                <Button variant="primary" className="w-full" onClick={handleSendOTP} disabled={loading}>
-                  {loading ? "Sending..." : "Send OTP"}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-[14px]">
-                <Input
-                  type="text"
-                  placeholder="Enter 6-digit OTP"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  icon={<Lock className="w-[16px] h-[16px]" />}
-                  disabled={loading}
-                />
-                <Button variant="primary" className="w-full" onClick={handleVerifyOTP} disabled={loading}>
-                  {loading ? "Verifying..." : "Verify OTP"}
-                </Button>
-              </div>
-            )}
-            {error && <div className="text-red-500 text-sm mt-3 text-center">{error}</div>}
-          </Card>
-        </div>
-      )}
     </>
   );
 }

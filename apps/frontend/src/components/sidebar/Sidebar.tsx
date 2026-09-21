@@ -1,97 +1,90 @@
-import React, { useEffect, useState } from "react";
+"use client";
+
+import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, Search, MessageSquare, LogOut } from "lucide-react";
-
-import { useChatStore } from "@/lib/store/chat";
-import { useRouter } from "next/navigation";
+import { Plus, Search, MessageSquare, LogOut, Trash2 } from "lucide-react";
+import { useChatStore, type SessionSummary } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
 
-export interface Session {
-  id: string;
-  title: string;
-  date: "today" | "yesterday" | "older";
+export interface SidebarUser {
+  email?: string | null;
+  full_name?: string | null;
+  is_guest?: boolean;
 }
 
-export function Sidebar() {
+export interface SidebarProps {
+  user: SidebarUser | null;
+  open: boolean;                 // mobile drawer state (ignored on lg+)
+  onNavigate: () => void;
+}
+
+const DAY = 86400;
+
+export function Sidebar({ user, open, onNavigate }: SidebarProps) {
   const router = useRouter();
-  const { activeSessionId, setActiveSession } = useChatStore();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
-  
-  useEffect(() => {
-    const fetchSessionsAndUser = async () => {
-      try {
-        const [sessionsRes, userRes] = await Promise.allSettled([
-          ApiClient.getSessions(),
-          ApiClient.getMe()
-        ]);
-        if (sessionsRes.status === "fulfilled" && sessionsRes.value?.sessions) {
-          const now = Date.now() / 1000;
-          const oneDay = 86400;
-          const mapped = sessionsRes.value.sessions.map((s: string | any, i: number) => {
-            const id = typeof s === 'string' ? s : s.id;
-            const title = typeof s === 'string' ? `Extraction ${i+1}` : (s.title || `Extraction ${i+1}`);
-            const timestamp = typeof s === 'object' && s.timestamp ? s.timestamp : null;
-            let date: "today" | "yesterday" | "older" = "today";
-            if (timestamp) {
-              const diff = now - timestamp;
-              date = diff < oneDay ? "today" : (diff < oneDay * 2 ? "yesterday" : "older");
-            }
-            return { id, title, date };
-          });
-          setSessions(mapped);
-        }
-        if (userRes.status === "fulfilled" && userRes.value) {
-          setUser(userRes.value);
-        }
-      } catch (err) {
-        console.error("Failed to load sidebar data:", err);
-      }
+
+  const groups = useMemo(() => {
+    const now = Date.now() / 1000;
+    const q = searchQuery.toLowerCase();
+    const list = sessions.filter((s) => s.title.toLowerCase().includes(q));
+    return {
+      total: list.length,
+      Today: list.filter((s) => now - s.timestamp < DAY),
+      Yesterday: list.filter((s) => now - s.timestamp >= DAY && now - s.timestamp < DAY * 2),
+      Older: list.filter((s) => now - s.timestamp >= DAY * 2),
     };
-    fetchSessionsAndUser();
-  }, []);
-  
-  const handleNewSession = () => {
-    setActiveSession("new");
+  }, [sessions, searchQuery]);
+
+  const handleNew = () => {
+    startNewChat();
     router.push("/chat/new");
+    onNavigate();
   };
-
-  const handleSelectSession = (id: string) => {
-    setActiveSession(id);
+  const handleSelect = (id: string) => {
     router.push(`/chat/${id}`);
+    onNavigate();
   };
-
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this chat and its data?")) return;
+    const wasActive = activeSessionId === id;
+    try {
+      await removeSession(id);
+      if (wasActive) router.push("/chat/new");
+    } catch {
+      window.alert("Could not delete this chat. Please try again.");
+    }
+  };
   const handleLogout = async () => {
     await ApiClient.logout();
-    router.push("/login");
+    useChatStore.getState().resetAll();       // nothing from this identity may survive in memory
+    router.replace("/login");
   };
 
-  const filteredSessions = sessions.filter(s =>
-    s.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const todaySessions = filteredSessions.filter(s => s.date === "today");
-  const yesterdaySessions = filteredSessions.filter(s => s.date === "yesterday");
-  const olderSessions = filteredSessions.filter(s => s.date === "older");
-
-  // FIX 11 (M2): Real user info derivation
-  const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : (user?.is_guest ? "Guest" : "User"));
+  const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : user?.is_guest ? "Guest" : "User");
   const initials = user?.full_name
-    ? user.full_name.trim().split(/\s+/).map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()
-    : (user?.email ? user.email.slice(0, 2).toUpperCase() : (user?.is_guest ? "GU" : "US"));
-  const workspaceText = user?.is_guest ? "Guest session" : "Personal workspace";
+    ? user.full_name.trim().split(/\s+/).map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : user?.email ? user.email.slice(0, 2).toUpperCase() : user?.is_guest ? "GU" : "US";
 
   return (
-    <aside className="w-[264px] border-r border-hair flex flex-col p-[16px_14px] bg-bg-0 z-20 shrink-0 h-screen overflow-y-auto">
+    <aside
+      className={cn(
+        "border-r border-hair flex flex-col p-[16px_14px] bg-bg-0 z-40 shrink-0 h-dvh overflow-y-auto",
+        "fixed inset-y-0 left-0 w-[290px] max-w-[85vw] transition-transform duration-200 lg:static lg:w-[264px] lg:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
       <div className="flex items-center gap-[9px] p-[6px_6px_18px]">
         <Logo variant="lockup" size={22} />
       </div>
 
       <button
-        onClick={handleNewSession}
+        onClick={handleNew}
         className="flex items-center gap-[8px] p-[10px_12px] rounded-sm border border-glass-border-strong text-[13.5px] text-text-hi cursor-pointer bg-[rgba(20,119,245,0.06)] hover:bg-[rgba(20,119,245,0.12)] transition-colors"
       >
         <Plus className="w-[18px] h-[18px]" />
@@ -99,83 +92,34 @@ export function Sidebar() {
       </button>
 
       <div className="mt-[14px]">
-        <Input 
-          icon={<Search className="w-[15px] h-[15px]" />} 
-          placeholder="Search sessions" 
-          className="text-[13px] py-[10px]"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <Input icon={<Search className="w-[15px] h-[15px]" />} placeholder="Search chats" className="text-[13px] py-[10px]" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
       </div>
 
       <div className="flex-1 mt-[8px] overflow-y-auto">
-        {todaySessions.length > 0 && (
-          <>
-            <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">
-              Today
+        {(["Today", "Yesterday", "Older"] as const).map((label) =>
+          groups[label].length > 0 ? (
+            <div key={label}>
+              <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">{label}</div>
+              {groups[label].map((s) => (
+                <SessionItem key={s.id} session={s} isActive={activeSessionId === s.id} onClick={() => handleSelect(s.id)} onDelete={() => handleDelete(s.id)} />
+              ))}
             </div>
-            {todaySessions.map(session => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isActive={activeSessionId === session.id}
-                onClick={() => handleSelectSession(session.id)}
-              />
-            ))}
-          </>
+          ) : null,
         )}
-
-        {yesterdaySessions.length > 0 && (
-          <>
-            <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">
-              Yesterday
-            </div>
-            {yesterdaySessions.map(session => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isActive={activeSessionId === session.id}
-                onClick={() => handleSelectSession(session.id)}
-              />
-            ))}
-          </>
-        )}
-
-        {olderSessions.length > 0 && (
-          <>
-            <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">
-              Older
-            </div>
-            {olderSessions.map(session => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isActive={activeSessionId === session.id}
-                onClick={() => handleSelectSession(session.id)}
-              />
-            ))}
-          </>
-        )}
-
-        {searchQuery && filteredSessions.length === 0 && (
-          <div className="p-[20px_10px] text-center text-[12px] text-text-dim">
-            No matching sessions
-          </div>
+        {sessionsLoaded && groups.total === 0 && (
+          <div className="p-[20px_10px] text-center text-[12px] text-text-dim">{searchQuery ? "No matching chats" : "No chats yet — start your first extraction."}</div>
         )}
       </div>
 
       <div className="mt-auto pt-[14px] border-t border-hair flex items-center justify-between pl-[6px]">
         <div className="flex items-center gap-[10px] min-w-0">
-          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0">
-            {initials}
-          </div>
+          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0">{initials}</div>
           <div className="min-w-0">
             <div className="text-[12.5px] text-text-hi truncate">{displayName}</div>
-            <div className="text-[11px] text-text-dim truncate">{workspaceText}</div>
+            <div className="text-[11px] text-text-dim truncate">{user?.is_guest ? "Guest session (not saved after logout)" : "Personal workspace"}</div>
           </div>
         </div>
-        
-        <Button variant="icon" className="border-none hover:text-red-400 shrink-0" onClick={handleLogout} title="Log out">
+        <Button variant="icon" className="border-none hover:text-red-400 shrink-0" onClick={handleLogout} title="Log out" aria-label="Log out">
           <LogOut className="w-[15px] h-[15px]" />
         </Button>
       </div>
@@ -183,19 +127,21 @@ export function Sidebar() {
   );
 }
 
-function SessionItem({ session, isActive, onClick }: { session: Session; isActive: boolean; onClick: () => void }) {
+function SessionItem({ session, isActive, onClick, onDelete }: { session: SessionSummary; isActive: boolean; onClick: () => void; onDelete: () => void }) {
   return (
     <div
-      onClick={onClick}
       className={cn(
-        "p-[9px_10px] rounded-[8px] text-[13px] cursor-pointer flex items-center gap-[8px] transition-colors",
-        isActive
-          ? "bg-[rgba(20,119,245,0.1)] text-text-hi border border-glass-border"
-          : "text-text-mid hover:bg-[rgba(255,255,255,0.035)] border border-transparent"
+        "group p-[9px_10px] rounded-[8px] text-[13px] flex items-center gap-[8px] transition-colors border",
+        isActive ? "bg-[rgba(20,119,245,0.1)] text-text-hi border-glass-border" : "text-text-mid hover:bg-[rgba(255,255,255,0.035)] border-transparent",
       )}
     >
-      <MessageSquare className="w-[14px] h-[14px] shrink-0 text-text-dim" />
-      <span className="truncate">{session.title}</span>
+      <button onClick={onClick} className="flex items-center gap-[8px] flex-1 min-w-0 text-left cursor-pointer">
+        <MessageSquare className="w-[14px] h-[14px] shrink-0 text-text-dim" />
+        <span className="truncate">{session.title}</span>
+      </button>
+      <button onClick={onDelete} aria-label="Delete chat" title="Delete chat" className="shrink-0 w-[26px] h-[26px] rounded-md flex items-center justify-center text-text-dim hover:text-red-400 hover:bg-white/5 lg:opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer">
+        <Trash2 className="w-[14px] h-[14px]" />
+      </button>
     </div>
   );
 }

@@ -1,91 +1,20 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { ApiClient } from "@/lib/api/client";
 
-// C7: Formula injection protection — prefix dangerous leading chars with a single quote
-const FORMULA_CHARS = new Set(["=", "+", "-", "@", "\t", "\r", "\n"]);
-function sanitizeCellValue(val: string): string {
-  if (val.length > 0 && FORMULA_CHARS.has(val[0])) {
-    return "'" + val;
-  }
-  return val;
+export type ExportFormat = "csv" | "excel" | "json" | "md" | "pdf";
+
+/** Readable text for any cell value (never "[object Object]" / "undefined"). */
+export function formatCell(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (Array.isArray(v)) return v.map((x) => (typeof x === "object" && x !== null ? JSON.stringify(x) : String(x))).join("; ");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
 }
 
-export function downloadJSON(data: Record<string, any>[], filename = "webiscrap_export") {
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: "application/json" });
-  triggerDownload(blob, `${filename}.json`);
-}
-
-export function downloadCSV(data: Record<string, any>[], filename = "webiscrap_export") {
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-  const csvRows = [
-    headers.join(","),
-    ...data.map((row) =>
-      headers.map((h) => {
-        const val = sanitizeCellValue(String(row[h] ?? "")).replace(/"/g, '""');
-        return `"${val}"`;
-      }).join(",")
-    ),
-  ];
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
-  triggerDownload(blob, `${filename}.csv`);
-}
-
-export function downloadExcel(data: Record<string, any>[], filename = "webiscrap_export") {
-  // Excel can open CSV files natively. We use tab-separated values with .xls extension
-  // for better Excel compatibility without requiring heavy xlsx libraries.
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-  const tsvRows = [
-    headers.join("\t"),
-    ...data.map((row) =>
-      headers.map((h) => sanitizeCellValue(String(row[h] ?? "")).replace(/\t/g, " ")).join("\t")
-    ),
-  ];
-  const blob = new Blob(["\uFEFF" + tsvRows.join("\n")], {
-    type: "application/vnd.ms-excel;charset=utf-8;",
-  });
-  triggerDownload(blob, `${filename}.xls`);
-}
-
-export function downloadMarkdown(data: Record<string, any>[], filename = "webiscrap_export") {
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-  const headerRow = `| ${headers.join(" | ")} |`;
-  const separator = `| ${headers.map(() => "---").join(" | ")} |`;
-  const bodyRows = data.map(
-    (row) => `| ${headers.map((h) => sanitizeCellValue(String(row[h] ?? ""))).join(" | ")} |`
-  );
-  const md = [headerRow, separator, ...bodyRows].join("\n");
-  const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
-  triggerDownload(blob, `${filename}.md`);
-}
-
-export function downloadPDF(data: Record<string, any>[], filename = "webiscrap_export") {
-  if (!data.length) return;
-  const headers = Object.keys(data[0]);
-
-  const doc = new jsPDF({ orientation: headers.length > 5 ? "landscape" : "portrait" });
-
-  // Title
-  doc.setFontSize(16);
-  doc.text("WEBISCRAP - Extracted Data", 14, 18);
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(`${data.length} rows exported on ${new Date().toLocaleDateString()}`, 14, 26);
-
-  // Table
-  autoTable(doc, {
-    startY: 32,
-    head: [headers],
-    body: data.map((row) => headers.map((h) => sanitizeCellValue(String(row[h] ?? "")))),
-    theme: "striped",
-    styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [20, 119, 245], textColor: 255 },
-  });
-
-  doc.save(`${filename}.pdf`);
+/** Union of keys across ALL rows (LLM-extracted rows often differ), first-seen order. */
+export function columnsOf(rows: Record<string, unknown>[]): string[] {
+  const seen = new Set<string>();
+  rows.forEach((r) => Object.keys(r).forEach((k) => seen.add(k)));
+  return Array.from(seen);
 }
 
 function triggerDownload(blob: Blob, filename: string) {
@@ -95,30 +24,56 @@ function triggerDownload(blob: Blob, filename: string) {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function exportData(
-  format: "csv" | "excel" | "json" | "md" | "pdf",
-  data: Record<string, any>[],
-  filename = "webiscrap_export"
-) {
-  switch (format) {
-    case "csv":
-      downloadCSV(data, filename);
-      break;
-    case "excel":
-      downloadExcel(data, filename);
-      break;
-    case "json":
-      downloadJSON(data, filename);
-      break;
-    case "md":
-      downloadMarkdown(data, filename);
-      break;
-    case "pdf":
-      downloadPDF(data, filename);
-      break;
+/** jsPDF + autotable (~130 KB gzip) are loaded ONLY when someone actually exports a PDF. */
+export async function downloadPDF(data: Record<string, unknown>[], filename = "webiscrap_export") {
+  if (!data.length) return;
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const headers = columnsOf(data);
+  const doc = new jsPDF({ orientation: headers.length > 5 ? "landscape" : "portrait" });
+  doc.setFontSize(16);
+  doc.text("WEBISCRAP - Extracted Data", 14, 18);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`${data.length} rows exported on ${new Date().toLocaleDateString()}`, 14, 26);
+  autoTable(doc, {
+    startY: 32,
+    head: [headers],
+    body: data.map((row) => headers.map((h) => formatCell(row[h]))),
+    theme: "striped",
+    styles: { fontSize: 8, cellPadding: 3 },
+    headStyles: { fillColor: [20, 119, 245], textColor: 255 },
+  });
+  doc.save(`${filename}.pdf`);
+}
+
+/**
+ * Export a session's FULL dataset. CSV / Excel(.xlsx) / JSON / Markdown are produced by the backend
+ * (correct extension, UTF-8 BOM, real .xlsx, nested values flattened). PDF is rendered in the browser.
+ */
+export async function exportSession(format: ExportFormat, sessionId: string): Promise<void> {
+  if (format === "pdf") {
+    const res = await ApiClient.getSessionData(sessionId);
+    const rows = (res?.cleaned_data || []) as Record<string, unknown>[];
+    if (!rows.length) throw new Error("There is no data to export yet.");
+    await downloadPDF(rows);
+    return;
   }
+  await ApiClient.downloadExport(sessionId, format === "md" ? "markdown" : format);
+}
+
+/** Offline fallback (no session id): CSV with BOM + union columns, or JSON. */
+export function exportRows(format: "csv" | "json", data: Record<string, unknown>[], filename = "webiscrap_export") {
+  if (!data.length) return;
+  if (format === "json") {
+    triggerDownload(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${filename}.json`);
+    return;
+  }
+  const headers = columnsOf(data);
+  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const lines = [headers.map(esc).join(","), ...data.map((r) => headers.map((h) => esc(formatCell(r[h]))).join(","))];
+  triggerDownload(new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }), `${filename}.csv`);
 }

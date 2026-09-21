@@ -1,51 +1,43 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyACJ3rELV-iuGuDYGVblJI2eQqRQaRAUaA",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "webiscrap.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "webiscrap",
-  storageBucket: "webiscrap.firebasestorage.app",
-  messagingSenderId: "299695227616",
-  appId: "1:299695227616:web:2603a5a4ee86e953e88685",
-};
-
-// Initialize Firebase only if not already initialized
-const getFirebaseApp = () => {
-  return getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-};
-
-const getFirebaseAuth = () => {
-  return getAuth(getFirebaseApp());
-};
-
-const getGoogleProvider = () => {
-  return new GoogleAuthProvider();
-};
-
-export function formatFirebaseAuthError(err: any): string {
-  if (!err) return "Authentication failed";
-  const code = err.code || "";
-  switch (code) {
-    case "auth/configuration-not-found":
-    case "auth/operation-not-allowed":
-      return "Google Sign-In is not enabled in Firebase Console. Please sign in with Email & Password or Continue as Guest.";
-    case "auth/unauthorized-domain":
-      return "This domain is not authorized in Firebase Console. Please add webiscrap.vercel.app to Authorized Domains.";
-    case "auth/popup-blocked":
-      return "Popup was blocked by your browser. Please allow popups for this site.";
-    case "auth/popup-closed-by-user":
-      return "";
-    case "auth/invalid-phone-number":
-      return "The phone number entered is invalid. Please include your country code (e.g. +91...).";
-    case "auth/too-many-requests":
-      return "Too many attempts. Please try again later or sign in with Email & Password.";
-    default:
-      if (err.message && err.message.includes("Firebase:")) {
-        return "Authentication provider temporarily unavailable. Please use Email & Password or Continue as Guest.";
-      }
-      return err.message || "Authentication failed. Please try again.";
-  }
+/**
+ * Firebase is now ONLY a fallback for Google sign-in when NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set.
+ * No keys are hard-coded: everything comes from NEXT_PUBLIC_FIREBASE_* env vars, and the SDK is loaded lazily
+ * (dynamic import) so it is not part of the normal login bundle. Phone OTP is not offered.
+ */
+export function isFirebaseConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 }
 
-export { getFirebaseAuth, getGoogleProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup };
+export async function signInWithGooglePopup(): Promise<string> {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Google sign-in is not configured for this deployment. Please use email or continue as guest.");
+  }
+  const [{ initializeApp, getApps }, { getAuth, GoogleAuthProvider, signInWithPopup }] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/auth"),
+  ]);
+  const app = getApps().length ? getApps()[0] : initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  });
+  const result = await signInWithPopup(getAuth(app), new GoogleAuthProvider());
+  return result.user.getIdToken();
+}
+
+export function formatFirebaseAuthError(err: unknown): string {
+  const e = err as { code?: string; message?: string } | null;
+  switch (e?.code) {
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "";
+    case "auth/popup-blocked":
+      return "Your browser blocked the sign-in popup. Allow popups for this site and try again.";
+    case "auth/unauthorized-domain":
+      return "This website is not authorised for Google sign-in yet.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please try again later or sign in with email.";
+    default:
+      return e?.message?.includes("Firebase:") ? "Google sign-in is temporarily unavailable. Please use email or continue as guest." : e?.message || "Authentication failed. Please try again.";
+  }
+}

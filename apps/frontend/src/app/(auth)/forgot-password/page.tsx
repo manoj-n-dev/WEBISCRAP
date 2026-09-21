@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ArrowRight, Mail } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api/client";
+import { ApiClient } from "@/lib/api/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -21,23 +21,16 @@ export default function ForgotPasswordPage() {
     setErrorMessage("");
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      if (!response.ok) {
-        throw new Error("Failed to send reset email");
-      }
+      await ApiClient.forgotPassword(email);
       setStatus("success");
     } catch (err: any) {
       setStatus("error");
-      setErrorMessage(err.message || "Failed to send reset email");
+      setErrorMessage(err.message || "Could not send the reset email. Please try again.");
     }
   };
 
   return (
-    <Card variant="strong" className="p-[32px] animate-in fade-in slide-in-from-bottom-4 duration-500 w-full max-w-md mx-auto">
+    <Card variant="strong" className="p-[22px] sm:p-[32px] animate-in w-full max-w-md mx-auto">
       <div className="text-center mb-[28px]">
         <h1 className="text-[24px] font-display font-semibold mb-[8px]">Reset your password</h1>
         <p className="text-[14px] text-text-dim">Enter your email and we will send you instructions.</p>
@@ -50,7 +43,7 @@ export default function ForgotPasswordPage() {
           </div>
           <h3 className="text-lg font-medium text-text-hi mb-2">Check your email</h3>
           <p className="text-text-dim mb-6 text-sm">
-            We have sent a password reset link to <span className="text-text-hi">{email}</span>.
+            If an account exists for <span className="text-text-hi break-all">{email.trim().toLowerCase()}</span>, a reset link is on its way. It can take a couple of minutes — check your spam folder too.
           </p>
           <Button variant="ghost" className="w-full" onClick={() => window.location.href = "/login"}>
             Return to login
@@ -82,7 +75,7 @@ export default function ForgotPasswordPage() {
             disabled={status === "loading"}
           >
             {status === "loading" ? "Sending..." : "Send reset link"}
-            {!status && <ArrowRight className="w-[16px] h-[16px] ml-2" />}
+            {status !== "loading" && <ArrowRight className="w-[16px] h-[16px] ml-2" />}
           </Button>
           
           <div className="text-center mt-2">
