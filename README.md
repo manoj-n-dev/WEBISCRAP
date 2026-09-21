@@ -10,6 +10,7 @@
 
 [![Live App](https://img.shields.io/badge/Live%20App-webiscrap.vercel.app-1477f5?style=flat-square&logo=vercel)](https://webiscrap.vercel.app)
 [![API Status](https://img.shields.io/badge/API-Operational-00ff78?style=flat-square&logo=render)](https://webiscrap-api.onrender.com/health)
+[![Milestone](https://img.shields.io/badge/Milestone-92%20Commits%20%7C%20Road%20to%20100-8a2be2?style=flat-square&logo=github)](#-milestones--roadmap)
 [![License: All Rights Reserved](https://img.shields.io/badge/License-All%20Rights%20Reserved-red?style=flat-square)](#-license)
 [![Made in India](https://img.shields.io/badge/Made%20in-India%20%F0%9F%87%AE%F0%9F%87%B3-ff6b35?style=flat-square)](#-team)
 
@@ -36,6 +37,7 @@
 - [Tech Stack](#-tech-stack)
 - [Security & Architecture Hardening](#-security--architecture-hardening)
 - [Folder Structure](#-folder-structure)
+- [Milestones & Roadmap](#-milestones--roadmap)
 - [Prerequisites](#-prerequisites)
 - [Installation & Local Setup](#-installation--local-setup)
 - [Environment Configuration](#️-environment-configuration)
@@ -103,6 +105,9 @@ The core engine is orchestrated by `apps/backend/agents/orchestrator.py`, dispat
 ## ✨ Key Features
 
 - **Conversational Extraction HUD:** Complete chat interface built with Next.js 16 and a cinematic glassmorphism dark-mode theme.
+- **Audio Interface Sound FX (Cyberpunk HUD Engine):** Zero external audio files — synthesized entirely in real-time using the browser's Web Audio API. Provides acoustic feedback cues for keystroke typing clicks, file uploads, scrape extraction complete fanfare, downloads, login events, and chat deletion confirmation.
+- **Full Mobile Responsiveness:** Designed for all screen viewports with responsive slide-over drawer navigation, touch-friendly composer, horizontal scrolling data tables, and mobile-first modals.
+- **Diamond Cursor & Micro-Interactions:** Custom ambient glowing diamond cursor with spring physics and reactive component hover states.
 - **Multilingual Support:** Understands colloquial prompts in English, Hindi, Telugu, Tamil, and Hinglish.
 - **Multi-Format Export Suite:** Download datasets in one click:
   - **CSV:** UTF-8 BOM encoding for seamless Microsoft Excel compatibility.
@@ -119,6 +124,7 @@ The core engine is orchestrated by `apps/backend/agents/orchestrator.py`, dispat
   - `/creators` — Dedicated team showcase for the project maintainers.
 - **Live System Status Widget:** IRIS-inspired 4-column footer featuring real-time API operational status, swarm health, and social links.
 - **Flexible Authentication:** Email/Password with verification, Google OAuth (popup modal UX), and instant Guest Mode (no sign-up required).
+- **SEO & Search Console Integration:** Complete OpenGraph metadata, Twitter cards, and Google Search Console site verification.
 
 ---
 
@@ -188,6 +194,7 @@ webiscrap/
 │   │   │   ├── lib/
 │   │   │   │   ├── api/client.ts       # ApiClient with in-memory token & silent refresh
 │   │   │   │   ├── store/chat.ts       # Zustand reactive chat and session store
+│   │   │   │   ├── audio.ts            # Web Audio API sound synthesis engine (typing, cues)
 │   │   │   │   └── export.ts           # Multi-format export engine (CSV, XLSX, JSON, PDF)
 │   │   │   └── styles/
 │   │   └── package.json
@@ -213,6 +220,28 @@ webiscrap/
 ├── .env.example                        # Template for environment variables
 └── README.md
 ```
+
+---
+
+## 🎯 Milestones & Roadmap
+
+WEBISCRAP is actively engineered with continuous development cycles. We are currently marching toward our **100th Commit Milestone**! 🚀
+
+```
+[██████████████████████████████████████████░░░░░░░░] 92% Completed
+Current Status: Commit #92 (Documentation & Architecture Update)
+Target Milestone: Commit #100 (v1.0 Production Gold Release)
+```
+
+| Phase | Commits | Focus Areas | Status |
+|---|---|---|---|
+| **Phase 1: Foundation** | `#1` – `#25` | Monorepo setup, Next.js 16 scaffolding, FastAPI REST structure, basic database schemas | ✅ Completed |
+| **Phase 2: Agent Swarm** | `#26` – `#50` | 9-Agent pipeline orchestration, Groq LLaMA 3 70B integration, multi-key rotation pool | ✅ Completed |
+| **Phase 3: State & Hardening** | `#51` – `#70` | Upstash Redis `z1` compressed cache, SSRF/DNS-rebinding guards, JWT HttpOnly auth | ✅ Completed |
+| **Phase 4: HUD & Experience** | `#71` – `#85` | Glassmorphism HUD theme, TanStack tables, multi-format exports (CSV/XLSX/JSON/PDF) | ✅ Completed |
+| **Phase 5: Audio, Mobile & SEO** | `#86` – `#92` | Web Audio sound FX synthesis, full mobile responsiveness pass, SEO verification | ✅ Completed |
+| **Phase 6: Countdown to 100** | `#93` – `#99` | Performance profiling, E2E stress testing, final UI micro-polish & release prep | 🔄 Active |
+| **Phase 7: Century Milestone** | `#100` | 🌟 **Official v1.0 Production Gold Release Celebration** | 🎯 Next Up |
 
 ---
 
