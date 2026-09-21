@@ -44,20 +44,42 @@ services:
       - key: BACKEND_CORS_ORIGINS
         sync: false
         # Optional comma-separated additional origins (e.g. preview domains)
+      # --- Email: Render FREE blocks SMTP ports 25/465/587 -> use an HTTPS provider (Brevo/Resend) ---
+      - key: EMAIL_PROVIDER
+        value: auto
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAILS_FROM_EMAIL
+        sync: false
+        # MUST be the sender address verified in Brevo (or a verified Resend domain address)
+      - key: EMAILS_FROM_NAME
+        value: "WEBISCRAP"
+      # SMTP is only a fallback (paid Render plans, or Brevo SMTP on port 2525)
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
-        value: "587"
+        value: "2525"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD
         sync: false
       - key: SMTP_TLS
         value: "true"
-      - key: EMAILS_FROM_EMAIL
-        value: "noreply@webiscrap.com"
-      - key: EMAILS_FROM_NAME
-        value: "WEBISCRAP"
+      # --- LLM budget / behaviour ---
+      - key: GROQ_TIER
+        value: free
+      - key: ANALYZER_MODE
+        value: heuristic
+      - key: CLEANER_MODE
+        value: deterministic
+      - key: PLANNER_MODE
+        value: llm   # set to "fast" to skip the planner LLM call (quicker, fewer tokens)
+      - key: MAX_CONCURRENT_BROWSERS
+        value: "1"
+      - key: ENABLE_SCRAPE_WORKER
+        value: "false"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

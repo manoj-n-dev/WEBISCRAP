@@ -25,8 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright Chromium browser and its OS dependencies
-RUN python -m playwright install --with-deps chromium
+# Install Playwright Chromium into a SHARED path. The default (~/.cache) is /root/.cache when installed as root,
+# which the non-root `appuser` cannot read -> Chromium could never launch and every JS page silently fell back to static fetch.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN python -m playwright install --with-deps chromium && chmod -R a+rX /ms-playwright
 
 # Create a non-privileged application user for security
 RUN groupadd -g 10001 appuser && \
@@ -50,4 +52,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Default command starts FastAPI production ASGI server with dynamic port binding
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Retry migrations (Neon may still be waking up) before starting the API
+CMD ["sh", "-c", "(alembic upgrade head || (sleep 5 && alembic upgrade head) || (sleep 10 && alembic upgrade head)) && exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

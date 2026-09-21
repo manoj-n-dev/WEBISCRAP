@@ -9,6 +9,7 @@ if BACKEND_DIR not in sys.path:
 from fastapi import FastAPI, Depends, Request
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 # I2: Initialize structured logging BEFORE any other imports that use logger
 from core.audit_logger import configure_logging, RequestTracingMiddleware, audit_log
@@ -53,8 +54,10 @@ async def lifespan(app: FastAPI):
     if not db_ok:
         logger.error("Database is unreachable after retries — API starting in degraded mode")
 
-    # H-05: Start durable Redis scrape queue worker
-    await scrape_worker.start()
+    # H-05: Optional durable Redis scrape queue worker. OFF by default: the web UI does not use the queue and
+    # its polling loop burns Upstash free-tier commands (500K/month) even when nobody is using the app.
+    if settings.ENABLE_SCRAPE_WORKER:
+        await scrape_worker.start()
 
     audit_log.data_event("app_startup", environment=settings.ENVIRONMENT)
 
@@ -64,7 +67,8 @@ async def lifespan(app: FastAPI):
     audit_log.data_event("app_shutdown", environment=settings.ENVIRONMENT)
 
     # H-05: Gracefully stop scrape worker on shutdown
-    await scrape_worker.stop()
+    if settings.ENABLE_SCRAPE_WORKER:
+        await scrape_worker.stop()
 
     # I3: Dispose database connection pool
     await dispose_engine()
@@ -82,18 +86,41 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
+def _allowed_origins() -> list:
+    origins = [settings.FRONTEND_URL.rstrip("/")]
+    for o in (settings.BACKEND_CORS_ORIGINS or "").split(","):
+        o = o.strip().rstrip("/")
+        if o and o not in origins:
+            origins.append(o)
+    if settings.ENVIRONMENT != "production":
+        origins += ["http://localhost:3000", "http://127.0.0.1:3000"]
+    return origins
+
+
 # Section 20: Safe global exception handler prevents leaking stack traces or python internals
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception(f"Unhandled server exception on {request.method} {request.url.path}: {exc}")
-    return JSONResponse(
+    response = JSONResponse(
         status_code=500,
         content={"detail": "An internal server error occurred. Please try again later."}
     )
+    # This handler runs OUTSIDE CORSMiddleware (Starlette ServerErrorMiddleware), so without these headers the browser
+    # reports every 500 as an opaque "CORS / Failed to fetch" error and the UI cannot show a real message.
+    origin = request.headers.get("origin")
+    if origin and origin in _allowed_origins():
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Vary"] = "Origin"
+    return response
 
 # I2: Request tracing middleware (correlation IDs + structured request/response logging)
 # This REPLACES the previous audit_logging_middleware with a production-grade implementation
 app.add_middleware(RequestTracingMiddleware)
+
+# Compress JSON/text responses (datasets, history, exports): a 200-row dataset is ~10x smaller on the wire, which matters on
+# mobile networks and a busy free-tier instance. Added before CORS so CORS stays outermost.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # C6 & M6: Never combine "*" with allow_credentials=True.
 # Tighten CORS in production to trusted frontend origins.
@@ -114,7 +141,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Request-ID"],  # I2: Allow clients to read correlation ID
+    expose_headers=["X-Request-ID", "Content-Disposition", "Retry-After", "Server-Timing"],  # clients read the correlation ID, export filename and 429 retry hint
 )
 
 # I1: Health check endpoints (no rate limiting — must always respond for orchestrators)

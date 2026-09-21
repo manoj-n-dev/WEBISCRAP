@@ -242,6 +242,10 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
                 f"status={response.status_code} | elapsed={elapsed_ms}ms",
             )
 
-        # Propagate correlation ID to client
+        # Propagate correlation ID + timing to the client (DevTools > Network > Timing shows "Server-Timing").
+        # Lets you tell a slow BACKEND (big server time) from a slow NETWORK / cold start (big waiting time, tiny server time).
         response.headers["X-Request-ID"] = req_id
+        response.headers["Server-Timing"] = f"app;dur={elapsed_ms}"
+        if elapsed_ms > 3000 and not is_health:
+            _loguru_logger.bind(request_id=req_id).warning(f"SLOW | {request.method} {path} took {elapsed_ms}ms")
         return response
