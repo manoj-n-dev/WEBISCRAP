@@ -33,9 +33,11 @@ def _valid_session_id(value: str) -> bool:
 
 
 async def _require_owner(session_id: str, user: User, what: str) -> None:
+    if not _valid_session_id(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id")
     owner_id = await redis_store.get_session_owner(session_id)
     if not owner_id or owner_id != str(user.id):
-        raise HTTPException(status_code=403, detail=f"Not authorized to access this session {what}")
+        raise HTTPException(status_code=403, detail=f"Not authorized to access this session {what}".strip())
 
 
 @router.post("/", response_model=Dict[str, Any])
@@ -109,10 +111,31 @@ async def get_session_data(
 async def get_pipeline_progress(session_id: str, current_user: User = Depends(get_current_user)) -> Any:
     # Fail-closed: an unowned/foreign session is 403. (For a brand-new chat the first poll can race the first POST;
     # the frontend treats that 403 as "not started yet" and simply polls again.)
+    if not _valid_session_id(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session id")
     owner_id = await redis_store.get_session_owner(session_id)
     if not owner_id or owner_id != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session progress")
     return {"step": await redis_store.get_pipeline_progress(session_id)}
+
+
+class RenameSessionRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=80)
+
+
+@router.patch("/{session_id}/rename")
+async def rename_session(
+    session_id: str,
+    body: RenameSessionRequest,
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    """Rename an existing extraction chat session."""
+    await _require_owner(session_id, current_user, "rename")
+    cleaned_title = " ".join(body.title.strip().split())[:80]
+    if not cleaned_title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+    await redis_store.set_session_title(session_id, cleaned_title)
+    return {"status": "ok", "session_id": session_id, "title": cleaned_title}
 
 
 @router.delete("/{session_id}")

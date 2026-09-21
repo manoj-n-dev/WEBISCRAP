@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, ArrowLeft, Home } from "lucide-react";
 import { Sidebar, type SidebarUser } from "@/components/sidebar/Sidebar";
 import { Button } from "@/components/ui/Button";
 import { useChatStore } from "@/lib/store/chat";
@@ -66,14 +66,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar user={user} open={drawerOpen} onNavigate={() => setDrawerOpen(false)} />
 
       <div className="flex-1 min-w-0 relative z-10 flex flex-col h-dvh overflow-hidden">
-        <header className="h-[56px] sm:h-[60px] border-b border-hair flex items-center gap-[10px] px-[12px] sm:px-[20px] shrink-0 bg-[rgba(5,7,12,0.6)] backdrop-blur-md">
-          <Button variant="icon" className="lg:hidden border-none" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
-            <Menu className="w-[20px] h-[20px]" />
-          </Button>
-          <div className="flex items-center gap-[10px] text-[13.5px] min-w-0">
-            <span className="text-text-mid truncate max-w-[60vw] sm:max-w-[400px]">{title}</span>
-            <span className="hidden sm:block w-[4px] h-[4px] rounded-full bg-glass-border-strong"></span>
-            <span className="hidden sm:block font-mono text-[11px] text-cyan uppercase tracking-[0.05em]">Active</span>
+        <header className="h-[56px] sm:h-[60px] border-b border-hair flex items-center justify-between gap-[10px] px-[12px] sm:px-[20px] shrink-0 bg-[rgba(5,7,12,0.6)] backdrop-blur-md">
+          <div className="flex items-center gap-[10px] min-w-0">
+            <Button variant="icon" className="lg:hidden border-none" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+              <Menu className="w-[20px] h-[20px]" />
+            </Button>
+            {pathname.startsWith("/dataset") ? (
+              <button
+                onClick={() => router.push(activeSessionId ? `/chat/${activeSessionId}` : "/chat/new")}
+                className="flex items-center gap-1 text-[13px] text-text-dim hover:text-text-hi transition-colors cursor-pointer mr-1"
+                title="Back to chat"
+                aria-label="Back to chat"
+              >
+                <ArrowLeft className="w-[16px] h-[16px]" />
+                <span className="hidden sm:inline">Back</span>
+              </button>
+            ) : null}
+            <div className="flex items-center gap-[10px] text-[13.5px] min-w-0">
+              <span className="text-text-mid truncate max-w-[50vw] sm:max-w-[400px]">{title}</span>
+              <span className="hidden sm:block w-[4px] h-[4px] rounded-full bg-glass-border-strong"></span>
+              <span className="hidden sm:block font-mono text-[11px] text-cyan uppercase tracking-[0.05em]">Active</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-[8px] shrink-0">
+            <a
+              href="/"
+              title="Return to Home Page"
+              aria-label="Return to Home Page"
+              className="text-[12px] text-text-dim hover:text-text-hi px-2.5 py-1 rounded border border-white/5 hover:border-white/15 transition-all flex items-center gap-1.5"
+            >
+              <Home className="w-[14px] h-[14px]" />
+              <span className="hidden sm:inline">Home</span>
+            </a>
           </div>
         </header>
         <main className="flex-1 min-h-0 overflow-y-auto">{children}</main>

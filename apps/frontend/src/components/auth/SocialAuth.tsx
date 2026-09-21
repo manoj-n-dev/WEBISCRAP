@@ -58,6 +58,7 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: (r) => { if (r.credential) void finish(r.credential); },
+      ux_mode: "popup",
     });
     const width = Math.min(400, Math.max(200, buttonRef.current.clientWidth || 320));
     window.google.accounts.id.renderButton(buttonRef.current, { type: "standard", theme: "filled_black", size: "large", shape: "pill", text: "continue_with", width, logo_alignment: "left" });

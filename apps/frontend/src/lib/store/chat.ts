@@ -64,6 +64,7 @@ interface ChatState {
   fetchSessionHistory: (id: string) => Promise<void>;
   loadSessions: () => Promise<void>;
   removeSession: (id: string) => Promise<void>;
+  renameSession: (id: string, newTitle: string) => Promise<void>;
   addAttachments: (files: File[]) => Promise<void>;
   removeAttachment: (id: string) => void;
   addMessage: (msg: Message) => void;
@@ -161,6 +162,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     await ApiClient.deleteSession(id);
     set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
     if (get().activeSessionId === id) get().startNewChat();
+  },
+
+  renameSession: async (id, newTitle) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    await ApiClient.renameSession(id, trimmed);
+    set((s) => ({
+      sessions: s.sessions.map((x) => (x.id === id ? { ...x, title: trimmed } : x)),
+    }));
   },
 
   /** Files become real attachments (chips) uploaded to the chat's session - they are NOT pasted into the text box. */

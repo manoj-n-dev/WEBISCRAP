@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, Search, MessageSquare, LogOut, Trash2 } from "lucide-react";
+import { Plus, Search, MessageSquare, LogOut, Trash2, Pencil, Check, X } from "lucide-react";
 import { useChatStore, type SessionSummary } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
 
@@ -26,7 +26,7 @@ const DAY = 86400;
 
 export function Sidebar({ user, open, onNavigate }: SidebarProps) {
   const router = useRouter();
-  const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession } = useChatStore();
+  const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession, renameSession } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const groups = useMemo(() => {
@@ -58,6 +58,13 @@ export function Sidebar({ user, open, onNavigate }: SidebarProps) {
       if (wasActive) router.push("/chat/new");
     } catch {
       window.alert("Could not delete this chat. Please try again.");
+    }
+  };
+  const handleRename = async (id: string, newTitle: string) => {
+    try {
+      await renameSession(id, newTitle);
+    } catch {
+      window.alert("Could not rename this chat. Please try again.");
     }
   };
   const handleLogout = async () => {
@@ -101,7 +108,14 @@ export function Sidebar({ user, open, onNavigate }: SidebarProps) {
             <div key={label}>
               <div className="m-[20px_6px_8px] font-mono text-[10.5px] tracking-[0.14em] text-text-dim uppercase">{label}</div>
               {groups[label].map((s) => (
-                <SessionItem key={s.id} session={s} isActive={activeSessionId === s.id} onClick={() => handleSelect(s.id)} onDelete={() => handleDelete(s.id)} />
+                <SessionItem
+                  key={s.id}
+                  session={s}
+                  isActive={activeSessionId === s.id}
+                  onClick={() => handleSelect(s.id)}
+                  onDelete={() => handleDelete(s.id)}
+                  onRename={(newTitle) => handleRename(s.id, newTitle)}
+                />
               ))}
             </div>
           ) : null,
@@ -127,7 +141,92 @@ export function Sidebar({ user, open, onNavigate }: SidebarProps) {
   );
 }
 
-function SessionItem({ session, isActive, onClick, onDelete }: { session: SessionSummary; isActive: boolean; onClick: () => void; onDelete: () => void }) {
+function SessionItem({
+  session,
+  isActive,
+  onClick,
+  onDelete,
+  onRename,
+}: {
+  session: SessionSummary;
+  isActive: boolean;
+  onClick: () => void;
+  onDelete: () => void;
+  onRename: (newTitle: string) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(session.title);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === session.title) {
+      setIsEditing(false);
+      setEditTitle(session.title);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(trimmed);
+      setIsEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSave();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsEditing(false);
+      setEditTitle(session.title);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div
+        className={cn(
+          "p-[6px_8px] rounded-[8px] text-[13px] flex items-center gap-[6px] border bg-[rgba(20,119,245,0.08)] border-signal-400/40 my-[2px]",
+        )}
+      >
+        <input
+          type="text"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          disabled={saving}
+          maxLength={80}
+          className="flex-1 min-w-0 bg-transparent text-text-hi text-[12.5px] border-b border-signal-400 focus:outline-none px-1 py-0.5"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          aria-label="Save title"
+          title="Save title (Enter)"
+          className="shrink-0 w-[22px] h-[22px] rounded flex items-center justify-center text-cyan hover:bg-white/10 cursor-pointer"
+        >
+          <Check className="w-[13px] h-[13px]" />
+        </button>
+        <button
+          onClick={() => {
+            setIsEditing(false);
+            setEditTitle(session.title);
+          }}
+          disabled={saving}
+          aria-label="Cancel rename"
+          title="Cancel (Esc)"
+          className="shrink-0 w-[22px] h-[22px] rounded flex items-center justify-center text-text-dim hover:text-text-hi hover:bg-white/10 cursor-pointer"
+        >
+          <X className="w-[13px] h-[13px]" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -139,9 +238,31 @@ function SessionItem({ session, isActive, onClick, onDelete }: { session: Sessio
         <MessageSquare className="w-[14px] h-[14px] shrink-0 text-text-dim" />
         <span className="truncate">{session.title}</span>
       </button>
-      <button onClick={onDelete} aria-label="Delete chat" title="Delete chat" className="shrink-0 w-[26px] h-[26px] rounded-md flex items-center justify-center text-text-dim hover:text-red-400 hover:bg-white/5 lg:opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer">
-        <Trash2 className="w-[14px] h-[14px]" />
-      </button>
+      <div className="flex items-center gap-[2px] shrink-0 lg:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditTitle(session.title);
+            setIsEditing(true);
+          }}
+          aria-label="Rename chat"
+          title="Rename chat"
+          className="w-[24px] h-[24px] rounded-md flex items-center justify-center text-text-dim hover:text-text-hi hover:bg-white/5 cursor-pointer"
+        >
+          <Pencil className="w-[12px] h-[12px]" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete chat"
+          title="Delete chat"
+          className="w-[24px] h-[24px] rounded-md flex items-center justify-center text-text-dim hover:text-red-400 hover:bg-white/5 cursor-pointer"
+        >
+          <Trash2 className="w-[13px] h-[13px]" />
+        </button>
+      </div>
     </div>
   );
 }

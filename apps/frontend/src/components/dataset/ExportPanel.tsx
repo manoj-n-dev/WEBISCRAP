@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
-import { FileText, FileSpreadsheet, FileJson, FileCode, Download, Loader2 } from "lucide-react";
+import { FileText, FileSpreadsheet, FileJson, FileCode, Download, Loader2, Check } from "lucide-react";
 import { exportSession, type ExportFormat } from "@/lib/export";
 
 export interface ExportPanelProps {
@@ -21,6 +21,7 @@ const formats = [
 
 export function ExportPanel({ className, sessionId }: ExportPanelProps) {
   const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [success, setSuccess] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleExport = async (format: ExportFormat) => {
@@ -29,6 +30,8 @@ export function ExportPanel({ className, sessionId }: ExportPanelProps) {
     setError(null);
     try {
       await exportSession(format, sessionId);
+      setSuccess(format);
+      setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed. Please try again.");
     } finally {
@@ -56,6 +59,11 @@ export function ExportPanel({ className, sessionId }: ExportPanelProps) {
             </div>
             {busy === fmt.id ? (
               <Loader2 className="w-[14px] h-[14px] animate-spin text-text-dim" />
+            ) : success === fmt.id ? (
+              <span className="flex items-center gap-1 text-[11px] font-mono text-cyan">
+                <Check className="w-[13px] h-[13px]" />
+                Saved
+              </span>
             ) : (
               <Download className="w-[14px] h-[14px] text-text-dim lg:opacity-0 group-hover:opacity-100 transition-opacity" />
             )}

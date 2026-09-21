@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
-import { Table, Download, Maximize2 } from "lucide-react";
+import { Table, Download, Maximize2, Check } from "lucide-react";
 import { columnsOf, exportSession, formatCell, type ExportFormat } from "@/lib/export";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,7 @@ export interface DataCardProps {
 export function DataCard({ data, totalRows, label, previewRows = 5, showExports = true, className, sessionId }: DataCardProps) {
   const router = useRouter();
   const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [success, setSuccess] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (!data || data.length === 0) return null;
@@ -34,6 +35,8 @@ export function DataCard({ data, totalRows, label, previewRows = 5, showExports 
     setError(null);
     try {
       await exportSession(format, sessionId);
+      setSuccess(format);
+      setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed");
     } finally {
@@ -92,9 +95,22 @@ export function DataCard({ data, totalRows, label, previewRows = 5, showExports 
         <span>Showing {Math.min(previewRows, data.length)} of {total}</span>
         {showExports && sessionId && (
           <div className="flex flex-wrap gap-[6px]">
-            {(["csv", "excel", "json", "pdf"] as const).map((f) => (
-              <Chip key={f} className="cursor-pointer hover:border-signal-300 hover:text-text-hi" onClick={() => run(f)}>
-                {busy === f ? "…" : f === "excel" ? "Excel" : f.toUpperCase()}
+            {(["csv", "excel", "json", "md", "pdf"] as const).map((f) => (
+              <Chip key={f} className="cursor-pointer hover:border-signal-300 hover:text-text-hi transition-colors" onClick={() => run(f)}>
+                {busy === f ? (
+                  "Exporting…"
+                ) : success === f ? (
+                  <span className="flex items-center gap-1 text-cyan font-mono">
+                    <Check className="w-[11px] h-[11px]" />
+                    Saved
+                  </span>
+                ) : f === "excel" ? (
+                  "Excel"
+                ) : f === "md" ? (
+                  "Markdown"
+                ) : (
+                  f.toUpperCase()
+                )}
               </Chip>
             ))}
           </div>

@@ -108,6 +108,12 @@ class RedisStore:
         clean = " ".join((title or "").split())[:60] or "New extraction"
         await self.client.set(f"session:{session_id}:title", clean, ex=ttl_seconds, nx=True)
 
+    async def set_session_title(self, session_id: str, title: str, ttl_seconds: int = 1209600):
+        """Unconditionally update the session title (e.g. user rename)."""
+        await self.connect()
+        clean = " ".join((title or "").split())[:80] or "New extraction"
+        await self.client.set(f"session:{session_id}:title", clean, ex=ttl_seconds)
+
     async def save_uploaded_rows(self, session_id: str, file_id: str, rows: List[Dict[str, Any]], ttl_seconds: int = 1209600):
         """Exact rows of an uploaded CSV/XLSX (used directly as the dataset - no LLM round-trip)."""
         await self.connect()

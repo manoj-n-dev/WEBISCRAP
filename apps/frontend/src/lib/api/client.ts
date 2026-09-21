@@ -186,6 +186,12 @@ export class ApiClient {
   static getSessions() {
     return this.request("/api/chat/sessions", { method: "GET" });
   }
+  static renameSession(sessionId: string, title: string) {
+    return this.request(`/api/chat/${encodeURIComponent(sessionId)}/rename`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: title.trim() }),
+    });
+  }
   static deleteSession(sessionId: string) {
     return this.request(`/api/chat/${sessionId}`, { method: "DELETE" });
   }
