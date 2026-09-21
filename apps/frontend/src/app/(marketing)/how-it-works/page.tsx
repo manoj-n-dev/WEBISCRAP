@@ -144,7 +144,7 @@ export default function HowItWorksPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px]">
             {agents.map((ag) => (
-              <Card key={ag.num} className="p-[24px] group hover:border-[rgba(20,119,245,0.4)] transition-all bg-field">
+              <Card key={ag.num} className="p-[24px] group hover:border-[rgba(20,119,245,0.4)] transition-all bg-panel">
                 <div className="flex items-center justify-between mb-[16px]">
                   <div className="w-[42px] h-[42px] rounded-lg bg-[rgba(20,119,245,0.08)] border border-[rgba(20,119,245,0.2)] flex items-center justify-center text-signal-400 group-hover:bg-signal-500 group-hover:text-white transition-colors">
                     <ag.icon className="w-[20px] h-[20px]" />

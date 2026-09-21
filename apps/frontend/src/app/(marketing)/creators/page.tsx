@@ -109,7 +109,7 @@ export default function CreatorsPage() {
         <section className="max-w-[1100px] mx-auto mb-[96px]">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[24px]">
             {teamMembers.map((member, i) => (
-              <Card key={i} className="p-[28px] bg-field group hover:border-[rgba(20,119,245,0.4)] transition-all flex flex-col justify-between">
+              <Card key={i} className="p-[28px] bg-panel group hover:border-[rgba(20,119,245,0.4)] transition-all flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-[18px]">
                     <div className="w-[46px] h-[46px] rounded-xl bg-[rgba(20,119,245,0.08)] border border-[rgba(20,119,245,0.2)] flex items-center justify-center text-signal-400 group-hover:bg-signal-500 group-hover:text-white transition-colors">

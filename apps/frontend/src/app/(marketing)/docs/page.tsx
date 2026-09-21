@@ -91,21 +91,21 @@ export default function DocsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px]">
-            <Card className="p-[24px] bg-field">
+            <Card className="p-[24px] bg-panel">
               <span className="font-mono text-[11px] text-cyan font-bold uppercase tracking-wider mb-[8px] block">Step 1</span>
               <h3 className="font-display font-semibold text-[17px] mb-[8px]">Launch a Chat</h3>
               <p className="text-[13px] text-text-dim leading-[1.6]">
                 Sign in or click <strong>Continue as Guest</strong> to open the extraction HUD with zero setup.
               </p>
             </Card>
-            <Card className="p-[24px] bg-field">
+            <Card className="p-[24px] bg-panel">
               <span className="font-mono text-[11px] text-cyan font-bold uppercase tracking-wider mb-[8px] block">Step 2</span>
               <h3 className="font-display font-semibold text-[17px] mb-[8px]">Prompt &amp; Attach</h3>
               <p className="text-[13px] text-text-dim leading-[1.6]">
                 Paste your target URL into the URL bar or drag in a document, then describe what data you want in natural language.
               </p>
             </Card>
-            <Card className="p-[24px] bg-field">
+            <Card className="p-[24px] bg-panel">
               <span className="font-mono text-[11px] text-cyan font-bold uppercase tracking-wider mb-[8px] block">Step 3</span>
               <h3 className="font-display font-semibold text-[17px] mb-[8px]">Refine &amp; Export</h3>
               <p className="text-[13px] text-text-dim leading-[1.6]">
@@ -165,7 +165,7 @@ export default function DocsPage() {
               { label: "AI Model Provider", val: "Groq (LLaMA 3 70B) with automatic key pool rotation" },
               { label: "Browser Headless Engine", val: "Playwright Chromium with SSRF/DNS-rebinding guards" },
             ].map((item, i) => (
-              <Card key={i} className="p-[18px] bg-field flex flex-col justify-between">
+              <Card key={i} className="p-[18px] bg-panel flex flex-col justify-between">
                 <span className="font-mono text-[11px] text-text-dim uppercase tracking-wider">{item.label}</span>
                 <span className="text-[14px] font-medium text-text-hi mt-[4px]">{item.val}</span>
               </Card>
@@ -182,7 +182,7 @@ export default function DocsPage() {
 
           <div className="space-y-[16px]">
             {faqs.map((faq, i) => (
-              <Card key={i} className="p-[22px] bg-field">
+              <Card key={i} className="p-[22px] bg-panel">
                 <h3 className="text-[16px] font-display font-semibold text-text-hi mb-[8px] flex items-center gap-2">
                   <CheckCircle2 className="w-[16px] h-[16px] text-cyan shrink-0" />
                   {faq.q}

@@ -104,7 +104,7 @@ export default function LandingPage() {
               { num: "03", title: "Redis Memory", desc: "Data is cached instantly. Ask follow-up questions to filter, sort, or reshape without re-scraping." },
               { num: "04", title: "Safe Export", desc: "Download in CSV, Excel (.xlsx), JSON, Markdown, or PDF with formula injection defense." },
             ].map((step, i) => (
-              <Card key={i} className="p-[24px] bg-field border-glass-border hover:border-signal-400/40 transition-all flex flex-col justify-between">
+              <Card key={i} className="p-[24px] bg-panel border-glass-border hover:border-signal-400/40 transition-all flex flex-col justify-between">
                 <div>
                   <div className="font-mono text-[24px] font-bold text-signal-400 opacity-60 mb-[12px]">{step.num}</div>
                   <h3 className="font-display font-semibold text-[17px] mb-[8px] text-text-hi">{step.title}</h3>
@@ -174,7 +174,7 @@ export default function LandingPage() {
               { icon: Shield, title: "SSRF & DNS Shield", desc: "Protects backend infrastructure by pre-resolving and blocking private IP and cloud-metadata addresses." },
               { icon: Zap, title: "Durable Job Queue", desc: "Background Redis queue workers decouple heavy Playwright browsing from API response times." },
             ].map((item, i) => (
-              <Card key={i} className="p-[24px] bg-field hover:border-signal-400/40 transition-all">
+              <Card key={i} className="p-[24px] bg-panel hover:border-signal-400/40 transition-all">
                 <div className="w-[38px] h-[38px] rounded-lg bg-[rgba(20,119,245,0.08)] border border-[rgba(20,119,245,0.2)] flex items-center justify-center text-cyan mb-[14px]">
                   <item.icon className="w-[18px] h-[18px]" />
                 </div>
@@ -211,7 +211,7 @@ export default function LandingPage() {
               { name: "Sushanth", role: "Frontend UI/UX", icon: Palette, focus: "Next.js & Tables" },
               { name: "Muni Bharath", role: "Security & QA", icon: ShieldCheck, focus: "SSRF & Auth Hardening" },
             ].map((m, i) => (
-              <Card key={i} className="p-[20px] bg-field text-center hover:border-signal-400/40 transition-all flex flex-col items-center justify-between">
+              <Card key={i} className="p-[20px] bg-panel text-center hover:border-signal-400/40 transition-all flex flex-col items-center justify-between">
                 <div className="w-[48px] h-[48px] rounded-full bg-[rgba(20,119,245,0.1)] border border-[rgba(20,119,245,0.25)] flex items-center justify-center text-cyan mb-[12px]">
                   <m.icon className="w-[20px] h-[20px]" />
                 </div>

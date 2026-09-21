@@ -55,6 +55,11 @@
     mask-image: radial-gradient(80% 60% at 50% 0%, black, transparent 75%);
   }
 
+  /* Card / widget background — use this instead of bg-field on divs/cards */
+  .bg-panel {
+    background: var(--panel);
+  }
+
   .glass {
     background: var(--panel);
     border: 1px solid var(--glass-border);
