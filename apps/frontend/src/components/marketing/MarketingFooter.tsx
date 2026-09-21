@@ -127,7 +127,7 @@ export function MarketingFooter() {
             <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-hi mb-[18px]">
               System Status
             </div>
-            <div className="rounded-xl border border-glass-border-strong bg-field p-[18px] backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="rounded-xl border border-glass-border-strong bg-[rgba(10,14,23,0.85)] p-[18px] backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
               <div className="flex items-center justify-between gap-[8px] pb-[12px] border-b border-hair">
                 <span className="font-mono text-[11px] text-text-dim uppercase tracking-wider">Network</span>
                 <span className="inline-flex items-center gap-[6px] font-mono text-[11px] text-cyan font-semibold">
