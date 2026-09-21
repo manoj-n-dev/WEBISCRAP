@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { ApiClient, ApiError } from "../api/client";
+import { playInterfaceSound } from "../useSound";
 
 export type ChatMode = "extraction" | "followup" | "idle";
 
@@ -180,16 +181,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sid = crypto.randomUUID();
       set({ activeSessionId: sid });
     }
+    if (files.length > 0) {
+      playInterfaceSound("upload");
+    }
     for (const file of files) {
       const id = crypto.randomUUID();
       const ext = "." + (file.name.split(".").pop() || "").toLowerCase();
       const base: Attachment = { id, name: file.name, size: file.size, status: "uploading" };
       if (!ACCEPTED.includes(ext)) {
         set((s) => ({ pendingAttachments: [...s.pendingAttachments, { ...base, status: "error", error: "Unsupported file type" }] }));
+        playInterfaceSound("error");
         continue;
       }
       if (file.size > MAX_UPLOAD_BYTES) {
         set((s) => ({ pendingAttachments: [...s.pendingAttachments, { ...base, status: "error", error: "File is larger than 20 MB" }] }));
+        playInterfaceSound("error");
         continue;
       }
       set((s) => ({ pendingAttachments: [...s.pendingAttachments, base] }));
@@ -198,9 +204,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set((s) => ({
           pendingAttachments: s.pendingAttachments.map((a) => (a.id === id ? { ...a, status: "ready", kind: res.kind, rows: res.rows } : a)),
         }));
+        playInterfaceSound("upload_done");
       } catch (e) {
         const msg = e instanceof ApiError ? e.message : "Upload failed";
         set((s) => ({ pendingAttachments: s.pendingAttachments.map((a) => (a.id === id ? { ...a, status: "error", error: msg } : a)) }));
+        playInterfaceSound("error");
       }
     }
   },
@@ -233,6 +241,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       completedSteps: [],
     });
     set({ activeSessionId: sid, pendingAttachments: [], isPipelineActive: true, error: null });
+    playInterfaceSound("extraction_start");
 
     try {
       const result = await ApiClient.submitExtraction(text, url, sid);
@@ -259,6 +268,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         exportUrl: p.export_url,
         warnings: p.warnings,
       });
+      playInterfaceSound("extraction_done");
       void get().loadSessions();
     } catch (err) {
       const e = err as ApiError;
@@ -268,6 +278,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         error: { code: e.code, message: e.message || "Something went wrong.", retryAfter: e.retryAfter, scope: e.scope },
       });
       set({ error: e.message });
+      playInterfaceSound("error");
     } finally {
       set({ isPipelineActive: false });
     }

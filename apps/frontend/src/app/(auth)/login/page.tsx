@@ -13,9 +13,11 @@ import { cn } from "@/lib/utils";
 import { SocialAuth } from "@/components/auth/SocialAuth";
 import { useChatStore } from "@/lib/store/chat";
 import { useSlowHint } from "@/lib/useSlowHint";
+import { useSound } from "@/lib/useSound";
 
 export default function LoginPage() {
   const router = useRouter();
+  const sound = useSound();
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -37,11 +39,13 @@ export default function LoginPage() {
     try {
       const response = await ApiClient.login(email, password, staySignedIn);
       if (response.access_token) {
+        sound.play("login");
         useChatStore.getState().resetAll();     // never show a previous account's chats
         ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
+      sound.play("error");
       const msg = err.message || "Failed to sign in";
       setError(msg);
       if (err.status === 403 || msg.toLowerCase().includes("not verified")) {
@@ -72,11 +76,13 @@ export default function LoginPage() {
     try {
       const response = await ApiClient.guestLogin();
       if (response.access_token) {
+        sound.play("login");
         useChatStore.getState().resetAll();
         ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (err: any) {
+      sound.play("error");
       setError(err.message || "Failed to start guest session");
     } finally {
       setLoading(false);

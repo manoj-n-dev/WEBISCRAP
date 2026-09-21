@@ -1,4 +1,5 @@
 import { ApiClient } from "@/lib/api/client";
+import { playInterfaceSound } from "@/lib/useSound";
 
 export type ExportFormat = "csv" | "excel" | "json" | "md" | "pdf";
 
@@ -25,6 +26,7 @@ function triggerDownload(blob: Blob, filename: string) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+  playInterfaceSound("download");
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
@@ -48,6 +50,7 @@ export async function downloadPDF(data: Record<string, unknown>[], filename = "w
     headStyles: { fillColor: [20, 119, 245], textColor: 255 },
   });
   doc.save(`${filename}.pdf`);
+  playInterfaceSound("download");
 }
 
 /**

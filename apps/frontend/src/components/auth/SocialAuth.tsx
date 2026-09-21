@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ApiClient } from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chat";
 import { formatFirebaseAuthError, isFirebaseConfigured, signInWithGooglePopup, getGoogleRedirectResult } from "@/lib/firebase";
+import { useSound } from "@/lib/useSound";
 
 const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -23,6 +24,7 @@ export interface SocialAuthProps {
  */
 export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const router = useRouter();
+  const sound = useSound();
   const [busy, setBusy] = useState(false);
   const [phoneNotice, setPhoneNotice] = useState(false);
 
@@ -32,16 +34,18 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     try {
       const response = await ApiClient.googleLogin(idToken);
       if (response.access_token) {
+        sound.play("login");
         useChatStore.getState().resetAll();
         ApiClient.setToken(response.access_token);
         router.push("/chat/new");
       }
     } catch (e) {
+      sound.play("error");
       onError(e instanceof Error ? e.message : "Google sign-in failed");
     } finally {
       setBusy(false);
     }
-  }, [onError, router]);
+  }, [onError, router, sound]);
 
   // Listen for Google OAuth redirect callback on page mount (URL hash #id_token=... or Firebase fallback)
   useEffect(() => {

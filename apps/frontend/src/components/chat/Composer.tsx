@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Paperclip, ArrowUp, Loader2 } from "lucide-react";
 import { AttachmentChip } from "@/components/chat/AttachmentChip";
 import type { Attachment } from "@/lib/store/chat";
+import { useSound } from "@/lib/useSound";
 
 export interface ComposerProps {
   value: string;
@@ -21,6 +22,7 @@ export interface ComposerProps {
 export function Composer({ value, onChange, onSubmit, isLoading, attachments = [], onAttach, onRemoveAttachment }: ComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sound = useSound();
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -35,6 +37,9 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
   const canSend = !isLoading && !uploading && (value.trim().length > 0 || hasReady);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+      sound.playTyping();
+    }
     // On phones Enter should insert a new line; the send button submits. Desktop keeps Enter-to-send.
     const isTouch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
     if (e.key === "Enter" && !e.shiftKey && !isTouch) {
@@ -45,7 +50,10 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (files.length && onAttach) onAttach(files);
+    if (files.length) {
+      sound.play("upload");
+      if (onAttach) onAttach(files);
+    }
     e.target.value = "";          // allow re-selecting the same file
   };
 

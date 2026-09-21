@@ -1,3 +1,5 @@
+import { playInterfaceSound } from "@/lib/useSound";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
@@ -219,6 +221,7 @@ export class ApiClient {
     document.body.appendChild(a);
     a.click();
     a.remove();
+    playInterfaceSound("download");
     setTimeout(() => window.URL.revokeObjectURL(url), 2000);
   }
 

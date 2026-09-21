@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { FileText, FileSpreadsheet, FileJson, FileCode, Download, Loader2, Check } from "lucide-react";
 import { exportSession, type ExportFormat } from "@/lib/export";
+import { useSound } from "@/lib/useSound";
 
 export interface ExportPanelProps {
   className?: string;
@@ -23,9 +24,11 @@ export function ExportPanel({ className, sessionId }: ExportPanelProps) {
   const [busy, setBusy] = useState<ExportFormat | null>(null);
   const [success, setSuccess] = useState<ExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sound = useSound();
 
   const handleExport = async (format: ExportFormat) => {
     if (!sessionId || busy) return;
+    sound.play("click");
     setBusy(format);
     setError(null);
     try {
@@ -33,6 +36,7 @@ export function ExportPanel({ className, sessionId }: ExportPanelProps) {
       setSuccess(format);
       setTimeout(() => setSuccess(null), 2500);
     } catch (e) {
+      sound.play("error");
       setError(e instanceof Error ? e.message : "Export failed. Please try again.");
     } finally {
       setBusy(null);
