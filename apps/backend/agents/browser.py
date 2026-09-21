@@ -7,16 +7,22 @@ from bs4 import BeautifulSoup
 import httpx
 import re
 import socket
+import time
 import urllib.parse
 from core.config import settings
 
 
 # Configurable limits
-MAX_SCROLL_ATTEMPTS = 20       # Up to 20 scrolls for infinite scroll pages
+MAX_SCROLL_ATTEMPTS = 12       # Up to 12 scrolls for infinite scroll pages
 MAX_PAGINATION_CLICKS = 10     # Up to 10 "next page" clicks
-SCROLL_WAIT_MS = 2500          # Wait after each scroll for lazy content to load
-PAGE_LOAD_TIMEOUT_MS = 30000   # Timeout for initial page load
-MAX_HTML_CHARS = 20000         # Max chars per snapshot to fit within Groq's 32K token context window
+SCROLL_WAIT_MS = 1200          # Wait after each scroll for lazy content to load
+PAGE_LOAD_TIMEOUT_MS = 25000   # Timeout for initial page load
+MAX_HTML_CHARS = 14000         # Max chars per snapshot (extractor splits it into <=2 LLM calls)
+
+# One Chromium at a time on small instances (Render free = 512 MB RAM; two browsers = OOM crash/restart)
+_BROWSER_SEM = asyncio.Semaphore(max(1, settings.MAX_CONCURRENT_BROWSERS))
+_DNS_OK_CACHE: dict = {}       # hostname -> monotonic expiry; only SAFE resolutions are cached
+_DNS_OK_TTL = 300
 
 
 def minify_html(html_content: str, max_chars: int = MAX_HTML_CHARS) -> str:
@@ -67,7 +73,7 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
             logger.warning(f"Failed to resolve target hostname {target_hostname}: {e}")
 
     with sync_playwright() as p:
-        launch_args = []
+        launch_args = ["--disable-dev-shm-usage", "--disable-gpu"]   # Docker /dev/shm is only 64 MB
         if target_hostname and resolved_ip:
             launch_args.append(f"--host-resolver-rules=MAP {target_hostname} {resolved_ip}")
 
@@ -88,7 +94,14 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                 """Abort requests to internal/private IPs for subresources (Fail-Closed)."""
                 request_url = route.request.url
                 try:
+                    # Images/media/fonts are useless for text extraction: skipping them is the biggest speed + RAM win.
+                    if route.request.resource_type in ("image", "media", "font"):
+                        route.abort()
+                        return
                     hostname = urllib.parse.urlparse(request_url).hostname
+                    if hostname and _DNS_OK_CACHE.get(hostname, 0) > time.monotonic():
+                        route.continue_()
+                        return
                     if hostname:
                         # H-12: Validate all addresses returned for this host
                         addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
@@ -98,6 +111,7 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                                 logger.warning(f"Playwright SSRF block: {request_url} resolved to unsafe IP {ip_addr}")
                                 route.abort()
                                 return
+                        _DNS_OK_CACHE[hostname] = time.monotonic() + _DNS_OK_TTL
                     route.continue_()
                 except Exception as e:
                     # H-11: Fail-closed on unexpected errors or DNS failures
@@ -108,7 +122,11 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                         pass
             
             page.route("**/*", ssrf_route_handler)
-            page.goto(target_url, wait_until="networkidle", timeout=PAGE_LOAD_TIMEOUT_MS)
+            page.goto(target_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT_MS)
+            try:                                   # "networkidle" never settles on sites with analytics/websockets -> wait briefly only
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass
 
             pagination_type = (analysis.get("pagination_type") or "").lower()
 
@@ -351,9 +369,10 @@ class BrowserAgent(BaseAgent):
         logger.info(f"[{session_id}] BrowserAgent starting Playwright (threaded) for {target_url}")
 
         try:
-            dom_snapshots = await asyncio.to_thread(
-                _run_playwright_sync, target_url, analysis
-            )
+            async with _BROWSER_SEM:
+                dom_snapshots = await asyncio.to_thread(
+                    _run_playwright_sync, target_url, analysis
+                )
             logger.info(f"[{session_id}] BrowserAgent captured {len(dom_snapshots)} page snapshots")
             input_data["dom_snapshots"] = dom_snapshots
         except Exception as e:

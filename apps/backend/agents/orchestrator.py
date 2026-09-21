@@ -1,25 +1,42 @@
-from typing import Dict, Any, List
-from loguru import logger
-import time
+import asyncio
+import re
+from typing import Any, Dict, List
 
-from .planner import planner_agent
+from loguru import logger
+
+from ai.errors import LLMError
+from core.config import settings
+from memory.session_store import redis_store
 from .analyzer import analyzer_agent
+from .base import validate_target_url
 from .browser import browser_agent
-from .extractor import extractor_agent
 from .cleaner import cleaner_agent
-from .validator import validator_agent
-from .memory_agent import memory_agent
 from .conversation import conversation_agent
 from .exporter import export_agent
+from .extractor import extractor_agent
+from .memory_agent import memory_agent
+from .planner import planner_agent
+from .validator import validator_agent
 
-from .base import validate_target_url
-from memory.session_store import redis_store
+_RESCRAPE = re.compile(r"\b(re-?run|scrape again|extract again|fetch again|refresh (the )?(data|page)|try again)\b", re.I)
+
+
+class PipelineInputError(ValueError):
+    """User-fixable input problem (mapped to HTTP 400 with a readable message)."""
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
 
 class PipelineOrchestrator:
+    """Coordinates the 9-agent pipeline. Routing is DETERMINISTIC (not left to the LLM):
+
+    extraction : a URL was given, a NEW file was uploaded, an explicit re-run was requested, or no dataset exists yet
+    followup   : a dataset already exists and the message brings nothing new -> Conversation agent only
+    idle       : nothing to work on yet
     """
-    Coordinates the 9-agent pipeline for WEBISCRAP.
-    """
-    
+
     def __init__(self):
         self.planner = planner_agent
         self.analyzer = analyzer_agent
@@ -31,111 +48,149 @@ class PipelineOrchestrator:
         self.conversation = conversation_agent
         self.exporter = export_agent
 
-    async def execute_pipeline(self, user_request: str, target_url: str, session_id: str, owner_id: str = "") -> Dict[str, Any]:
-        """
-        Executes the full extraction pipeline or routes to conversation agent if data is cached.
-        """
-        logger.info(f"[{session_id}] Starting pipeline for URL: {target_url}")
-        
-        # SSRF protection
-        if target_url and not validate_target_url(target_url):
-            raise ValueError(f"Invalid or restricted target URL: {target_url}")
-        
-        pipeline_state = {
-            "user_request": user_request,
-            "target_url": target_url,
-            "owner_id": owner_id,
-            "data": None,
-            "metadata": {}
-        }
-        
-        # C3: Fetch uploaded file context for this session if available
-        if session_id:
-            uploaded_ids = await redis_store.list_uploaded_context_ids(session_id)
-            if uploaded_ids:
-                contexts = []
-                for file_id in uploaded_ids:
-                    ctx = await redis_store.get_uploaded_context(session_id, file_id)
-                    if ctx:
-                        contexts.append(ctx)
-                if contexts:
-                    pipeline_state["uploaded_context"] = "\n\n---\n\n".join(contexts)[:8000]
-        
-        try:
-            # 1. Start Planner
-            completed_steps = ["plan"]
-            await redis_store.set_pipeline_progress(session_id, "plan")
-            pipeline_state = await self.planner.run(pipeline_state, session_id)
-            
-            is_new_scrape = pipeline_state.get("is_new_scrape", True)
-            has_url = bool(pipeline_state.get("target_url"))
-            has_doc = bool(pipeline_state.get("uploaded_context"))
-            
-            # If user uploaded documents or provided a URL, treat as active extraction
-            if is_new_scrape or has_doc:
-                if has_url:
-                    # 2. Analyze URL structure
-                    await redis_store.set_pipeline_progress(session_id, "analyze")
-                    pipeline_state = await self.analyzer.run(pipeline_state, session_id)
-                    completed_steps.append("analyze")
-                    
-                    # 3. Browse / Fetch DOM snapshots
-                    await redis_store.set_pipeline_progress(session_id, "browse")
-                    pipeline_state = await self.browser.run(pipeline_state, session_id)
-                    completed_steps.append("browse")
-                elif has_doc:
-                    logger.info(f"[{session_id}] Bypassing browser: extracting directly from uploaded document context")
-                
-                # 4. Extract (universal: handles both DOM snapshots and document text)
-                await redis_store.set_pipeline_progress(session_id, "extract")
-                pipeline_state = await self.extractor.run(pipeline_state, session_id)
-                completed_steps.append("extract")
-                
-                # 5. Clean
-                await redis_store.set_pipeline_progress(session_id, "clean")
-                pipeline_state = await self.cleaner.run(pipeline_state, session_id)
-                completed_steps.append("clean")
-                
-                # 6. Validate
-                await redis_store.set_pipeline_progress(session_id, "validate")
-                pipeline_state = await self.validator.run(pipeline_state, session_id)
-                completed_steps.append("validate")
-                
-                # 7. Save to Memory
-                pipeline_state["action"] = "save"
-                pipeline_state = await self.memory.run(pipeline_state, session_id)
+    async def _collect_uploads(self, session_id: str, consumed: set) -> Dict[str, Any]:
+        ids = await redis_store.list_uploaded_context_ids(session_id)
+        new_ids = [i for i in ids if i not in consumed]
+        rows: List[Dict[str, Any]] = []
+        texts: List[str] = []
+        for fid in new_ids:
+            file_rows = await redis_store.get_uploaded_rows(session_id, fid)
+            if file_rows:
+                rows.extend(file_rows)
             else:
-                # 7b. Load from Memory (for follow-up questions)
-                pipeline_state["action"] = "load"
-                pipeline_state = await self.memory.run(pipeline_state, session_id)
-                
-            # M5: Store actual completed steps in state
-            pipeline_state["completed_steps"] = completed_steps
-                
-            # 8. Conversation / Answer
-            pipeline_state = await self.conversation.run(pipeline_state, session_id)
-            
-            # 9. Export if requested
-            pipeline_state = await self.exporter.run(pipeline_state, session_id)
-            
-            await redis_store.clear_pipeline_progress(session_id)
-            logger.info(f"[{session_id}] Pipeline completed successfully.")
-            return {
-                "status": "success",
-                "message": "Pipeline completed.",
-                "data": pipeline_state
+                ctx = await redis_store.get_uploaded_context(session_id, fid)
+                if ctx:
+                    texts.append(ctx)
+        return {"new_ids": new_ids, "rows": rows, "text": "\n\n---\n\n".join(texts)}
+
+    async def execute_pipeline(self, user_request: str, target_url: str, session_id: str, owner_id: str = "") -> Dict[str, Any]:
+        target_url = (target_url or "").strip()
+        logger.info(f"[{session_id}] Pipeline request (url={'yes' if target_url else 'no'})")
+
+        if target_url and not await asyncio.to_thread(validate_target_url, target_url):   # DNS lookup off the event loop
+            raise PipelineInputError("INVALID_URL", "That address isn't allowed. Please use a public http(s) website URL.")
+
+        try:
+            cached = await redis_store.get_session_data(session_id)
+            cached = cached if isinstance(cached, dict) else {}
+            cached_rows = cached.get("cleaned_data") or []
+            consumed = set(cached.get("source_upload_ids") or [])
+            uploads = await self._collect_uploads(session_id, consumed)
+
+            wants_rerun = bool(_RESCRAPE.search(user_request or "")) and bool(cached.get("target_url"))
+            if wants_rerun and not target_url:
+                target_url = cached["target_url"]
+
+            if target_url or uploads["new_ids"] or not cached_rows:
+                mode = "extraction" if (target_url or uploads["new_ids"]) else "idle"
+            else:
+                mode = "followup"
+            if wants_rerun:
+                mode = "extraction"
+
+            state: Dict[str, Any] = {
+                "user_request": user_request, "target_url": target_url, "owner_id": owner_id,
+                "mode": mode, "data": None, "metadata": {}, "warnings": [],
             }
-            
+
+            if mode == "idle":
+                await redis_store.clear_pipeline_progress(session_id)
+                state["conversation_response"] = {
+                    "response_text": "There's no data in this chat yet. Paste a public website URL or attach a file "
+                                     "(CSV, Excel, PDF, Word or image) and tell me what to extract.",
+                    "export_requested": "none", "result_count": None}
+                state["completed_steps"] = []
+                return {"status": "success", "message": "Pipeline completed.", "data": self._finalize(state)}
+
+            completed: List[str] = []
+
+            if mode == "extraction":
+                state["uploaded_context"] = uploads["text"]
+                await redis_store.set_pipeline_progress(session_id, "plan")
+                state = await self.planner.run(state, session_id)
+                completed.append("plan")
+                state["mode"] = "extraction"
+                has_url = bool(state.get("target_url"))
+
+                if has_url:
+                    await redis_store.set_pipeline_progress(session_id, "analyze")
+                    state = await self.analyzer.run(state, session_id)
+                    completed.append("analyze")
+                    await redis_store.set_pipeline_progress(session_id, "browse")
+                    state = await self.browser.run(state, session_id)
+                    completed.append("browse")
+
+                await redis_store.set_pipeline_progress(session_id, "extract")
+                if has_url or uploads["text"]:
+                    state = await self.extractor.run(state, session_id)
+                    raw = state.get("extracted_data", [])
+                else:
+                    raw = []
+                if not has_url and uploads["rows"]:
+                    raw = uploads["rows"] + raw                     # exact rows of CSV/XLSX - no LLM needed
+                state["extracted_data"] = raw
+                completed.append("extract")
+
+                await redis_store.set_pipeline_progress(session_id, "clean")
+                state = await self.cleaner.run(state, session_id)
+                completed.append("clean")
+
+                await redis_store.set_pipeline_progress(session_id, "validate")
+                state = await self.validator.run(state, session_id)
+                completed.append("validate")
+
+                if state.get("cleaned_data"):
+                    state["source_upload_ids"] = sorted(consumed | set(uploads["new_ids"]))
+                    state["action"] = "save"
+                    state = await self.memory.run(state, session_id)
+                else:
+                    state["extraction_empty"] = True
+                    if cached_rows:      # keep the earlier dataset available for follow-ups
+                        state["previous_rows_available"] = True
+            else:
+                state["detected_language"] = "auto"
+                state["cleaned_data"] = cached_rows
+                state["validation"] = cached.get("validation", {})
+                state["expected_fields"] = cached.get("expected_fields", [])
+                state["target_url"] = cached.get("target_url", "")
+                completed = []
+
+            state["completed_steps"] = completed
+
+            if state.get("extraction_empty"):
+                state["conversation_response"] = {
+                    "response_text": "I couldn't find any records for that request. The page may need a login, load its "
+                                     "content with heavy JavaScript, or block automated access. Try a more specific page "
+                                     "URL or describe the fields you want.",
+                    "export_requested": "none", "result_count": None}
+            else:
+                state = await self.conversation.run(state, session_id)
+                state = await self.exporter.run(state, session_id)
+
+            await redis_store.clear_pipeline_progress(session_id)
+            logger.info(f"[{session_id}] Pipeline completed (mode={state['mode']}).")
+            return {"status": "success", "message": "Pipeline completed.", "data": self._finalize(state)}
+
+        except (LLMError, PipelineInputError):
+            await redis_store.clear_pipeline_progress(session_id)
+            raise
         except Exception as e:
             await redis_store.clear_pipeline_progress(session_id)
-            import traceback
-            tb = traceback.format_exc()
-            error_msg = f"{type(e).__name__}: {str(e)}" if str(e) else type(e).__name__
-            logger.error(f"[{session_id}] Pipeline failed:\n{tb}")
-            return {
-                "status": "error",
-                "message": error_msg,
-            }
+            logger.exception(f"[{session_id}] Pipeline failed: {type(e).__name__}")
+            return {"status": "error", "code": "PIPELINE_ERROR",
+                    "message": "Something went wrong while processing your request. Please try again."}
+
+    @staticmethod
+    def _finalize(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Keep the response small: preview rows only (full data is served by /data and /api/export)."""
+        rows = state.get("cleaned_data") or []
+        state["dataset_rows"] = len(rows)
+        state["dataset_cols"] = len({k for r in rows[:200] for k in r}) if rows else 0
+        state["cleaned_data"] = rows[: settings.CHAT_PREVIEW_ROWS]
+        state["ran_extraction"] = state.get("mode") == "extraction" and not state.get("extraction_empty")
+        for heavy in ("uploaded_context", "dom_snapshots", "filtered_data", "extracted_data", "document_text"):
+            state.pop(heavy, None)
+        return state
+
 
 orchestrator = PipelineOrchestrator()
-

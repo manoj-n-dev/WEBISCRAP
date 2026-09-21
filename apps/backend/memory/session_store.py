@@ -1,10 +1,15 @@
+import base64
 import json
 import asyncio
+import zlib
 import redis.asyncio as redis
 from typing import Dict, Any, Optional, List, Union
 from core.config import settings
 from loguru import logger
 import time
+
+_ZPREFIX = "z1:"                 # marks gzip+base64 payloads (older plain-JSON values still load)
+_MAX_PAYLOAD_BYTES = 900_000     # Upstash free/PAYG reject single requests > 1 MB
 
 class RedisStore:
     def __init__(self):
@@ -55,21 +60,67 @@ class RedisStore:
         if self.redis_client and keys:
             await self.client.delete(*keys)
 
+    @staticmethod
+    def _pack(data: Any) -> str:
+        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return _ZPREFIX + base64.b64encode(zlib.compress(raw, 6)).decode("ascii")
+
+    @staticmethod
+    def _unpack(value: str) -> Any:
+        if value.startswith(_ZPREFIX):
+            return json.loads(zlib.decompress(base64.b64decode(value[len(_ZPREFIX):])).decode("utf-8"))
+        return json.loads(value)
+
     async def get_session_data(self, session_id: str) -> Optional[Union[Dict[str, Any], List[Any]]]:
         await self.connect()
         data = await self.client.get(f"session:{session_id}:data")
         if data:
-            return json.loads(data)
+            return self._unpack(data)
         return None
 
     async def save_session_data(self, session_id: str, data: Union[Dict[str, Any], List[Any]], ttl_seconds: int = 1209600):
+        """Persist the dataset compressed. If it still exceeds the provider's request limit, rows are trimmed
+        (and `truncated` / `total_rows` are recorded) instead of failing silently."""
         await self.connect()
-        await self.client.set(
-            f"session:{session_id}:data",
-            json.dumps(data),
-            ex=ttl_seconds
-        )
-        logger.info(f"[{session_id}] Session data saved to Redis with {ttl_seconds}s TTL.")
+        payload = self._pack(data)
+        if len(payload) > _MAX_PAYLOAD_BYTES and isinstance(data, dict) and isinstance(data.get("cleaned_data"), list):
+            rows = data["cleaned_data"]
+            total = len(rows)
+            keep = max(1, int(total * (_MAX_PAYLOAD_BYTES / len(payload)) * 0.9))
+            data = {**data, "cleaned_data": rows[:keep], "truncated": True, "total_rows": total}
+            payload = self._pack(data)
+            logger.warning(f"[{session_id}] Dataset trimmed from {total} to {keep} rows to fit Redis request limit.")
+        await self.client.set(f"session:{session_id}:data", payload, ex=ttl_seconds)
+        logger.info(f"[{session_id}] Session data saved to Redis ({len(payload)} bytes, {ttl_seconds}s TTL).")
+
+    # --- Ownership / session index / titles ---------------------------------
+
+    async def claim_session(self, session_id: str, owner_id: str, ttl_seconds: int = 1209600) -> bool:
+        """Atomically claim an unowned session id (client-generated UUIDs). True if now owned by owner_id."""
+        await self.connect()
+        created = await self.client.set(f"session:{session_id}:owner", owner_id, ex=ttl_seconds, nx=True)
+        if created:
+            return True
+        return (await self.client.get(f"session:{session_id}:owner")) == owner_id
+
+    async def set_session_title_if_missing(self, session_id: str, title: str, ttl_seconds: int = 1209600):
+        await self.connect()
+        clean = " ".join((title or "").split())[:60] or "New extraction"
+        await self.client.set(f"session:{session_id}:title", clean, ex=ttl_seconds, nx=True)
+
+    async def save_uploaded_rows(self, session_id: str, file_id: str, rows: List[Dict[str, Any]], ttl_seconds: int = 1209600):
+        """Exact rows of an uploaded CSV/XLSX (used directly as the dataset - no LLM round-trip)."""
+        await self.connect()
+        await self.client.set(f"uploaded_rows:{session_id}:{file_id}", self._pack(rows), ex=ttl_seconds)
+
+    async def get_uploaded_rows(self, session_id: str, file_id: str) -> Optional[List[Dict[str, Any]]]:
+        await self.connect()
+        raw = await self.client.get(f"uploaded_rows:{session_id}:{file_id}")
+        return self._unpack(raw) if raw else None
+
+    async def save_upload_meta(self, session_id: str, file_id: str, meta: Dict[str, Any], ttl_seconds: int = 1209600):
+        await self.connect()
+        await self.client.set(f"uploaded_meta:{session_id}:{file_id}", json.dumps(meta), ex=ttl_seconds)
 
     async def set_session_owner(self, session_id: str, owner_id: str, ttl_seconds: int = 1209600):
         await self.connect()
@@ -133,25 +184,29 @@ class RedisStore:
         key = f"user_sessions:{user_id}"
         await self.client.zadd(key, {session_id: time.time()})
         await self.client.expire(key, ttl_seconds)
+        await self.client.set(f"session:{session_id}:owner", user_id, ex=ttl_seconds, nx=True)
 
     async def get_user_sessions(self, user_id: str, with_scores: bool = True) -> Any:
-        """Return session IDs for a user, most recent first. With scores if requested."""
+        """Most-recent-first list of {id, timestamp, title}. Expired sessions are pruned from the index."""
         await self.connect()
         key = f"user_sessions:{user_id}"
-        if with_scores:
-            # M2: Fetch with scores to allow sidebar timestamp bucketing
-            results = await self.client.zrevrange(key, 0, -1, withscores=True)
-            formatted = []
-            for item in results:
-                if isinstance(item, (tuple, list)):
-                    sid, score = item
-                else:
-                    sid, score = item, time.time()
-                sid_str = sid.decode("utf-8") if isinstance(sid, bytes) else str(sid)
-                formatted.append({"id": sid_str, "timestamp": float(score)})
-            return formatted
-        results = await self.client.zrevrange(key, 0, -1)
-        return [s.decode("utf-8") if isinstance(s, bytes) else str(s) for s in results]
+        results = await self.client.zrevrange(key, 0, -1, withscores=True)
+        ids = [(sid.decode("utf-8") if isinstance(sid, bytes) else str(sid), float(score)) for sid, score in results]
+        if not ids:
+            return []
+        owners = await self.client.mget([f"session:{sid}:owner" for sid, _ in ids])
+        titles = await self.client.mget([f"session:{sid}:title" for sid, _ in ids])
+        formatted, stale = [], []
+        for (sid, score), owner, title in zip(ids, owners, titles):
+            if owner != user_id:
+                stale.append(sid)
+                continue
+            formatted.append({"id": sid, "timestamp": score, "title": title or "New extraction"})
+        if stale:
+            await self.client.zrem(key, *stale)
+        if not with_scores:
+            return [s["id"] for s in formatted]
+        return formatted
 
     # --- Uploaded context helpers (FIX 13 / C3 / M4) ---
 
@@ -159,7 +214,7 @@ class RedisStore:
         """Store uploaded file text associated with a session."""
         await self.connect()
         key = f"uploaded_context:{session_id}:{file_id}"
-        await self.client.set(key, text, ex=ttl_seconds)
+        await self.client.set(key, text[: settings.MAX_UPLOAD_TEXT_CHARS], ex=ttl_seconds)
         await self.client.sadd(f"session_uploads:{session_id}", file_id)  # type: ignore[misc]
         await self.client.expire(f"session_uploads:{session_id}", ttl_seconds)
 
@@ -212,7 +267,7 @@ class RedisStore:
         await self.client.rpush(queue_key, json.dumps(job_data))  # type: ignore[misc]
         return job_id
 
-    async def dequeue_scrape_job(self, timeout: int = 2) -> Optional[Dict[str, Any]]:
+    async def dequeue_scrape_job(self, timeout: int = 30) -> Optional[Dict[str, Any]]:
         """
         H-05: Atomically pop the next pending scrape job from the Redis queue.
         Uses blpop with a timeout for blocking async polling.
@@ -259,8 +314,11 @@ class RedisStore:
             f"pipeline_progress:{session_id}",
             f"session_uploads:{session_id}",
         ]
+        keys_to_delete.append(f"session:{session_id}:title")
         for fid in uploaded_ids:
             keys_to_delete.append(f"uploaded_context:{session_id}:{fid}")
+            keys_to_delete.append(f"uploaded_rows:{session_id}:{fid}")
+            keys_to_delete.append(f"uploaded_meta:{session_id}:{fid}")
         
         owner_id = await self.get_session_owner(session_id)
         if owner_id:

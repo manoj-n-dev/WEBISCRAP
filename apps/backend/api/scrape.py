@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import Any, Dict
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from models.user import User
 from agents.orchestrator import orchestrator
 from memory.session_store import redis_store
 from core.audit_logger import audit_log
+from core.config import settings
 import uuid
 
 router = APIRouter()
@@ -42,6 +43,7 @@ async def background_scrape_task(target_url: str, extraction_goal: str, session_
 @router.post("/", response_model=Dict[str, Any])
 async def submit_scrape_job(
     request: ScrapeRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -62,7 +64,12 @@ async def submit_scrape_job(
         "extraction_goal": request.extraction_goal,
         "owner_id": str(current_user.id),
     }
-    await redis_store.enqueue_scrape_job(job_payload)
+    if settings.ENABLE_SCRAPE_WORKER:
+        await redis_store.enqueue_scrape_job(job_payload)
+    else:
+        # No polling worker: run the job in-process after the response is sent (same result, zero idle Redis traffic).
+        await redis_store.save_job_status(session_id, {"status": "queued"})
+        background_tasks.add_task(background_scrape_task, request.target_url, request.extraction_goal, session_id, str(current_user.id))
 
     audit_log.data_event(
         "scrape_job_submitted",
@@ -95,4 +102,6 @@ async def get_scrape_status(
     if not data:
         raise HTTPException(status_code=404, detail="Job not found")
     
+    if isinstance(data, dict):
+        return {"job_id": job_id, **data}
     return data

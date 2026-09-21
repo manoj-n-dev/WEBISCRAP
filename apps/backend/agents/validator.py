@@ -1,72 +1,62 @@
-import json
-from typing import Dict, Any
-from .base import BaseAgent
-from ai.router import ai_router
-from prompts.validator_prompt import VALIDATOR_SYSTEM_PROMPT
+from typing import Any, Dict, List
+
 from loguru import logger
+
+from .base import BaseAgent
+
+
+def _is_empty(v: Any) -> bool:
+    return v is None or v == "" or v == [] or v == {}
+
+
+def score_dataset(rows: List[Dict[str, Any]], expected_fields: List[str]) -> Dict[str, Any]:
+    """Rule-based quality score (0-100): completeness, expected-field coverage, sparse rows."""
+    n = len(rows)
+    columns: List[str] = []
+    for r in rows:
+        for k in r:
+            if k not in columns:
+                columns.append(k)
+    total_cells = max(1, n * max(1, len(columns)))
+    filled = sum(0 if _is_empty(r.get(c)) else 1 for r in rows for c in columns)
+    completeness = filled / total_cells
+
+    expected = [str(f).lower().replace("_", "").replace(" ", "") for f in (expected_fields or [])]
+    have = {str(c).lower().replace("_", "").replace(" ", "") for c in columns}
+    coverage = (sum(1 for f in expected if any(f in h or h in f for h in have)) / len(expected)) if expected else 1.0
+
+    sparse = [r for r in rows if columns and sum(0 if _is_empty(r.get(c)) else 1 for c in columns) < max(1, len(columns) / 2)]
+    sparse_ratio = len(sparse) / n if n else 1
+    score = round(100 * (0.6 * completeness + 0.3 * coverage + 0.1 * (1 - sparse_ratio)))
+    notes = [f"{n} rows × {len(columns)} columns", f"{round(completeness * 100)}% of cells filled"]
+    if expected and coverage < 1:
+        notes.append(f"{round(coverage * 100)}% of the requested fields were found")
+    if sparse:
+        notes.append(f"{len(sparse)} sparse rows flagged")
+    return {
+        "confidence_score": max(0, min(100, score)),
+        "validation_notes": "; ".join(notes) + ".",
+        "flagged_rows_count": len(sparse),
+        "is_valid": n > 0 and score >= 30,
+    }
+
 
 class ValidatorAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="ValidatorAgent")
-        
+
     async def _execute(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
         cleaned_data = input_data.get("cleaned_data", [])
-        extraction_goal = input_data.get("extraction_goal", "")
-        expected_fields = input_data.get("expected_fields", [])
-        
         if not cleaned_data:
             logger.warning(f"[{session_id}] No data provided to ValidatorAgent.")
             input_data["validation"] = {
-                "confidence_score": 0,
-                "validation_notes": "No data extracted.",
-                "flagged_rows_count": 0,
-                "is_valid": False
+                "confidence_score": 0, "validation_notes": "No data extracted.",
+                "flagged_rows_count": 0, "is_valid": False,
             }
             return input_data
-            
-        logger.info(f"[{session_id}] Validating {len(cleaned_data)} items.")
-        
-        # Take a sample of the data to validate if it's too large, or send the whole thing
-        # Usually validating the first 50 items is enough to establish confidence
-        sample_size = min(len(cleaned_data), 50)
-        sample_data = cleaned_data[:sample_size]
-        
-        prompt = f"""
-        Extraction Goal: {extraction_goal}
-        Expected Fields: {expected_fields}
-        
-        Sample Data Array ({sample_size} of {len(cleaned_data)} items):
-        ```json
-        {json.dumps(sample_data, indent=2)}
-        ```
-        """
-        
-        response_text = await ai_router.generate(
-            task_category="validation",
-            prompt=prompt,
-            system_prompt=VALIDATOR_SYSTEM_PROMPT,
-            temperature=0.1
-        )
-        
-        try:
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].split("```")[0].strip()
-                
-            validation_result = json.loads(response_text)
-            logger.info(f"[{session_id}] Validation result: Score={validation_result.get('confidence_score')}, Valid={validation_result.get('is_valid')}")
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"[{session_id}] Validator failed to parse JSON. Error: {e}. Snippet: {response_text[:200]}")
-            validation_result = {
-                "confidence_score": 50,
-                "validation_notes": "Validation agent failed to return parseable result.",
-                "flagged_rows_count": 0,
-                "is_valid": True # Give benefit of the doubt
-            }
-            
-        input_data["validation"] = validation_result
+        input_data["validation"] = score_dataset(cleaned_data, input_data.get("expected_fields", []))
+        logger.info(f"[{session_id}] Validation: {input_data['validation']}")
         return input_data
+
 
 validator_agent = ValidatorAgent()
