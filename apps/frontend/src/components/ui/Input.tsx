@@ -30,12 +30,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={effectiveType}
           className={cn(
-            "flex w-full rounded-sm border border-hair bg-white/5 px-[14px] py-[12px] font-body text-[14px] text-text-hi transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-dim focus-visible:outline-none focus-visible:border-signal-400 focus-visible:shadow-[0_0_0_3px_rgba(20,119,245,0.15)] disabled:cursor-not-allowed disabled:opacity-50",
+            "flex w-full rounded-sm border border-hair bg-white/5 px-[14px] py-[12px] font-body text-[16px] sm:text-[14px] text-text-hi transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-text-dim focus-visible:outline-none focus-visible:border-signal-400 focus-visible:shadow-[0_0_0_3px_rgba(20,119,245,0.15)] disabled:cursor-not-allowed disabled:opacity-50",
             icon && "pl-[38px]",
             hasBothRightActions ? "pr-[68px]" : hasRightContent ? "pr-[38px]" : "",
             className
           )}
           ref={ref}
+          {...(type === "email" ? { autoCapitalize: "none", autoCorrect: "off", spellCheck: false, inputMode: "email" as const } : {})}
           {...props}
         />
         {hasRightContent && (

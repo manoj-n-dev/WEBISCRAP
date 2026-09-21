@@ -23,7 +23,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ghost:
         "px-[20px] py-[11px] rounded-pill border border-hair bg-transparent text-text-mid hover:bg-[rgba(130,170,255,0.08)] hover:border-signal-300 hover:text-text-hi active:scale-98",
       icon:
-        "w-[28px] h-[28px] rounded-[7px] border border-hair flex items-center justify-center text-text-mid hover:border-glass-border-strong hover:text-text-hi transition-colors",
+        "w-[36px] h-[36px] sm:w-[28px] sm:h-[28px] rounded-[8px] sm:rounded-[7px] border border-hair flex items-center justify-center text-text-mid hover:border-glass-border-strong hover:text-text-hi transition-colors",
     };
 
     return (

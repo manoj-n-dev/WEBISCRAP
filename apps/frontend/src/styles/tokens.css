@@ -28,9 +28,9 @@
     --r-lg: 22px;
     --r-pill: 999px;
 
-    --font-display: 'Space Grotesk', 'Inter', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: var(--font-space-grotesk), 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    --font-body: var(--font-inter), 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
 
