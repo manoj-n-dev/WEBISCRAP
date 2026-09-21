@@ -8,14 +8,18 @@ import { ApiClient } from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chat";
 import { formatFirebaseAuthError, isFirebaseConfigured, signInWithGooglePopup, getGoogleRedirectResult } from "@/lib/firebase";
 
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "299695227616-5ndjntkdqqpqh84s1k52vc8ektngmtsf.apps.googleusercontent.com";
+
 export interface SocialAuthProps {
   disabled?: boolean;
   onError: (message: string | null) => void;
 }
 
 /**
- * Google sign-in via Firebase OAuth Popup (reliable cross-origin communication via postMessage,
- * immune to browser storage-partitioning redirect loops) with lazy redirect result fallback.
+ * Google sign-in via direct Google OAuth 2.0 in the SAME TAB (full-page experience matching Brevo,
+ * no separate popup window, genuine WEBISCRAP branding, no firebaseapp.com proxy domain).
  */
 export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const router = useRouter();
@@ -39,20 +43,36 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     }
   }, [onError, router]);
 
-  // Listen for Google OAuth redirect callback on page mount if user arrived via redirect
+  // Listen for Google OAuth redirect callback on page mount (URL hash #id_token=... or Firebase fallback)
   useEffect(() => {
     let isMounted = true;
     const checkRedirect = async () => {
-      if (!isFirebaseConfigured()) return;
-      try {
-        const token = await getGoogleRedirectResult();
+      if (typeof window === "undefined") return;
+
+      // 1. Check direct Google OAuth implicit flow hash (#id_token=...)
+      if (window.location.hash.includes("id_token=")) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const token = hashParams.get("id_token");
         if (token && isMounted) {
+          // Clean the URL hash immediately so token is not exposed in address bar
+          window.history.replaceState(null, "", window.location.pathname);
           await finish(token);
+          return;
         }
-      } catch (e) {
-        if (isMounted) {
-          const msg = formatFirebaseAuthError(e);
-          if (msg) onError(msg);
+      }
+
+      // 2. Fallback to Firebase redirect result
+      if (isFirebaseConfigured()) {
+        try {
+          const token = await getGoogleRedirectResult();
+          if (token && isMounted) {
+            await finish(token);
+          }
+        } catch (e) {
+          if (isMounted) {
+            const msg = formatFirebaseAuthError(e);
+            if (msg) onError(msg);
+          }
         }
       }
     };
@@ -65,6 +85,26 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const handleGoogleSignIn = async () => {
     setBusy(true);
     onError(null);
+
+    // Direct Google OAuth 2.0 full-tab navigation: runs in the SAME TAB (no popup window!)
+    if (GOOGLE_CLIENT_ID && typeof window !== "undefined") {
+      const redirectUri = `${window.location.origin}${window.location.pathname}`;
+      const nonce = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      try {
+        sessionStorage.setItem("google_oauth_nonce", nonce);
+      } catch {
+        // ignore
+      }
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+        GOOGLE_CLIENT_ID
+      )}&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}&prompt=select_account`;
+      window.location.href = authUrl;
+      return;
+    }
+
+    // Fallback if no client ID configured
     try {
       const token = await signInWithGooglePopup();
       if (token) {
@@ -73,7 +113,6 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     } catch (e) {
       const msg = formatFirebaseAuthError(e);
       if (msg) onError(msg);
-    } finally {
       setBusy(false);
     }
   };
@@ -83,7 +122,7 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     <div className="flex flex-col gap-[12px]">
       <Button onClick={handleGoogleSignIn} disabled={off} className="w-full justify-start pl-[20px]">
         <GoogleGlyph />
-        {busy ? "Signing in with Google..." : "Google"}
+        {busy ? "Connecting to Google..." : "Google"}
       </Button>
 
       <Button
