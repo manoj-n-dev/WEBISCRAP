@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   description: "Extract Anything. Ask Naturally. Export Instantly. Turn websites, PDFs, spreadsheets and images into clean, structured data.",
   applicationName: "WEBISCRAP",
   manifest: "/manifest.webmanifest",
+  verification: {
+    google: "Onm2sA_CRZiQFfriLxxqBgO0Cttqqg6v0Zqzg9DQtWE",
+  },
   openGraph: { title: "WEBISCRAP | AI Web Data Extraction", description: "Scrape. Structure. Succeed.", siteName: "WEBISCRAP", type: "website" },
   twitter: { card: "summary_large_image", title: "WEBISCRAP", description: "Scrape. Structure. Succeed." },
 };
@@ -31,6 +34,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`} suppressHydrationWarning>
+      <head>
+        <meta name="google-site-verification" content="Onm2sA_CRZiQFfriLxxqBgO0Cttqqg6v0Zqzg9DQtWE" />
+      </head>
       <body className="font-body antialiased text-text-hi bg-bg-0" suppressHydrationWarning>
         <CustomCursor />
         {children}
