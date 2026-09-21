@@ -232,23 +232,38 @@ async def _send_resend(recipient: str, subject: str, html_content: str, text: st
 def _send_sync_smtp(recipient: str, subject: str, html_content: str, text: str = "") -> bool:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>"
+    user = (settings.SMTP_USER or "").strip().strip('"\'')
+    password = (settings.SMTP_PASSWORD or "").strip().strip('"\'')
+    from_email = (settings.EMAILS_FROM_EMAIL or user).strip().strip('"\'')
+    host = (settings.SMTP_HOST or "").strip().strip('"\'')
+    port = settings.SMTP_PORT
+
+    # Gmail SMTP strict rules: From must match authenticated user, and port 2525 is invalid
+    if "gmail.com" in host.lower():
+        if from_email != user:
+            logger.info(f"Gmail SMTP: adjusting From header from '{from_email}' to authenticated user '{user}'")
+            from_email = user
+        if port == 2525:
+            logger.info("Gmail SMTP does not support port 2525; auto-switching to standard port 587")
+            port = 587
+
+    msg["From"] = f"{settings.EMAILS_FROM_NAME} <{from_email}>"
     msg["To"] = recipient
     if text:
         msg.attach(MIMEText(text, "plain", "utf-8"))
     msg.attach(MIMEText(html_content, "html", "utf-8"))
     try:
-        if settings.SMTP_PORT == 465:
-            server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10, context=ssl.create_default_context())
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=10, context=ssl.create_default_context())
         else:
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            server = smtplib.SMTP(host, port, timeout=10)
         with server:
-            if settings.SMTP_TLS and settings.SMTP_PORT != 465:
+            if settings.SMTP_TLS and port != 465:
                 server.starttls(context=ssl.create_default_context())
-            if settings.SMTP_USER and settings.SMTP_PASSWORD:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.EMAILS_FROM_EMAIL, [recipient], msg.as_string())
-        logger.info(f"Email '{subject}' sent via SMTP")
+            if user and password:
+                server.login(user, password)
+            server.sendmail(from_email, [recipient], msg.as_string())
+        logger.info(f"Email '{subject}' sent via SMTP to {recipient}")
         return True
     except Exception as e:
         logger.error(f"SMTP delivery failed ({type(e).__name__}): {e}")
