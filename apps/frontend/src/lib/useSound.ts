@@ -41,15 +41,39 @@ const SOUNDS_KEY = "webiscrap_sounds_enabled";
 
 // ─── Synthesis helpers ────────────────────────────────────────────────────────
 
-function getCtx(): AudioContext | null {
+let sharedCtx: AudioContext | null = null;
+
+function getSharedCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return null;
-    return new Ctx();
+    if (!sharedCtx || sharedCtx.state === "closed") {
+      const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return null;
+      sharedCtx = new Ctx();
+    }
+    if (sharedCtx.state === "suspended") {
+      sharedCtx.resume().catch(() => {});
+    }
+    return sharedCtx;
   } catch {
     return null;
   }
+}
+
+// Proactively unlock AudioContext on the first click or keydown so sounds play instantly
+if (typeof window !== "undefined") {
+  const unlockAudio = () => {
+    try {
+      const ctx = getSharedCtx();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  };
+  window.addEventListener("pointerdown", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio, { passive: true });
 }
 
 /** Check whether interface sounds are enabled in localStorage. */
@@ -219,9 +243,10 @@ const synthesise: Record<SoundName, (ctx: AudioContext) => void> = {
   },
 
   typing(ctx) {
-    // Ultra-subtle tactile mechanical keystroke click
-    const pitch = 1300 + Math.random() * 200;
-    playTone(ctx, { freq: pitch, type: "sine", gain: 0.024, duration: 0.015 });
+    // Crisp tactile mechanical switch click (crisp high transient + soft mechanical thud)
+    const pitch = 1400 + Math.random() * 250;
+    playTone(ctx, { freq: pitch, type: "triangle", gain: 0.08, duration: 0.035 });
+    playTone(ctx, { freq: 450 + Math.random() * 60, type: "sine", gain: 0.06, duration: 0.025 });
   },
 };
 
@@ -236,15 +261,14 @@ export function playInterfaceSound(name: SoundName) {
   // Rate-limit typing sounds so holding a key or rapid typing stays pleasant and non-distorted
   if (name === "typing") {
     const now = Date.now();
-    if (now - lastTypingTime < 45) return;
+    if (now - lastTypingTime < 35) return;
     lastTypingTime = now;
   }
 
-  const ctx = getCtx();
+  const ctx = getSharedCtx();
   if (!ctx) return;
   try {
     synthesise[name](ctx);
-    setTimeout(() => ctx.close().catch(() => {}), 900);
   } catch {
     // Never throw — audio is purely enhancement
   }

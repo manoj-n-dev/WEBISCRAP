@@ -37,7 +37,7 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
   const canSend = !isLoading && !uploading && (value.trim().length > 0 || hasReady);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete" || e.key === "Enter")) {
       sound.playTyping();
     }
     // On phones Enter should insert a new line; the send button submits. Desktop keeps Enter-to-send.
@@ -87,7 +87,10 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
             rows={1}
             placeholder="Paste a URL, attach a file, or ask a follow-up…"
             value={value}
-            onChange={onChange}
+            onChange={(e) => {
+              sound.playTyping();
+              onChange(e);
+            }}
             onKeyDown={handleKeyDown}
             enterKeyHint="send"
             className="flex-1 min-w-0 bg-transparent border-none outline-none resize-none text-text-hi font-body text-[16px] sm:text-[14px] leading-[1.5] py-[8px] max-h-[120px] placeholder:text-text-dim disabled:opacity-50"

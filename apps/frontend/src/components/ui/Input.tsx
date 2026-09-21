@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { playInterfaceSound } from "@/lib/useSound";
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -10,7 +11,7 @@ export interface InputProps
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, icon, rightElement, showPasswordToggle, ...props }, ref) => {
+  ({ className, type, icon, rightElement, showPasswordToggle, onChange, onKeyDown, ...props }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
     const isPassword = type === "password";
@@ -36,6 +37,16 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className
           )}
           ref={ref}
+          onChange={(e) => {
+            playInterfaceSound("typing");
+            onChange?.(e);
+          }}
+          onKeyDown={(e) => {
+            if (!e.ctrlKey && !e.altKey && !e.metaKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) {
+              playInterfaceSound("typing");
+            }
+            onKeyDown?.(e);
+          }}
           {...(type === "email" ? { autoCapitalize: "none", autoCorrect: "off", spellCheck: false, inputMode: "email" as const } : {})}
           {...props}
         />
