@@ -1,10 +1,52 @@
 /**
- * Firebase is now ONLY a fallback for Google sign-in when NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set.
- * No keys are hard-coded: everything comes from NEXT_PUBLIC_FIREBASE_* env vars, and the SDK is loaded lazily
- * (dynamic import) so it is not part of the normal login bundle. Phone OTP is not offered.
+ * Firebase Auth for Google sign-in using redirect flow (full-tab navigation to Google accounts).
+ * Everything comes from NEXT_PUBLIC_FIREBASE_* env vars, and the SDK is loaded lazily
+ * (dynamic import) so it is not part of the initial login bundle.
  */
 export function isFirebaseConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+}
+
+export async function signInWithGoogleRedirect(): Promise<void> {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Google sign-in is not configured for this deployment. Please use email or continue as guest.");
+  }
+  const [{ initializeApp, getApps }, { getAuth, GoogleAuthProvider, signInWithRedirect }] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/auth"),
+  ]);
+  const app = getApps().length ? getApps()[0] : initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  });
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  await signInWithRedirect(auth, provider);
+}
+
+export async function getGoogleRedirectResult(): Promise<string | null> {
+  if (!isFirebaseConfigured()) {
+    return null;
+  }
+  const [{ initializeApp, getApps }, { getAuth, getRedirectResult }] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/auth"),
+  ]);
+  const app = getApps().length ? getApps()[0] : initializeApp({
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  });
+  const auth = getAuth(app);
+  const result = await getRedirectResult(auth);
+  if (result && result.user) {
+    return await result.user.getIdToken();
+  }
+  return null;
 }
 
 export async function signInWithGooglePopup(): Promise<string> {

@@ -17,7 +17,7 @@ export function MarketingNavbar() {
         <Link href="/features" className="hover:text-text-hi transition-colors">
           Features
         </Link>
-        <Link href="/how-it-works#agents" className="hover:text-text-hi transition-colors">
+        <Link href="/agents" className="hover:text-text-hi transition-colors">
           Agents
         </Link>
         <Link href="/docs" className="hover:text-text-hi transition-colors">

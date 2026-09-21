@@ -1,24 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import Script from "next/script";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ApiClient } from "@/lib/api/client";
 import { useChatStore } from "@/lib/store/chat";
-import { formatFirebaseAuthError, signInWithGooglePopup } from "@/lib/firebase";
-
-interface GoogleCredentialResponse { credential?: string }
-interface GoogleIdApi {
-  initialize: (cfg: { client_id: string; callback: (r: GoogleCredentialResponse) => void; ux_mode?: string; auto_select?: boolean }) => void;
-  renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
-}
-declare global {
-  interface Window { google?: { accounts: { id: GoogleIdApi } } }
-}
-
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+import { formatFirebaseAuthError, isFirebaseConfigured, signInWithGoogleRedirect, getGoogleRedirectResult } from "@/lib/firebase";
 
 export interface SocialAuthProps {
   disabled?: boolean;
@@ -26,13 +14,11 @@ export interface SocialAuthProps {
 }
 
 /**
- * Google sign-in via Google Identity Services (only the PUBLIC OAuth client id is used — no Firebase API key appears
- * in any URL) with a lazy Firebase fallback, plus the Phone OTP option which currently shows "not available for now".
+ * Google sign-in via Firebase OAuth Redirect (navigates current tab to Google Accounts, no popups)
+ * with automatic redirect token resolution on page mount.
  */
 export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const router = useRouter();
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const [gsiReady, setGsiReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [phoneNotice, setPhoneNotice] = useState(false);
 
@@ -53,22 +39,34 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     }
   }, [onError, router]);
 
+  // Listen for Google OAuth redirect callback on page mount
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !gsiReady || !buttonRef.current || !window.google) return;
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: (r) => { if (r.credential) void finish(r.credential); },
-      ux_mode: "popup",
-    });
-    const width = Math.min(400, Math.max(200, buttonRef.current.clientWidth || 320));
-    window.google.accounts.id.renderButton(buttonRef.current, { type: "standard", theme: "filled_black", size: "large", shape: "pill", text: "continue_with", width, logo_alignment: "left" });
-  }, [gsiReady, finish]);
+    let isMounted = true;
+    const checkRedirect = async () => {
+      if (!isFirebaseConfigured()) return;
+      try {
+        const token = await getGoogleRedirectResult();
+        if (token && isMounted) {
+          await finish(token);
+        }
+      } catch (e) {
+        if (isMounted) {
+          const msg = formatFirebaseAuthError(e);
+          if (msg) onError(msg);
+        }
+      }
+    };
+    void checkRedirect();
+    return () => {
+      isMounted = false;
+    };
+  }, [finish, onError]);
 
-  const firebaseFallback = async () => {
+  const handleGoogleSignIn = async () => {
     setBusy(true);
     onError(null);
     try {
-      await finish(await signInWithGooglePopup());
+      await signInWithGoogleRedirect();
     } catch (e) {
       const msg = formatFirebaseAuthError(e);
       if (msg) onError(msg);
@@ -79,17 +77,10 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
   const off = disabled || busy;
   return (
     <div className="flex flex-col gap-[12px]">
-      {GOOGLE_CLIENT_ID ? (
-        <>
-          <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setGsiReady(true)} onReady={() => setGsiReady(true)} />
-          <div ref={buttonRef} className={`w-full flex justify-center min-h-[44px] ${off ? "pointer-events-none opacity-60" : ""}`} aria-label="Continue with Google" />
-        </>
-      ) : (
-        <Button onClick={firebaseFallback} disabled={off} className="w-full justify-start pl-[20px]">
-          <GoogleGlyph />
-          Google
-        </Button>
-      )}
+      <Button onClick={handleGoogleSignIn} disabled={off} className="w-full justify-start pl-[20px]">
+        <GoogleGlyph />
+        {busy ? "Redirecting to Google..." : "Google"}
+      </Button>
 
       <Button
         onClick={() => { setPhoneNotice(true); onError(null); }}
