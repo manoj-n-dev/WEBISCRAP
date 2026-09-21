@@ -26,13 +26,13 @@ Follow these rules for extraction:
 </task_guidelines>
 
 <output_format>
-You MUST output ONLY a strictly valid JSON array. No markdown formatting (do NOT use ```json), no preamble, no postscript. Just the raw array.
+You MUST output ONLY a strictly valid JSON object with a single key "records" holding the array of extracted records. No markdown formatting (do NOT use ```json), no preamble, no postscript.
 
-[
-  {
-    "field1": "value1",
-    "field2": "value2"
-  }
-]
+{
+  "records": [
+    { "field1": "value1", "field2": "value2" }
+  ]
+}
+If nothing matches, output {"records": []}. Keep values short (no long descriptions) so the whole answer fits in the output limit.
 </output_format>
 """

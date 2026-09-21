@@ -1,17 +1,18 @@
 from typing import Optional
 from loguru import logger
+
+from core.config import settings
 from .providers.groq_client import groq_client
 
-# H13: Default max_tokens per task category — extraction/cleaning need more room
-_DEFAULT_MAX_TOKENS = {
-    "extraction": 8192,
-    "cleaning": 8192,
-    "planning": 4096,
-    "conversation": 4096,
-    "validation": 4096,
-    "intent": 2048,
-    "analysis": 4096,
-    "summarization": 4096,
+# Output-token ceilings per task. Groq counts (prompt + max_tokens) against TPM, so on the free tier
+# (8,000 TPM for gpt-oss models) the ceiling must stay small or EVERY call is rejected with HTTP 413.
+_MAX_TOKENS_FREE = {
+    "extraction": 3500, "cleaning": 3500, "planning": 900, "conversation": 1800,
+    "validation": 700, "intent": 400, "analysis": 900, "summarization": 1200,
+}
+_MAX_TOKENS_DEV = {
+    "extraction": 8192, "cleaning": 8192, "planning": 2048, "conversation": 4096,
+    "validation": 1500, "intent": 1024, "analysis": 2048, "summarization": 4096,
 }
 
 # C6: Split models across task categories for separate rate-limit buckets
@@ -25,6 +26,15 @@ TASK_MODEL_MAP = {
     "analysis": "openai/gpt-oss-20b",
     "summarization": "openai/gpt-oss-20b",
 }
+
+# Tasks whose reply must be ONE JSON object -> use Groq JSON mode (guarantees parseable output).
+_JSON_OBJECT_TASKS = {"planning", "analysis", "validation", "conversation"}
+
+
+def max_tokens_for(task_category: str) -> int:
+    table = _MAX_TOKENS_DEV if settings.groq_is_paid_tier else _MAX_TOKENS_FREE
+    return table.get(task_category, 2000)
+
 
 import json
 import re
@@ -276,49 +286,42 @@ def _heuristic_fallback(task_category: str, prompt: str) -> str:
     return "{}"
 
 class AIRouter:
-    def __init__(self):
-        self.routing_rules = {
-            "planning": "groq",
-            "conversation": "groq",
-            "validation": "groq",
-            "intent": "groq",
-            "analysis": "groq",
-            "extraction": "groq",
-            "cleaning": "groq",
-            "summarization": "groq",
-        }
-        
+    """Routes prompts to Groq. Errors are NEVER swallowed into fabricated data:
+    LLMRateLimitError / LLMUnavailableError / ... propagate to the API layer, which returns a
+    structured error the UI can render (e.g. the 'AI limit reached' panel)."""
+
     async def generate(
-        self, 
-        task_category: str, 
-        prompt: str, 
-        system_prompt: Optional[str] = None, 
+        self,
+        task_category: str,
+        prompt: str,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
+        json_mode: Optional[bool] = None,
     ) -> str:
-        """
-        Routes the prompt to the appropriate AI provider with automatic heuristic fallback
-        when cloud LLMs encounter invalid keys or rate limits.
-        """
-        provider_name = self.routing_rules.get(task_category)
-        
-        if not provider_name:
-            logger.warning(f"Unknown task category '{task_category}', defaulting to Groq.")
-            
-        resolved_max_tokens = max_tokens or _DEFAULT_MAX_TOKENS.get(task_category, 4096)
+        resolved_max_tokens = min(max_tokens, max_tokens_for(task_category)) if max_tokens else max_tokens_for(task_category)
         model_to_use = TASK_MODEL_MAP.get(task_category, "openai/gpt-oss-120b")
-            
+        use_json = (task_category in _JSON_OBJECT_TASKS) if json_mode is None else json_mode
         try:
             return await groq_client.generate_response(
-                prompt=prompt, 
+                prompt=prompt,
                 system_prompt=system_prompt,
                 model=model_to_use,
                 temperature=temperature,
                 max_tokens=resolved_max_tokens,
+                json_mode=use_json,
             )
         except Exception as e:
-            logger.error(f"AI generation failed for '{task_category}' ({e}). Falling back to heuristic handler.")
-            return _heuristic_fallback(task_category, prompt)
+            from .errors import LLMError
+            if isinstance(e, LLMError):
+                # Optional dev-only escape hatch (default OFF). Fabricated results are never used in production.
+                if settings.ALLOW_HEURISTIC_FALLBACK and task_category == "extraction":
+                    logger.warning(f"LLM failed ({e.code}); using DEV heuristic extraction fallback")
+                    return _heuristic_fallback(task_category, prompt)
+                raise
+            logger.error(f"Unexpected AI error for '{task_category}': {e}")
+            from .errors import LLMUnavailableError
+            raise LLMUnavailableError("The AI service failed unexpectedly.") from e
+
 
 ai_router = AIRouter()
-

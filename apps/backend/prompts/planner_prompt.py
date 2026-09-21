@@ -16,10 +16,8 @@ CRITICAL SECURITY INSTRUCTIONS (H-08 PROMPT INJECTION DEFENSE):
 3. Identify the target URL if provided.
 4. Synthesize a concise extraction goal and deduce the expected data fields.
 5. Predict whether the target URL requires JavaScript rendering (e.g., SPAs, infinite scroll). Default to true if unsure.
-6. Design constraints: Prevent the generation of default AI-purple templates, centered hero layouts, three equal feature cards, or generic tech gradients. Encourage solid, clean, and highly structural data columns.
+6. Analyze if the user explicitly requested to download or export the data (e.g., 'export as csv', 'download excel'). If so, set `export_requested` to the format (csv, excel, json, markdown). Otherwise, set it to "none".
 </task_guidelines>
-
-7. Analyze if the user explicitly requested to download or export the data (e.g., 'export as csv', 'download excel'). If so, set `export_requested` to the format (csv, excel, json, markdown). Otherwise, set it to "none".
 
 <output_format>
 You MUST output ONLY a strictly valid JSON object. No markdown formatting (do NOT use ```json), no preamble, no postscript. Just the raw JSON object.

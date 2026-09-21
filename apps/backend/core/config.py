@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: str = ""
     
     # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_MINUTE: int = 120
 
     # SMTP / Email Service
     SMTP_HOST: str = ""
@@ -53,6 +53,29 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: str = "noreply@webiscrap.com"
     EMAILS_FROM_NAME: str = "WEBISCRAP"
     RESET_TOKEN_EXPIRE_MINUTES: int = 15
+
+    # ── Groq / LLM budget (NEW) ────────────────────────────────────────────
+    # "free" keeps every request under Groq's free-tier 8,000 TPM ceiling. Set to "dev" after upgrading.
+    GROQ_TIER: str = "free"
+    LLM_MAX_WAIT_SECONDS: int = 15           # absorb short 429 waits server-side instead of failing
+    ALLOW_HEURISTIC_FALLBACK: bool = False   # dev-only regex extraction when the LLM is down (never fabricate in prod)
+    ANALYZER_MODE: str = "heuristic"         # "heuristic" (no LLM call) | "llm"
+    PLANNER_MODE: str = "llm"                # "llm" | "fast" (skip the planner LLM call: ~1-3 s and ~1.5K tokens faster per extraction)
+    CLEANER_MODE: str = "deterministic"      # "deterministic" | "llm"
+
+    # ── Data limits (NEW) ──────────────────────────────────────────────────
+    MAX_DATASET_ROWS: int = 5000             # rows persisted per session (Upstash free: 1 MB / request)
+    CHAT_PREVIEW_ROWS: int = 200             # rows echoed back in a /api/chat response
+    MAX_UPLOAD_TEXT_CHARS: int = 200_000     # parsed-file text stored per upload
+
+    # ── Background queue (NEW) ─────────────────────────────────────────────
+    MAX_CONCURRENT_BROWSERS: int = 1         # parallel Chromium instances (1 for 512 MB instances)
+    ENABLE_SCRAPE_WORKER: bool = False       # polling worker burns Upstash commands; UI does not use it
+
+    # ── Email delivery (NEW) — Render free blocks SMTP ports 25/465/587, use an HTTPS API ──
+    EMAIL_PROVIDER: str = "auto"             # auto | brevo | resend | smtp
+    BREVO_API_KEY: str = ""
+    RESEND_API_KEY: str = ""
 
     # FIX 15 (M7): Set to True only when behind a trusted reverse proxy (Vercel/Render/Nginx)
     TRUST_PROXY_HEADERS: bool = False
@@ -66,6 +89,10 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
+
+    @property
+    def groq_is_paid_tier(self) -> bool:
+        return self.GROQ_TIER.strip().lower() in ("dev", "developer", "paid", "enterprise")
 
     @property
     def groq_keys_list(self) -> List[str]:
