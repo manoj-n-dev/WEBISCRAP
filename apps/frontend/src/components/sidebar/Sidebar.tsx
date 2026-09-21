@@ -6,28 +6,39 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Plus, Search, MessageSquare, LogOut, Trash2, Pencil, Check, X } from "lucide-react";
+import { Plus, Search, MessageSquare, LogOut, Trash2, Pencil, Check, X, Settings } from "lucide-react";
 import { useChatStore, type SessionSummary } from "@/lib/store/chat";
 import { ApiClient } from "@/lib/api/client";
+import { ProfileModal } from "@/components/profile/ProfileModal";
 
 export interface SidebarUser {
+  id?: string;
   email?: string | null;
   full_name?: string | null;
   is_guest?: boolean;
+  is_verified?: boolean;
+  created_at?: string;
 }
 
 export interface SidebarProps {
   user: SidebarUser | null;
   open: boolean;                 // mobile drawer state (ignored on lg+)
   onNavigate: () => void;
+  onUserUpdated?: (updated: SidebarUser) => void;
 }
 
 const DAY = 86400;
 
-export function Sidebar({ user, open, onNavigate }: SidebarProps) {
+export function Sidebar({ user, open, onNavigate, onUserUpdated }: SidebarProps) {
   const router = useRouter();
   const { sessions, sessionsLoaded, activeSessionId, startNewChat, removeSession, renameSession } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<SidebarUser | null>(user);
+
+  React.useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
 
   const groups = useMemo(() => {
     const now = Date.now() / 1000;
@@ -73,10 +84,11 @@ export function Sidebar({ user, open, onNavigate }: SidebarProps) {
     router.replace("/login");
   };
 
-  const displayName = user?.full_name || (user?.email ? user.email.split("@")[0] : user?.is_guest ? "Guest" : "User");
-  const initials = user?.full_name
-    ? user.full_name.trim().split(/\s+/).map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : user?.email ? user.email.slice(0, 2).toUpperCase() : user?.is_guest ? "GU" : "US";
+  const activeUser = currentUser || user;
+  const displayName = activeUser?.full_name || (activeUser?.email ? activeUser.email.split("@")[0] : activeUser?.is_guest ? "Guest" : "User");
+  const initials = activeUser?.full_name
+    ? activeUser.full_name.trim().split(/\s+/).map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : activeUser?.email ? activeUser.email.slice(0, 2).toUpperCase() : activeUser?.is_guest ? "GU" : "US";
 
   return (
     <aside
@@ -125,18 +137,53 @@ export function Sidebar({ user, open, onNavigate }: SidebarProps) {
         )}
       </div>
 
-      <div className="mt-auto pt-[14px] border-t border-hair flex items-center justify-between pl-[6px]">
-        <div className="flex items-center gap-[10px] min-w-0">
-          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0">{initials}</div>
-          <div className="min-w-0">
-            <div className="text-[12.5px] text-text-hi truncate">{displayName}</div>
-            <div className="text-[11px] text-text-dim truncate">{user?.is_guest ? "Guest session (not saved after logout)" : "Personal workspace"}</div>
+      <div className="mt-auto pt-[14px] border-t border-hair flex items-center justify-between gap-[6px] pl-[6px]">
+        <button
+          onClick={() => setProfileOpen(true)}
+          className="flex items-center gap-[10px] min-w-0 flex-1 text-left p-[4px] -ml-[4px] rounded-sm hover:bg-white/5 transition-colors cursor-pointer group"
+          title="View profile & account settings"
+          aria-label="View profile & account settings"
+        >
+          <div className="w-[28px] h-[28px] rounded-full bg-gradient-to-br from-signal-400 to-cyan-dim flex items-center justify-center font-mono text-[11px] text-white shrink-0 group-hover:shadow-[0_0_8px_rgba(79,216,255,0.4)] transition-all">
+            {initials}
           </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12.5px] text-text-hi truncate group-hover:text-cyan transition-colors">{displayName}</div>
+            <div className="text-[11px] text-text-dim truncate">{activeUser?.is_guest ? "Guest session" : "Settings & Profile"}</div>
+          </div>
+        </button>
+
+        <div className="flex items-center gap-[2px] shrink-0">
+          <Button
+            variant="icon"
+            className="border-none hover:text-cyan"
+            onClick={() => setProfileOpen(true)}
+            title="Account settings"
+            aria-label="Account settings"
+          >
+            <Settings className="w-[14px] h-[14px]" />
+          </Button>
+          <Button
+            variant="icon"
+            className="border-none hover:text-red-400"
+            onClick={handleLogout}
+            title="Log out"
+            aria-label="Log out"
+          >
+            <LogOut className="w-[14px] h-[14px]" />
+          </Button>
         </div>
-        <Button variant="icon" className="border-none hover:text-red-400 shrink-0" onClick={handleLogout} title="Log out" aria-label="Log out">
-          <LogOut className="w-[15px] h-[15px]" />
-        </Button>
       </div>
+
+      <ProfileModal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        user={activeUser}
+        onUserUpdated={(updated) => {
+          setCurrentUser(updated);
+          if (onUserUpdated) onUserUpdated(updated);
+        }}
+      />
     </aside>
   );
 }

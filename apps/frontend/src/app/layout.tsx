@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { CustomCursor } from "@/components/ui/CustomCursor";
 import "./globals.css";
 
 // next/font self-hosts the fonts at build time (the design tokens referenced these families but never loaded them).
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`} suppressHydrationWarning>
       <body className="font-body antialiased text-text-hi bg-bg-0" suppressHydrationWarning>
+        <CustomCursor />
         {children}
       </body>
     </html>

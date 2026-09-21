@@ -3,7 +3,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from typing import Any, Optional
 import re
@@ -11,7 +11,7 @@ import uuid
 from loguru import logger
 
 from database.connection import get_session
-from models.user import User, UserRegisterRequest, UserRead
+from models.user import User, UserRegisterRequest, UserRead, UserUpdateRequest
 from auth.security import (
     normalize_email,
     get_password_hash,
@@ -514,11 +514,13 @@ async def login_google(
         raise HTTPException(status_code=400, detail=str(e))
         
     email = normalize_email(idinfo.get("email") or "")
-    google_id = idinfo.get("sub")
+    google_id: str = idinfo.get("sub") or ""
     if not email:
         raise HTTPException(status_code=400, detail="Google token does not contain a valid email.")
+    if not google_id:
+        raise HTTPException(status_code=400, detail="Google token does not contain a valid user ID.")
         
-    statement = select(User).where((User.google_id == google_id) | (func.lower(User.email) == email))
+    statement = select(User).where(or_(User.google_id == google_id, func.lower(User.email) == email))  # type: ignore[arg-type]
     result = await db.exec(statement)
     user = result.first()
     
@@ -601,6 +603,27 @@ async def read_users_me(
     current_user: User = Depends(get_current_user)
 ) -> Any:
     """Get authenticated user profile."""
+    return current_user
+
+@router.patch("/me", response_model=UserRead, response_model_exclude={"token_version", "is_superuser", "google_id"})
+async def update_users_me(
+    user_update: UserUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> Any:
+    """Update authenticated user profile (e.g. full_name)."""
+    if current_user.is_guest:
+        raise HTTPException(
+            status_code=400,
+            detail="Guest accounts cannot edit profile details. Please sign up for a personal account."
+        )
+    if user_update.full_name is not None:
+        clean_name = user_update.full_name.strip()
+        current_user.full_name = clean_name if clean_name else None
+
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
     return current_user
 
 @router.post("/logout")

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Paperclip, ArrowUp } from "lucide-react";
+import { Paperclip, ArrowUp, Loader2 } from "lucide-react";
 import { AttachmentChip } from "@/components/chat/AttachmentChip";
 import type { Attachment } from "@/lib/store/chat";
 
@@ -50,7 +51,10 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
 
   return (
     <div className="px-[12px] sm:px-[26px] pt-[10px] sm:pt-[16px] pb-[max(12px,env(safe-area-inset-bottom))] sm:pb-[22px]">
-      <Card variant="strong" className="max-w-[760px] mx-auto p-[8px]">
+      <Card
+        variant="strong"
+        className="max-w-[760px] mx-auto p-[8px] transition-all duration-200 border-glass-border focus-within:border-cyan/50 focus-within:shadow-[0_0_24px_rgba(79,216,255,0.12)] focus-within:bg-panel-strong"
+      >
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-[8px] p-[4px_4px_10px]">
             {attachments.map((a) => (
@@ -60,7 +64,13 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
         )}
         <div className="flex items-end gap-[8px] sm:gap-[10px]">
           <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.csv,.png,.jpg,.jpeg,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
-          <Button variant="icon" className="border-none self-end shrink-0" onClick={() => fileInputRef.current?.click()} aria-label="Attach a file" title="Attach a file (PDF, DOCX, CSV, Excel, image)">
+          <Button
+            variant="icon"
+            className="border-none self-end shrink-0 hover:text-cyan hover:scale-110 active:scale-95 transition-all duration-200"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Attach a file"
+            title="Attach a file (PDF, DOCX, CSV, Excel, image)"
+          >
             <Paperclip className="w-[18px] h-[18px]" />
           </Button>
 
@@ -79,10 +89,19 @@ export function Composer({ value, onChange, onSubmit, isLoading, attachments = [
           <button
             onClick={onSubmit}
             disabled={!canSend}
-            aria-label="Send"
-            className="w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-full bg-gradient-to-b from-signal-400 to-signal-500 flex items-center justify-center cursor-pointer shrink-0 self-end shadow-[0_0_0_1px_rgba(130,190,255,0.4),0_6px_16px_rgba(20,119,245,0.35)] disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all"
+            aria-label={isLoading ? "Processing extraction" : "Send extraction request"}
+            className={cn(
+              "w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-full bg-gradient-to-b from-signal-400 to-signal-500 flex items-center justify-center cursor-pointer shrink-0 self-end transition-all duration-200",
+              canSend
+                ? "shadow-[0_0_0_1px_rgba(130,190,255,0.4),0_6px_18px_rgba(20,119,245,0.45)] hover:scale-105 active:scale-95 hover:brightness-110"
+                : "opacity-40 cursor-not-allowed shadow-none"
+            )}
           >
-            <ArrowUp className="w-[16px] h-[16px] text-white stroke-2" />
+            {isLoading ? (
+              <Loader2 className="w-[16px] h-[16px] text-white animate-spin" />
+            ) : (
+              <ArrowUp className="w-[16px] h-[16px] text-white stroke-2" />
+            )}
           </button>
         </div>
       </Card>

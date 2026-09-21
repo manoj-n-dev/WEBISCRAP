@@ -40,6 +40,9 @@ class UserRegisterRequest(SQLModel):
 class UserCreate(UserBase):
     password: Optional[str] = None
 
+class UserUpdateRequest(SQLModel):
+    full_name: Optional[str] = None
+
 class UserRead(UserBase):
     id: uuid.UUID
     created_at: datetime

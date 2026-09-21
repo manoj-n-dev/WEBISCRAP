@@ -201,6 +201,9 @@ export class ApiClient {
   static getMe() {
     return this.request("/api/auth/me", { method: "GET" });
   }
+  static updateMe(data: { full_name?: string | null }) {
+    return this.request("/api/auth/me", { method: "PATCH", body: JSON.stringify(data) });
+  }
 
   /** Download a server-generated export (csv | excel | json | markdown) with the correct filename + extension. */
   static async downloadExport(sessionId: string, format: "csv" | "excel" | "json" | "markdown"): Promise<void> {

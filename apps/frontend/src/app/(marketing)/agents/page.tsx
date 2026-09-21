@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketingNavbar } from "@/components/marketing/MarketingNavbar";
@@ -6,6 +6,7 @@ import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { WarmUp } from "@/components/system/WarmUp";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { BackButton } from "@/components/ui/BackButton";
 import {
   Target,
   ScanSearch,
@@ -188,7 +189,11 @@ export default function AgentsPage() {
       <div className="bg-field" />
       <MarketingNavbar />
 
-      <main className="relative z-10 pt-[112px] sm:pt-[140px] px-[16px] sm:px-[32px] pb-[80px]">
+      <main className="relative z-10 pt-[96px] sm:pt-[120px] px-[16px] sm:px-[32px] pb-[80px]">
+        <div className="max-w-[1200px] mx-auto mb-[20px]">
+          <BackButton fallbackHref="/" />
+        </div>
+
         {/* Hero */}
         <section className="max-w-[1000px] mx-auto text-center mb-[64px] sm:mb-[80px]">
           <div className="inline-flex items-center gap-[8px] px-[12px] py-[6px] rounded-pill border border-glass-border bg-white/5 font-mono text-[11px] text-cyan tracking-[0.04em] mb-[20px]">

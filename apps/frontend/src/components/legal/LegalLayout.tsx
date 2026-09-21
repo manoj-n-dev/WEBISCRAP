@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { MarketingNavbar } from "@/components/marketing/MarketingNavbar";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
+import { BackButton } from "@/components/ui/BackButton";
 
 export function LegalLayout({ title, intro, children }: { title: string; intro: string; children: React.ReactNode }) {
   return (
@@ -10,6 +11,9 @@ export function LegalLayout({ title, intro, children }: { title: string; intro: 
       <MarketingNavbar />
       <main className="relative z-10 pt-[96px] sm:pt-[132px] px-[16px] sm:px-[24px] pb-[64px] sm:pb-[80px]">
         <article className="max-w-[800px] mx-auto">
+          <div className="mb-[20px]">
+            <BackButton fallbackHref="/" />
+          </div>
           <h1 className="text-[30px] sm:text-[44px] font-display font-semibold mb-[12px] sm:mb-[16px] leading-[1.15]">{title}</h1>
           <p className="text-[15px] sm:text-[16px] text-text-mid mb-[32px] sm:mb-[40px] leading-[1.7]">{intro}</p>
           <div className="flex flex-col gap-[28px] sm:gap-[32px] text-[14.5px] sm:text-[15px] leading-[1.75] text-text-mid">{children}</div>

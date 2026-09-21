@@ -110,3 +110,42 @@ html { -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-transparency: reduce) {
   .glass, .glass-strong { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+
+/* ── Custom cursor: hide system cursor on desktop (fine pointer = mouse/trackpad only) ──────────────── */
+@media (pointer: fine) {
+  body { cursor: none; }
+  /* Restore visible text cursor inside text inputs so users know where to click */
+  input, textarea, [contenteditable] { cursor: text; }
+  /* Restore pointer on clickable native elements (backup safety net) */
+  a, button, [role="button"], select, label, summary { cursor: none; }
+}
+
+/* ── Missing animation keyframes ────────────────────────────────────────────────────────────────────── */
+
+/* ProfileModal open animation */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* MessageBubble entry animation */
+@keyframes msgSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Generic upward reveal (available for future use) */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Generic fade in (available for future use) */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in { animation: none; }
+}
