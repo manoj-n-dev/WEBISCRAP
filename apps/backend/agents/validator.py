@@ -21,8 +21,8 @@ def score_dataset(rows: List[Dict[str, Any]], expected_fields: List[str]) -> Dic
     filled = sum(0 if _is_empty(r.get(c)) else 1 for r in rows for c in columns)
     completeness = filled / total_cells
 
-    expected = [str(f).lower().replace("_", "").replace(" ", "") for f in (expected_fields or [])]
-    have = {str(c).lower().replace("_", "").replace(" ", "") for c in columns}
+    expected = [f.lower().replace("_", "").replace(" ", "") for f in (expected_fields or [])]
+    have = {c.lower().replace("_", "").replace(" ", "") for c in columns}
     coverage = (sum(1 for f in expected if any(f in h or h in f for h in have)) / len(expected)) if expected else 1.0
 
     sparse = [r for r in rows if columns and sum(0 if _is_empty(r.get(c)) else 1 for c in columns) < max(1, len(columns) / 2)]

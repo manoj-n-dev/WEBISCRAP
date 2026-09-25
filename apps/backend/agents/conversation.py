@@ -41,7 +41,7 @@ class ConversationAgent(BaseAgent):
         dataset: List[Dict[str, Any]] = input_data.get("cleaned_data", []) or []
 
         history = await redis_store.get_conversation_history(session_id)
-        recent = [{"role": h.get("role"), "content": str(h.get("content", ""))[:300]} for h in history[-4:]]
+        recent = [{"role": h.get("role"), "content": h.get("content", "")[:300]} for h in history[-4:]]
 
         budget = 20000 if settings.groq_is_paid_tier else 6000
         visible = _visible_rows(dataset, budget, max_rows=10 if mode == "extraction" else None)
