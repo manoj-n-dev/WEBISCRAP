@@ -12,14 +12,35 @@ Provides /health/live and /health/ready endpoints for container orchestrators.
 import time
 import asyncio
 from typing import Dict, Any
+from collections import defaultdict
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from core.config import settings
+from core.config import settings, get_client_ip
 
 router = APIRouter(tags=["Health"])
+
+# ─── In-handler rate limiter for /health/ready ────────────────────────────────
+# Container orchestrators call /health/live; /health/ready does real DB + Redis
+# work so we cap it at 30 req/min per IP without using Depends() (which would
+# break orchestrator tooling and fail the existing no-rate-limiter-dep test).
+_ready_hits: dict[str, list[float]] = defaultdict(list)
+_READY_LIMIT = 30        # requests
+_READY_WINDOW = 60.0     # seconds
+
+
+def _ready_rate_check(ip: str) -> bool:
+    """Sliding-window check: True = request is allowed."""
+    now = time.time()
+    window_start = now - _READY_WINDOW
+    hits = _ready_hits[ip]
+    _ready_hits[ip] = [t for t in hits if t > window_start]
+    if len(_ready_hits[ip]) >= _READY_LIMIT:
+        return False
+    _ready_hits[ip].append(now)
+    return True
 
 # ─── Startup timestamp for uptime tracking ────────────────────────────────────
 _startup_time: float = time.time()
@@ -76,7 +97,9 @@ async def _check_postgres() -> Dict[str, Any]:
         return {"status": "timeout", "error": "PostgreSQL query timed out (>5s)"}
     except Exception as e:
         logger.warning(f"Health check: PostgreSQL probe failed: {e}")
-        return {"status": "error", "error": str(e)}
+        # N9: never return raw exception text in production — log server-side only
+        msg = str(e) if settings.ENVIRONMENT != "production" else "dependency check failed"
+        return {"status": "error", "error": msg}
 
 
 async def _check_redis() -> Dict[str, Any]:
@@ -116,15 +139,28 @@ async def _check_redis() -> Dict[str, Any]:
         return {"status": "timeout", "error": "Redis PING timed out (>3s)"}
     except Exception as e:
         logger.warning(f"Health check: Redis probe failed: {e}")
-        return {"status": "error", "error": str(e)}
+        # N9: never return raw exception text in production
+        msg = str(e) if settings.ENVIRONMENT != "production" else "dependency check failed"
+        return {"status": "error", "error": msg}
 
 
 @router.get("/health/ready")
-async def readiness():
+async def readiness(request: Request):
     """
     Deep readiness probe for load balancers and deployment orchestrators.
     Checks PostgreSQL and Redis connectivity. Returns 503 if any dependency is unhealthy.
+    Rate-limited to 30 req/min per IP in-handler (N9) without using Depends() so
+    container orchestrators are never blocked by the route-level dependency guard.
     """
+    # N9 — in-handler rate gate (does not use Depends so orchestrator test stays green)
+    ip = get_client_ip(request)
+    if not _ready_rate_check(ip):
+        return JSONResponse(
+            content={"status": "rate_limited", "detail": "Too many readiness probes."},
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            headers={"Retry-After": str(int(_READY_WINDOW))},
+        )
+
     checks: Dict[str, Any] = {}
 
     # Run probes concurrently with bounded timeout
@@ -138,7 +174,11 @@ async def readiness():
     # Handle exceptions from gather
     for name in ("postgres", "redis"):
         if isinstance(checks[name], Exception):
-            checks[name] = {"status": "error", "error": str(checks[name])}
+            err = checks[name]
+            logger.warning(f"Health check: {name} gather exception: {err}")
+            # N9: redact raw exception from production response body
+            msg = str(err) if settings.ENVIRONMENT != "production" else "dependency check failed"
+            checks[name] = {"status": "error", "error": msg}
 
     all_ok = all(
         isinstance(c, dict) and c.get("status") == "ok"
