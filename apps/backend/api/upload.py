@@ -65,6 +65,13 @@ async def upload_file(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Unsupported file extension. Use PDF, DOCX, CSV, XLSX, XLS, PNG or JPG.")
 
+    # N11 — Enforce Content-Length BEFORE buffering the body.
+    # If the client declares a size that already exceeds the limit we can reject
+    # the request at the header stage without reading a single byte off the wire.
+    declared_size = file.size  # set by Starlette from the Content-Length header
+    if declared_size is not None and declared_size > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 20MB.")
+
     user_id = str(current_user.id)
     if session_id and not await redis_store.claim_session(session_id, user_id):
         raise HTTPException(status_code=403, detail="Not authorized to upload to this session")

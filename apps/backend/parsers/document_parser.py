@@ -237,15 +237,22 @@ def parse_image(file_path: str) -> str:
                 img.draft("RGB", (MAX_OCR_SIDE, MAX_OCR_SIDE))     # cheap DCT-domain downscale for big photos
             img = ImageOps.exif_transpose(img)
             img.thumbnail((MAX_OCR_SIDE, MAX_OCR_SIDE))
-            text = pytesseract.image_to_string(ImageOps.grayscale(img))
+            # N11: timeout=60 prevents a crafted/pathological image from blocking
+            # the thread pool worker indefinitely. pytesseract raises RuntimeError
+            # (wrapping subprocess.TimeoutExpired) when the limit is exceeded.
+            text = pytesseract.image_to_string(ImageOps.grayscale(img), timeout=60)
         if not text.strip():
             raise DocumentParseError("No readable text was found in this image.")
         return text
     except DocumentParseError:
         raise
+    except pytesseract.exceptions.RuntimeError:  # type: ignore[attr-defined]
+        logger.warning(f"OCR timed out for {file_path}")
+        raise DocumentParseError("OCR timed out: this image took too long to process. Try a smaller or clearer image.")
     except Exception as e:
         logger.error(f"Error parsing image {file_path}: {e}")
         raise DocumentParseError("Could not read text from this image.") from e
+
 
 
 def extract_text_from_file(file_path: str) -> str:
