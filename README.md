@@ -123,6 +123,7 @@ The core engine is orchestrated by `apps/backend/agents/orchestrator.py`, dispat
   - `/docs` — REST API endpoint specification, quickstart, and tech stack details.
   - `/creators` — Dedicated team showcase for the project maintainers.
 - **Live System Status Widget:** IRIS-inspired 4-column footer featuring real-time API operational status, swarm health, and social links.
+- **Intelligent URL Accessibility Classifier:** Distinguishes public vs. private or authenticated-only URLs (e.g. ChatGPT conversation sessions, Instagram login walls, internal dashboards, and OAuth portals). Gracefully explains access boundaries and guides the user toward public web pages without throwing raw exceptions, freezing, or returning corrupted rows.
 - **Flexible Authentication:** Email/Password with verification, Google OAuth (popup modal UX), and instant Guest Mode (no sign-up required).
 - **SEO & Search Console Integration:** Complete OpenGraph metadata, Twitter cards, and Google Search Console site verification.
 
@@ -164,10 +165,22 @@ WEBISCRAP has undergone rigorous end-to-end security audits:
 - **In-Memory Access Tokens:** Access tokens live strictly in JavaScript memory (never in `localStorage` or `sessionStorage`), protecting against XSS token exfiltration.
 - **HttpOnly Refresh Rotation:** Refresh tokens are stored strictly in `httpOnly`, `SameSite=Lax`, secure cookies with silent rotation and JTI blacklisting on every refresh.
 - **Fail-Closed Session Authorization:** Every session-scoped endpoint validates ownership before returning data, rejecting unowned or foreign session IDs.
-- **SSRF & DNS-Rebinding Protection:** Target URLs are resolved and validated against private IP ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), localhost, and cloud metadata (`169.254.169.254`) before Chromium navigates.
-- **CSV / Spreadsheet Injection Neutralization:** Cells starting with formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`) are sanitized before export to prevent remote code execution in spreadsheet software.
-- **Upload Hardening:** Magic-byte header inspection, strict file-extension allowlists, and size enforcement (20MB maximum).
-- **Reverse-Proxy Rate Limiting:** Sliding-window rate limiter with in-memory fallback if Redis is temporarily unreachable.
+- **SSRF & DNS-Rebinding Protection:** Target URLs are resolved and validated against RFC 1918 private ranges, carrier-grade NAT / cloud metadata (`100.64.0.0/10`), localhost, and link-local metadata (`169.254.169.254`). Headless browser subresources enforce fail-closed DNS pin checks.
+- **Formula Injection Defense:** All spreadsheet cell contents and dynamic column headers starting with formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`) are sanitized before CSV/XLSX generation.
+- **Upload Hardening & Resource Bounding:** Magic-byte header inspection, strict file-extension allowlists, 60s OCR timeout guards, and 20MB file size limits with streaming HTTP chunk bounding.
+- **OAuth Nonce CSRF Protection:** Cryptographic client-side nonce generation and server-side validation preventing token replay and CSRF injection.
+- **High-Integrity Audit Logging:** Production log streaming formatted as strict JSON with newline-injection sanitization on correlation `X-Request-ID` headers.
+- **Readiness Probe Rate-Limiting & Error Redaction:** Protects `/health/ready` against probe enumeration (30 req/min sliding window per IP) while redacting raw internal exceptions in production.
+
+---
+
+## 🎯 Project Milestones & Roadmap
+
+- [x] **Milestone 1 — Core Agent Engine & Architecture (Commits #1 – #30):** 9-agent pipeline, Groq LLaMA 3 70B integration, and Redis session memory.
+- [x] **Milestone 2 — Full-Stack Integration & Production Deployment (Commits #31 – #60):** Next.js 16 frontend on Vercel, FastAPI on Render, Neon PostgreSQL, and Upstash Redis.
+- [x] **Milestone 3 — Multi-Modal Uploads, Exports & Audio Synthesis (Commits #61 – #90):** Document extraction (PDF, DOCX, CSV, Excel, OCR), Web Audio sound FX engine, mobile pass, and export suite.
+- [x] **Milestone 4 — Security Audit & Hardened Production Readiness (Commits #91 – #98):** Forensic vulnerability fixes, private/authenticated URL detection, SSRF & formula injection guards, and zero-defect test pass (84 backend tests, 7 store tests, Next.js build).
+- [ ] **Milestone 5 — 100th Commit Celebration & Final Release (Commit #100):** Comprehensive end-to-end release documentation, demo walkthrough, and capstone submission readiness.
 
 ---
 
