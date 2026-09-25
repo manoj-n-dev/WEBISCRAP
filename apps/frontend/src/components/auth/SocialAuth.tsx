@@ -32,7 +32,17 @@ export function SocialAuth({ disabled, onError }: SocialAuthProps) {
     setBusy(true);
     onError(null);
     try {
-      const response = await ApiClient.googleLogin(idToken);
+      // Retrieve and consume the nonce we stored before the OAuth redirect.
+      // Passing it to the backend allows it to verify the nonce claim in the
+      // ID token, preventing CSRF / token-replay attacks (N6).
+      let nonce: string | undefined;
+      try {
+        nonce = sessionStorage.getItem("google_oauth_nonce") ?? undefined;
+        sessionStorage.removeItem("google_oauth_nonce");
+      } catch {
+        // sessionStorage unavailable — proceed without nonce (backend will skip check)
+      }
+      const response = await ApiClient.googleLogin(idToken, nonce);
       if (response.access_token) {
         sound.play("login");
         useChatStore.getState().resetAll();

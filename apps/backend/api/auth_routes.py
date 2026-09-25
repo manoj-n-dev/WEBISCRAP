@@ -53,6 +53,7 @@ class ResendVerificationRequest(BaseModel):
 
 class TokenRequest(BaseModel):
     id_token: str
+    nonce: Optional[str] = None
 
 def validate_password(password: str | None) -> None:
     """Enforce password strength requirements."""
@@ -512,7 +513,20 @@ async def login_google(
         idinfo = verify_google_token(request.id_token)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-        
+
+    # N6 — CSRF nonce validation: if the client sent a nonce, it MUST match
+    # the `nonce` claim embedded by Google in the signed ID token.
+    # Tokens obtained via the implicit flow always carry the nonce;
+    # Firebase-issued tokens may not, so we only enforce when the client
+    # explicitly supplied one.
+    if request.nonce:
+        token_nonce = idinfo.get("nonce", "")
+        if not token_nonce or token_nonce != request.nonce:
+            raise HTTPException(
+                status_code=400,
+                detail="Google login nonce mismatch — possible CSRF or token replay.",
+            )
+
     email = normalize_email(idinfo.get("email") or "")
     google_id: str = idinfo.get("sub") or ""
     if not email:
@@ -538,10 +552,16 @@ async def login_google(
         await db.commit()
         await db.refresh(user)
     else:
+        was_unverified_password_account = (
+            not user.google_id and user.hashed_password and not user.is_verified
+        )
         # Safe linking: mark verified because Google verified this email address
         if not user.google_id:
             user.google_id = google_id
         user.is_verified = True
+        if was_unverified_password_account:
+            user.hashed_password = None
+            user.token_version += 1
         db.add(user)
         await db.commit()
         await db.refresh(user)

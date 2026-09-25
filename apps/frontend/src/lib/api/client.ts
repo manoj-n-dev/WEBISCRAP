@@ -160,9 +160,10 @@ export class ApiClient {
   static convertGuest(email: string, password: string, full_name?: string) {
     return this.request("/api/auth/convert-guest", { method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase(), password, full_name }) });
   }
-  static googleLogin(idToken: string) {
-    return this.request("/api/auth/google", { method: "POST", body: JSON.stringify({ id_token: idToken }) });
+  static googleLogin(idToken: string, nonce?: string) {
+    return this.request("/api/auth/google", { method: "POST", body: JSON.stringify({ id_token: idToken, ...(nonce ? { nonce } : {}) }) });
   }
+
   static forgotPassword(email: string) {
     return this.request("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase() }) });
   }
