@@ -52,13 +52,15 @@ def build_frame(dataset: List[Any]) -> pd.DataFrame:
         for k in r.keys():
             if k not in seen:
                 seen.add(k)
-                columns.append(str(k))
-    data = [{str(k): flatten_value(v) for k, v in r.items()} for r in rows]
+                columns.append(k)
+    data = [{k: flatten_value(v) for k, v in r.items()} for r in rows]
     return pd.DataFrame(data, columns=columns, dtype=object)   # object dtype keeps ints as ints (no 5 -> 5.0)
 
 
 def to_csv_bytes(df: pd.DataFrame) -> bytes:
     safe = df.apply(lambda col: col.map(sanitize_for_export))
+    # N10: Sanitize column headers against formula injection
+    safe.columns = [sanitize_for_export(c) for c in safe.columns]
     # UTF-8 BOM: without it Excel opens Telugu/Hindi/₹ text as garbage.
     return ("\ufeff" + safe.to_csv(index=False, lineterminator="\r\n")).encode("utf-8")
 
@@ -70,8 +72,12 @@ def to_xlsx_bytes(df: pd.DataFrame) -> bytes:
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "WEBISCRAP"
-    headers = list(df.columns)
+    if ws is None:
+        ws = wb.create_sheet(title="WEBISCRAP")
+    else:
+        ws.title = "WEBISCRAP"
+    # N10: Sanitize column headers against formula injection
+    headers = [sanitize_for_export(c) for c in df.columns]
     ws.append(headers)
     for row in df.itertuples(index=False, name=None):
         clean = []
@@ -94,7 +100,7 @@ def to_xlsx_bytes(df: pd.DataFrame) -> bytes:
             if isinstance(cell.value, str) and cell.value.startswith("="):
                 cell.data_type = "s"                 # store as text: never evaluated as a formula
     for idx, name in enumerate(headers, start=1):
-        sample = [len(str(name))] + [len(str(v)) for v in df.iloc[:200, idx - 1].tolist() if v is not None]
+        sample = [len(name)] + [len(str(v)) for v in df.iloc[:200, idx - 1].tolist() if v is not None]
         ws.column_dimensions[get_column_letter(idx)].width = min(max(sample) + 2, 60)
     ws.freeze_panes = "A2"
     if len(df):

@@ -121,7 +121,11 @@ class PipelineOrchestrator:
                     completed.append("browse")
 
                 await redis_store.set_pipeline_progress(session_id, "extract")
-                if has_url or uploads["text"]:
+                access_issue = state.get("url_access_issue") or state.get("analysis", {}).get("url_access_issue")
+                if has_url and access_issue == "private_auth" and not (uploads["text"] or uploads["rows"]):
+                    # Level 4 & 5: Page requires login / private session; skip extracting login forms
+                    raw = []
+                elif has_url or uploads["text"]:
                     state = await self.extractor.run(state, session_id)
                     raw = state.get("extracted_data", [])
                 else:
@@ -158,11 +162,34 @@ class PipelineOrchestrator:
             state["completed_steps"] = completed
 
             if state.get("extraction_empty"):
+                issue = state.get("url_access_issue") or state.get("analysis", {}).get("url_access_issue")
+                if issue == "private_auth":
+                    resp_text = (
+                        "This URL appears to be private or requires authentication. "
+                        "WEBISCRAP currently works with publicly accessible web pages. "
+                        "Please provide a public URL that can be opened without logging in."
+                    )
+                elif issue == "access_blocked":
+                    resp_text = (
+                        "We couldn't access this URL because automated access was restricted or blocked by the website "
+                        "(e.g. Cloudflare or bot protection). Please provide a publicly accessible URL, or try uploading "
+                        "the content directly as a document (PDF, CSV, Excel, or Word)."
+                    )
+                elif issue in ("unreachable_timeout", "unreachable_dns", "unreachable"):
+                    resp_text = (
+                        "We couldn't connect to this URL. The website took too long to respond or is temporarily "
+                        "unavailable. Please check that the URL is active and try again."
+                    )
+                else:
+                    resp_text = (
+                        "We couldn't access this URL. It may require authentication, block automated access, "
+                        "or be temporarily unavailable. Please try a publicly accessible URL."
+                    )
                 state["conversation_response"] = {
-                    "response_text": "I couldn't find any records for that request. The page may need a login, load its "
-                                     "content with heavy JavaScript, or block automated access. Try a more specific page "
-                                     "URL or describe the fields you want.",
-                    "export_requested": "none", "result_count": None}
+                    "response_text": resp_text,
+                    "export_requested": "none",
+                    "result_count": None
+                }
             else:
                 state = await self.conversation.run(state, session_id)
                 state = await self.exporter.run(state, session_id)

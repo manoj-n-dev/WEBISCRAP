@@ -9,53 +9,60 @@ class KeyManager:
     def __init__(self, provider: str, keys: List[str]):
         self.provider = provider
         self.keys = keys
-        self.key_status: Dict[str, Dict] = {
-            key: {"active": True, "cooldown_until": 0, "usage_count": 0, "errors": 0}
-            for key in keys
-        }
+        # N8: Track cooldown per (key, model) tuple so 429 on one model doesn't block another.
+        # An empty model string "" indicates a global key cooldown (e.g. 401/403 auth error).
+        self.cooldowns: Dict[tuple, float] = {}
+        self.usage_count: Dict[str, int] = {k: 0 for k in keys}
+        self.errors: Dict[str, int] = {k: 0 for k in keys}
 
-    def _get_active_keys(self) -> List[str]:
+    def _is_key_active(self, key: str, model: str = "") -> bool:
         now = time.time()
-        active = []
-        for key, status in self.key_status.items():
-            if status["active"]:
-                active.append(key)
-            elif status["cooldown_until"] > 0 and now > status["cooldown_until"]:
-                status["active"] = True
-                status["cooldown_until"] = 0
-                active.append(key)
-        return active
+        # Global key cooldown (e.g. invalid key credentials)
+        if self.cooldowns.get((key, ""), 0) > now:
+            return False
+        # Model-specific cooldown (e.g. 429 rate limit on specific model)
+        if model and self.cooldowns.get((key, model), 0) > now:
+            return False
+        return True
 
-    def seconds_until_available(self) -> int:
+    def _get_active_keys(self, model: str = "") -> List[str]:
+        return [k for k in self.keys if self._is_key_active(k, model)]
+
+    def seconds_until_available(self, model: str = "") -> int:
         """Seconds until the soonest cooled-down key is usable (0 if one is usable now)."""
-        if self._get_active_keys():
+        if self._get_active_keys(model):
             return 0
         now = time.time()
-        waits = [s["cooldown_until"] - now for s in self.key_status.values() if s["cooldown_until"] > 0]
+        waits = []
+        for k in self.keys:
+            global_wait = self.cooldowns.get((k, ""), 0) - now
+            model_wait = self.cooldowns.get((k, model), 0) - now if model else 0
+            key_wait = max(global_wait, model_wait)
+            if key_wait > 0:
+                waits.append(key_wait)
         return max(1, int(min(waits))) if waits else 0
 
-    def get_key(self) -> str:
+    def get_key(self, model: str = "") -> str:
         if not self.keys:
             raise LLMUnavailableError("No Groq API key is configured on the server.")
-        active_keys = self._get_active_keys()
+        active_keys = self._get_active_keys(model)
         if not active_keys:
-            wait = self.seconds_until_available() or 60
-            logger.error(f"No active keys for provider {self.provider} (retry in ~{wait}s)")
+            wait = self.seconds_until_available(model) or 60
+            logger.error(f"No active keys for provider {self.provider} (model={model or 'all'}, retry in ~{wait}s)")
             raise LLMRateLimitError(
-                f"All {self.provider} API keys are rate-limited right now.",
+                f"All {self.provider} API keys are rate-limited right now for model {model or 'all'}.",
                 retry_after=wait, scope="minute" if wait <= 120 else "day",
             )
-        active_keys.sort(key=lambda k: self.key_status[k]["usage_count"])
+        active_keys.sort(key=lambda k: self.usage_count.get(k, 0))
         selected_key = active_keys[0]
-        self.key_status[selected_key]["usage_count"] += 1
+        self.usage_count[selected_key] = self.usage_count.get(selected_key, 0) + 1
         return selected_key
 
-    def mark_key_exhausted(self, key: str, cooldown_seconds: int = 3600):
-        if key in self.key_status:
-            self.key_status[key]["active"] = False
-            self.key_status[key]["cooldown_until"] = time.time() + cooldown_seconds
-            self.key_status[key]["errors"] += 1
-            logger.warning(f"Marked {self.provider} key (…{key[-4:]}) unavailable for {cooldown_seconds}s")
+    def mark_key_exhausted(self, key: str, cooldown_seconds: int = 3600, model: str = ""):
+        self.cooldowns[(key, model)] = time.time() + cooldown_seconds
+        self.errors[key] = self.errors.get(key, 0) + 1
+        model_desc = f" for model {model}" if model else " for all models"
+        logger.warning(f"Marked {self.provider} key (…{key[-4:]}){model_desc} unavailable for {cooldown_seconds}s")
 
 
 class AIManager:

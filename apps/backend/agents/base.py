@@ -27,6 +27,12 @@ def validate_resolved_ip(ip_str: str) -> bool:
                 ip.is_reserved or ip.is_link_local or ip.is_unspecified):
             return False
 
+        # N3: RFC 6598 shared address space (100.64.0.0/10) — not classified as
+        # private/reserved by Python's ipaddress module, but used by some cloud
+        # metadata endpoints (e.g. Alibaba Cloud 100.100.100.200).
+        if isinstance(ip, ipaddress.IPv4Address) and ip in ipaddress.ip_network("100.64.0.0/10"):
+            return False
+
         # Additional 6to4 prefix check if embedding private IPv4
         if isinstance(ip, ipaddress.IPv6Address) and ip.sixtofour:
             if not validate_resolved_ip(str(ip.sixtofour)):

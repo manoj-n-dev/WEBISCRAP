@@ -68,7 +68,14 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
         try:
             addr_infos = socket.getaddrinfo(target_hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
             if addr_infos:
-                resolved_ip = addr_infos[0][4][0]
+                candidate_ip = str(addr_infos[0][4][0])
+                if validate_resolved_ip(candidate_ip):
+                    resolved_ip = candidate_ip
+                else:
+                    logger.warning(
+                        f"N4: DNS pin rejected — {target_hostname} resolved to unsafe IP {candidate_ip}"
+                    )
+                    raise ValueError(f"Blocked SSRF attempt: {target_hostname} resolved to an internal address")
         except socket.gaierror as e:
             logger.warning(f"Failed to resolve target hostname {target_hostname}: {e}")
 
@@ -122,11 +129,51 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                         pass
             
             page.route("**/*", ssrf_route_handler)
-            page.goto(target_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT_MS)
+            response = page.goto(target_url, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT_MS)
             try:                                   # "networkidle" never settles on sites with analytics/websockets -> wait briefly only
                 page.wait_for_load_state("networkidle", timeout=5000)
             except Exception:
                 pass
+
+            final_url = page.url or ""
+            status_code = response.status if response else 200
+
+            # Level 4 & 5: Check for authentication / login requirement or access blocking
+            is_private_auth = False
+            is_blocked = False
+
+            if status_code == 401:
+                is_private_auth = True
+            elif status_code == 403:
+                is_blocked = True
+
+            # Check if redirected to a login endpoint
+            parsed_orig = urllib.parse.urlparse(target_url)
+            parsed_final = urllib.parse.urlparse(final_url)
+            login_paths = ("/login", "/signin", "/sign-in", "/accounts/login", "/checkpoint", "/session/new", "/auth/")
+            if any(lp in parsed_final.path.lower() for lp in login_paths) and not any(lp in parsed_orig.path.lower() for lp in login_paths):
+                is_private_auth = True
+
+            # Check DOM login indicators vs content
+            try:
+                page_title = (page.title() or "").lower()
+                has_password_input = bool(page.query_selector("input[type='password']"))
+                body_text = page.evaluate("(document.body && document.body.innerText) || ''")
+                body_text_len = len(body_text.strip())
+                login_keywords = ("log in", "sign in", "login", "signin", "authentication required", "sign in to continue", "log in to continue")
+                if has_password_input and (body_text_len < 2000 or any(k in page_title for k in login_keywords)):
+                    is_private_auth = True
+                elif any(cf in page_title for cf in ("attention required! | cloudflare", "just a moment...", "security check")):
+                    is_blocked = True
+            except Exception:
+                pass
+
+            if is_private_auth:
+                analysis["url_access_issue"] = "private_auth"
+                logger.info(f"Identified private/login-protected URL for {target_url} (final={final_url}, status={status_code})")
+            elif is_blocked:
+                analysis["url_access_issue"] = "access_blocked"
+                logger.info(f"Identified access-blocked URL for {target_url} (status={status_code})")
 
             pagination_type = (analysis.get("pagination_type") or "").lower()
 
@@ -144,6 +191,11 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                 dom_snapshots = _auto_detect_and_extract(page)
 
         except Exception as e:
+            err_str = str(e).lower()
+            if "timeout" in err_str:
+                analysis["url_access_issue"] = "unreachable_timeout"
+            elif "err_name_not_resolved" in err_str or "dns" in err_str:
+                analysis["url_access_issue"] = "unreachable_dns"
             logger.error(f"Playwright navigation failed: {e}")
             # Try to capture whatever is on the page
             try:
@@ -363,6 +415,8 @@ class BrowserAgent(BaseAgent):
                 input_data["dom_snapshots"] = [minify_html(html)]
             else:
                 input_data["dom_snapshots"] = []
+            if analysis.get("url_access_issue"):
+                input_data["url_access_issue"] = analysis["url_access_issue"]
             return input_data
 
         # JS rendering required — use Playwright in a separate thread
@@ -384,6 +438,9 @@ class BrowserAgent(BaseAgent):
                 input_data["dom_snapshots"] = [minify_html(html)]
             else:
                 input_data["dom_snapshots"] = []
+
+        if analysis.get("url_access_issue"):
+            input_data["url_access_issue"] = analysis["url_access_issue"]
 
         return input_data
 

@@ -118,11 +118,15 @@ settings = Settings()
 
 def get_client_ip(request: Request) -> str:
     """
-    FIX 15 (M7): Extract client IP safely.
-    When TRUST_PROXY_HEADERS is enabled, returns the first IP in X-Forwarded-For.
+    FIX 15 (M7) & N5: Extract client IP safely.
+    When TRUST_PROXY_HEADERS is enabled, checks CF-Connecting-IP first (from trusted Cloudflare/Render edge),
+    or extracts the last IP in X-Forwarded-For (Render appends the real client IP at the end of the chain).
     Otherwise falls back to direct connection host (prevents header spoofing).
     """
     if settings.TRUST_PROXY_HEADERS:
+        cf_ip = request.headers.get("CF-Connecting-IP")
+        if cf_ip and cf_ip.strip():
+            return cf_ip.strip()
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return forwarded_for.split(",")[0].strip()

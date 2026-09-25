@@ -13,12 +13,43 @@ from .base import BaseAgent, ssrf_safe_fetch
 _SPA_MARKERS = ('id="root"', "id='root'", 'id="app"', "id='app'", "__NEXT_DATA__", "data-reactroot", "ng-app", "ng-version", "__NUXT__")
 
 
-def heuristic_analysis(html_text: str) -> Dict[str, Any]:
+import urllib.parse
+
+
+def is_known_private_platform_url(url: str) -> bool:
+    """Identify URLs belonging to known authenticated-only user services."""
+    if not url:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        netloc = (parsed.netloc or "").lower()
+        path = (parsed.path or "").lower()
+        # ChatGPT / OpenAI private conversation sessions
+        if ("chatgpt.com" in netloc or "openai.com" in netloc) and path.startswith("/c/"):
+            return True
+        # Claude private conversation sessions
+        if "claude.ai" in netloc and path.startswith("/chat/"):
+            return True
+        # Webmail / private app dashboards
+        if netloc in ("mail.google.com", "outlook.live.com", "mail.yahoo.com", "app.slack.com", "discord.com"):
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def heuristic_analysis(html_text: str, target_url: str = "") -> Dict[str, Any]:
     """Zero-LLM page analysis (saves ~3K tokens + 2-4 s per scrape). Static rendering is chosen ONLY when the
     raw HTML already contains a lot of visible text AND many repeating items; otherwise Playwright is used."""
+    known_private = is_known_private_platform_url(target_url) if target_url else False
     if not html_text:
-        return {"requires_js_rendering": True, "pagination_type": "none", "login_required": False,
-                "analysis_notes": "Static fetch failed; using a real browser."}
+        return {
+            "requires_js_rendering": True,
+            "pagination_type": "none",
+            "login_required": known_private,
+            "url_access_issue": "private_auth" if known_private else None,
+            "analysis_notes": "Static fetch failed; using a real browser."
+        }
     soup = BeautifulSoup(html_text, "html.parser")
     for tag in soup(["script", "style", "noscript", "svg"]):
         tag.decompose()
@@ -28,9 +59,15 @@ def heuristic_analysis(html_text: str) -> Dict[str, Any]:
     static_ok = text_len >= 2500 and repeating >= 15 and not (spa and text_len < 6000)
     nxt = soup.find("a", attrs={"rel": re.compile("next", re.I)}) or soup.find("link", attrs={"rel": re.compile("next", re.I)})
     pagination = {"pagination_type": "link", "pagination_selector": "a[rel='next']"} if nxt else {"pagination_type": "none"}
-    login = bool(soup.find("input", attrs={"type": "password"})) and text_len < 1500
-    return {"requires_js_rendering": (not static_ok) or bool(nxt), "login_required": login,
-            "analysis_notes": f"heuristic: {text_len} chars text, {repeating} repeating items, spa={spa}", **pagination}
+    login = known_private or (bool(soup.find("input", attrs={"type": "password"})) and text_len < 1500)
+    url_access_issue = "private_auth" if login else None
+    return {
+        "requires_js_rendering": (not static_ok) or bool(nxt),
+        "login_required": login,
+        "url_access_issue": url_access_issue,
+        "analysis_notes": f"heuristic: {text_len} chars text, {repeating} repeating items, spa={spa}",
+        **pagination
+    }
 
 
 class AnalyzerAgent(BaseAgent):
@@ -61,9 +98,11 @@ class AnalyzerAgent(BaseAgent):
 
         if settings.ANALYZER_MODE.lower() != "llm":
             html_text = await ssrf_safe_fetch(target_url)
-            analysis = heuristic_analysis(html_text or "")
+            analysis = heuristic_analysis(html_text or "", target_url=target_url)
             logger.info(f"[{session_id}] Analyzer (heuristic): {analysis}")
             input_data["analysis"] = analysis          # NOTE: the planner's JS guess no longer forces a browser
+            if analysis.get("url_access_issue"):
+                input_data["url_access_issue"] = analysis["url_access_issue"]
             return input_data
 
         html_snippet = await self._fetch_html_snippet(target_url)

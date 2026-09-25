@@ -52,8 +52,9 @@ class ExportAgent(BaseAgent):
 
         try:
             df = pd.DataFrame(dataset)
-            # C7: Sanitize all cell values before export to prevent formula injection
+            # C7 & N10: Sanitize all cell values and headers before export to prevent formula injection
             df = df.map(sanitize_cell_value)
+            df.columns = [sanitize_cell_value(c) for c in df.columns]
             
             # H-07: Use streaming export endpoint rather than relying on ephemeral local disk
             download_url = f"/api/export/{export_format}?session_id={session_id}"

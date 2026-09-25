@@ -65,10 +65,16 @@ def verify_google_token(token: str) -> dict:
         return idinfo
     except Exception as e_google:
         # 2. Fallback: If audience check failed because token was issued for an associated project client ID,
-        # verify signature against Google public certs and validate official Google issuer
+        # verify signature against Google public certs with an explicit allow-list of allowed audiences
         if settings.GOOGLE_CLIENT_ID and "audience" in str(e_google).lower():
             try:
-                idinfo = id_token.verify_oauth2_token(token, requests.Request())
+                allowed_audiences = [a for a in (
+                    settings.GOOGLE_CLIENT_ID,
+                    getattr(settings, "FIREBASE_PROJECT_ID", None),
+                ) if a]
+                idinfo = id_token.verify_oauth2_token(
+                    token, requests.Request(), audience=allowed_audiences
+                )
                 issuer = idinfo.get("iss", "")
                 if issuer in ("accounts.google.com", "https://accounts.google.com"):
                     if not idinfo.get("email_verified", False):

@@ -1,6 +1,6 @@
 import asyncio
 import re
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import groq
 from groq import AsyncGroq
@@ -49,7 +49,7 @@ def parse_rate_limit_error(exc: Exception) -> Tuple[int, str]:
     scope = "day" if ("per day" in low or "(tpd)" in low or "(rpd)" in low) else "minute"
     if retry_after is None:
         retry_after = 3600 if scope == "day" else 30
-    return int(max(1, round(retry_after))), scope
+    return max(1, round(retry_after)), scope
 
 
 class GroqClient:
@@ -87,7 +87,7 @@ class GroqClient:
 
         for attempt in range(_MAX_ATTEMPTS):
             try:
-                api_key = ai_manager.groq_keys.get_key()
+                api_key = ai_manager.groq_keys.get_key(model=model_name)
             except LLMRateLimitError as rl:
                 # Short waits are absorbed here (rolling TPM window); long waits surface to the user.
                 if rl.retry_after and rl.retry_after <= settings.LLM_MAX_WAIT_SECONDS and waited < 30:
@@ -96,7 +96,7 @@ class GroqClient:
                     continue
                 raise
 
-            kwargs = dict(messages=messages, model=model_name, temperature=temperature, max_tokens=max_tokens)
+            kwargs: Dict[str, Any] = dict(messages=messages, model=model_name, temperature=temperature, max_tokens=max_tokens)
             if use_json_mode:
                 kwargs["response_format"] = {"type": "json_object"}
             if reasoning_effort and model_name.startswith("openai/gpt-oss"):
@@ -115,7 +115,7 @@ class GroqClient:
                 retry_after, scope = parse_rate_limit_error(e)
                 logger.warning(f"Groq 429 ({scope}) key=…{api_key[-4:]} retry_after={retry_after}s: {getattr(e, 'message', e)}")
                 cooldown = min(retry_after + 1, 3600 if scope == "day" else 120)
-                ai_manager.groq_keys.mark_key_exhausted(api_key, cooldown_seconds=cooldown)
+                ai_manager.groq_keys.mark_key_exhausted(api_key, cooldown_seconds=cooldown, model=model_name)
                 last_error = LLMRateLimitError("The AI provider rate limit was reached.", retry_after=retry_after, scope=scope)
                 continue
 
@@ -129,7 +129,7 @@ class GroqClient:
                     raise LLMRequestTooLargeError("This request is too large for the AI model right now. Try a smaller file/page.")
                 if status in (401, 403):
                     logger.error(f"Groq auth error {status} for key …{api_key[-4:]}")
-                    ai_manager.groq_keys.mark_key_exhausted(api_key, cooldown_seconds=3600)
+                    ai_manager.groq_keys.mark_key_exhausted(api_key, cooldown_seconds=3600, model="")
                     last_error = LLMUnavailableError("The AI service credentials were rejected.")
                     continue
                 if status == 400 and use_json_mode and ("response_format" in msg.lower() or "json" in msg.lower()):

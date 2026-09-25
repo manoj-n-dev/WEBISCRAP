@@ -11,6 +11,8 @@ Features:
 - Sanitized output: never logs passwords, tokens, or secrets
 """
 
+import json
+import re
 import sys
 import time
 import uuid
@@ -75,8 +77,10 @@ def _dev_formatter(record: Any) -> str:
 
 def _prod_formatter(record: Any) -> str:
     """Format log record as JSON-compatible structured log line."""
-    rid = record["extra"].get("request_id") or get_request_id() or "-"
+    raw_rid = record["extra"].get("request_id") or get_request_id() or "-"
+    rid = re.sub(r'[^a-zA-Z0-9\-_]', '', str(raw_rid))[:64] or "-"
     record["extra"]["request_id"] = rid
+    record["extra"]["serialized_message"] = json.dumps(record.get("message", ""))
     return (
         '{{"timestamp":"{time:YYYY-MM-DDTHH:mm:ss.SSSZ}",'
         '"level":"{level}",'
@@ -84,7 +88,7 @@ def _prod_formatter(record: Any) -> str:
         '"function":"{function}",'
         '"line":{line},'
         '"request_id":"{extra[request_id]}",'
-        '"message":"{message}"}}\n'
+        '"message":{extra[serialized_message]}}}\n'
     )
 
 
@@ -206,8 +210,9 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        # Extract or generate request correlation ID
-        req_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:16])
+        # Extract or generate request correlation ID, sanitized against log injection (N7)
+        raw_req_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:16])
+        req_id = re.sub(r'[^a-zA-Z0-9\-_]', '', raw_req_id)[:64] or uuid.uuid4().hex[:16]
         request_id_ctx.set(req_id)
 
         client_ip = get_client_ip(request)
