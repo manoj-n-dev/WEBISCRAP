@@ -171,6 +171,7 @@ WEBISCRAP has undergone rigorous end-to-end security audits:
 - **OAuth Nonce CSRF Protection:** Cryptographic client-side nonce generation and server-side validation preventing token replay and CSRF injection.
 - **High-Integrity Audit Logging:** Production log streaming formatted as strict JSON with newline-injection sanitization on correlation `X-Request-ID` headers.
 - **Readiness Probe Rate-Limiting & Error Redaction:** Protects `/health/ready` against probe enumeration (30 req/min sliding window per IP) while redacting raw internal exceptions in production.
+- **Reverse-Proxy Client IP Integrity (Anti-Spoofing):** Resolves client IP via proxy-appended `X-Forwarded-For` tail selection behind trusted reverse proxies, preventing rate-limit bypass and audit log spoofing.
 
 ---
 

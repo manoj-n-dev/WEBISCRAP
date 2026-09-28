@@ -77,9 +77,25 @@ class TestSSRFAndProxy(unittest.TestCase):
             req.client.host = "10.0.0.2"
 
             extracted = get_client_ip(req)
-            self.assertEqual(extracted, "203.0.113.195")
+            self.assertEqual(extracted, "70.41.3.18")
         finally:
             settings.TRUST_PROXY_HEADERS = False
+
+    def test_proxy_ip_ignores_client_forged_first_entry(self):
+        """N5: a client-forged first X-Forwarded-For entry must NOT be used; the last (proxy-appended) entry wins."""
+        try:
+            settings.TRUST_PROXY_HEADERS = True
+
+            req = MagicMock()
+            req.headers = {"X-Forwarded-For": "6.6.6.6, 198.51.100.7"}
+            req.client.host = "10.0.0.2"
+
+            extracted = get_client_ip(req)
+            self.assertEqual(extracted, "198.51.100.7")
+            self.assertNotEqual(extracted, "6.6.6.6")
+        finally:
+            settings.TRUST_PROXY_HEADERS = False
+
 
 if __name__ == "__main__":
     unittest.main()

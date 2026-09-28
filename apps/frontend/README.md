@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WEBISCRAP Frontend
 
-## Getting Started
+Next.js 16 (App Router) glassmorphism HUD interface for WEBISCRAP — an AI-powered multi-agent intelligent web data extraction platform.
 
-First, run the development server:
+---
+
+## 💻 Tech Stack
+
+- **Framework:** Next.js 16 (App Router, Turbopack) + React 19
+- **Language:** TypeScript
+- **State Management:** Zustand (reactive in-memory store)
+- **Styling:** Tailwind CSS v4 (Cinematic glassmorphism dark-mode HUD)
+- **Data Tables:** TanStack Table v8
+- **Audio Synthesis:** Real-time Web Audio API sound FX engine (zero external audio assets)
+- **Export Formats:** CSV (UTF-8 BOM), native Excel (.xlsx), JSON, Markdown, PDF (jsPDF)
+
+---
+
+## 📁 Directory Structure
+
+```
+src/
+├── app/
+│   ├── (marketing)/    # Public pages: landing, /how-it-works, /features, /docs, /creators, /terms, /privacy
+│   ├── (auth)/         # Auth flows: /login, /signup, /forgot-password, /reset-password, /verify-email
+│   ├── (app)/          # Core workspace: /chat/[sessionId], /dataset/[sessionId], /limit
+│   ├── layout.tsx      # Root layout with HUD ambient glow and sound engine provider
+│   └── globals.css     # Tailwind v4 glassmorphism tokens
+├── components/
+│   ├── auth/           # SocialAuth (Google popup modal UX), AuthCard
+│   ├── chat/           # Composer, MessageBubble, PipelineStrip, DataCard
+│   ├── dataset/        # DataTable (TanStack), ExportPanel
+│   ├── marketing/      # MarketingNavbar, MarketingFooter (IRIS status card)
+│   ├── sidebar/        # Session sidebar with inline title rename and deletion
+│   └── ui/             # Reusable HUD primitives (Button, Card, Input, Chip, Modal)
+├── lib/
+│   ├── api/client.ts   # ApiClient with in-memory tokens and silent refresh rotation
+│   ├── store/chat.ts   # Zustand reactive session, message, and dataset state
+│   ├── audio.ts        # Synthesized sound effects (keystrokes, extraction fanfare, download cues)
+│   └── export.ts       # Client-side multi-format dataset export engine
+└── tests/
+    └── store.behavior.test.ts  # End-to-end frontend store verification suite
+```
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure Environment
+
+Create `.env.local` in `apps/frontend`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧪 Available Scripts
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts local Next.js development server with Turbopack |
+| `npm run build` | Builds the production bundle |
+| `npm run start` | Runs the production build server |
+| `npm run lint` | Runs ESLint code quality checks |
+| `npm run test:store` | Executes the 7 frontend store behavior tests |
