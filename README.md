@@ -1,30 +1,30 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/manoj-n-dev/WEBISCRAP/main/apps/frontend/public/assets/branding-logo.png" alt="WEBISCRAP" width="320" />
+  <img src="https://raw.githubusercontent.com/manoj-n-dev/WEBISCRAP/main/apps/frontend/public/assets/branding-logo.png" alt="WEBISCRAP Logo" width="320" />
+
+  <h1>WEBISCRAP</h1>
+  <p><strong>Extract Anything. Ask Naturally. Export Instantly.</strong></p>
+  <p><em>An autonomous 9-agent AI platform that transforms web scraping into natural, intelligent conversation.</em></p>
+
+  <p>
+    <a href="https://webiscrap.vercel.app"><img src="https://img.shields.io/badge/Live%20App-webiscrap.vercel.app-00e5ff?style=for-the-badge&logo=vercel" alt="Live App" /></a>
+    <a href="https://webiscrap-api.onrender.com/health"><img src="https://img.shields.io/badge/API-Operational-00ff78?style=for-the-badge&logo=render" alt="API Status" /></a>
+    <a href="https://github.com/manoj-n-dev/WEBISCRAP/releases"><img src="https://img.shields.io/badge/Release-v1.0.0%20Gold-8a2be2?style=for-the-badge&logo=github" alt="Release v1.0.0" /></a>
+    <a href="#-security--hardening"><img src="https://img.shields.io/badge/Security-Audited%20%26%20Hardened-green?style=for-the-badge&logo=shield" alt="Security Hardened" /></a>
+    <a href="#-license"><img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-red?style=for-the-badge" alt="License" /></a>
+  </p>
 </div>
-
-# WEBISCRAP 🕸️
-
-### *Extract Anything. Ask Naturally. Export Instantly.*
-
-**WEBISCRAP** is a conversational, AI-powered web data extraction platform that replaces traditional scraping workflows — CSS selectors, XPath, and brittle scripts — with plain natural language. Paste a URL or upload a document, describe what data you want in your own words (English, Telugu, Hindi, Tamil, Hinglish, or mixed), and an autonomous swarm of nine specialized AI agents plans, browses, extracts, cleans, validates, and exports the data for you.
-
-[![Live App](https://img.shields.io/badge/Live%20App-webiscrap.vercel.app-1477f5?style=flat-square&logo=vercel)](https://webiscrap.vercel.app)
-[![API Status](https://img.shields.io/badge/API-Operational-00ff78?style=flat-square&logo=render)](https://webiscrap-api.onrender.com/health)
-[![Milestone](https://img.shields.io/badge/Milestone-92%20Commits%20%7C%20Road%20to%20100-8a2be2?style=flat-square&logo=github)](#-milestones--roadmap)
-[![License: All Rights Reserved](https://img.shields.io/badge/License-All%20Rights%20Reserved-red?style=flat-square)](#-license)
-[![Made in India](https://img.shields.io/badge/Made%20in-India%20%F0%9F%87%AE%F0%9F%87%B3-ff6b35?style=flat-square)](#-team)
-
-> *"Paste a link. Ask in your own words. Get your data."*
 
 ---
 
-## 🌐 Live Deployments
+## 🌐 Live Services
 
-- **Web Application:** [https://webiscrap.vercel.app](https://webiscrap.vercel.app)
-- **Backend REST API:** [https://webiscrap-api.onrender.com](https://webiscrap-api.onrender.com)
-- **API Health Check:** [https://webiscrap-api.onrender.com/health](https://webiscrap-api.onrender.com/health)
-- **Primary Repository:** [github.com/manoj-n-dev/WEBISCRAP](https://github.com/manoj-n-dev/WEBISCRAP)
-- **Team Organization Mirror:** [github.com/team3c23/WEBISCRAP](https://github.com/team3c23/WEBISCRAP)
+| Component | Platform | Status | URL |
+|---|---|---|---|
+| **Web Application HUD** | Vercel Edge | 🟢 Active | [https://webiscrap.vercel.app](https://webiscrap.vercel.app) |
+| **Backend REST API** | Render Cloud | 🟢 Active | [https://webiscrap-api.onrender.com](https://webiscrap-api.onrender.com) |
+| **Health Probe** | Render Cloud | 🟢 Operational | [https://webiscrap-api.onrender.com/health](https://webiscrap-api.onrender.com/health) |
+| **Primary Repository** | GitHub | 📦 Production | [github.com/manoj-n-dev/WEBISCRAP](https://github.com/manoj-n-dev/WEBISCRAP) |
+| **Team Mirror** | GitHub | 📦 Mirrored | [github.com/team3c23/WEBISCRAP](https://github.com/team3c23/WEBISCRAP) |
 
 ---
 
@@ -35,13 +35,14 @@
 - [The 9-Agent Pipeline](#-the-9-agent-pipeline)
 - [Key Features](#-key-features)
 - [Tech Stack](#-tech-stack)
-- [Security & Architecture Hardening](#-security--architecture-hardening)
-- [Folder Structure](#-folder-structure)
-- [Milestones & Roadmap](#-milestones--roadmap)
+- [Security & Hardening](#-security--hardening)
+- [Repository Structure](#-repository-structure)
 - [Prerequisites](#-prerequisites)
 - [Installation & Local Setup](#-installation--local-setup)
 - [Environment Configuration](#️-environment-configuration)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
 - [Production Deployment](#-production-deployment)
+- [Milestones & Roadmap](#-milestones--roadmap)
 - [Team](#-team)
 - [License](#-license)
 
@@ -49,83 +50,100 @@
 
 ## ⚡ Overview
 
-WEBISCRAP is built on one core philosophy:
+Traditional web scraping workflows require reverse-engineering HTML DOM hierarchies, maintaining brittle CSS selectors or XPath expressions, and rewriting parsers whenever site layouts change.
 
-> **Scraping is a side effect of conversation, not the main interaction.**
+**WEBISCRAP** fundamentally reimagines data extraction:
 
-Traditional scrapers require configuring CSS selectors, writing custom scrapers in Python or Puppeteer, and rebuilding parsers every time a website changes its HTML classes. 
+> **Scraping is a side effect of natural conversation, not a manual coding task.**
 
-With WEBISCRAP:
-- **No CSS Selectors or XPath:** The LLM-driven analyzer and extractor identify data structures semantically.
-- **Multilingual Understanding:** Natural queries in English, Hindi, Telugu, Tamil, and Hinglish.
-- **Zero Re-Scraping for Follow-ups:** Extracted datasets are cached in Redis session memory (`z1:` compressed). Ask questions like *"sort by lowest price"* or *"filter items rating > 4.5"* with instantaneous in-memory results.
-- **Interactive HUD & Direct Export:** View interactive tables directly in chat, edit session titles, and export clean files to CSV, Excel, JSON, Markdown, or PDF.
+Paste any public website URL or upload a file (PDF, DOCX, CSV, Excel, or screenshot), describe what you need in plain natural language (English, Telugu, Hindi, Tamil, or Hinglish), and an autonomous swarm of **nine specialized AI agents** collaborates to navigate, analyze, extract, clean, validate, and deliver clean structured records in real time.
+
+### Why WEBISCRAP?
+
+- **No CSS Selectors or XPath:** The LLM analyzer identifies data structures semantically from rendered DOM containers.
+- **Multilingual Query Understanding:** Understands colloquial prompts across English, Hindi, Telugu, Tamil, and Hinglish.
+- **Instant Follow-Up Queries (Zero Re-Scraping):** Validated datasets are cached in Upstash Redis (`z1:` zlib compressed). Subsequent prompts like *"sort by lowest price"* or *"filter ratings > 4.5"* execute in memory with zero re-scraping latency.
+- **Intelligent Access Classifier:** Distinguishes public web pages from login-walls (ChatGPT, social networks, OAuth portals), informing users gracefully without errors or corrupted records.
+- **Multi-Format Export Suite:** Download clean data with one click in CSV (UTF-8 BOM), native Excel (`.xlsx`), JSON, Markdown, or client-rendered PDF.
 
 ---
 
 ## 🧠 How It Works
 
 ```
-User Prompt: "Extract all laptop names, prices, ratings, and image links from this site"
-             + URL (or attached PDF/Excel/CSV/DOCX)
-
-  1. Planner Agent        →  Understands intent, decides if scrape or cache query is needed
-  2. Website Analyzer     →  Reads rendered DOM, finds repeating card/table layouts
-  3. Browser Automation   →  Drives headless Chromium via Playwright (lazy-scroll & JS hydration)
-  4. Extraction Agent     →  Extracts clean JSON schema matching user-requested fields
-  5. Cleaning Agent       →  Normalizes whitespace, formats currencies/dates, dedupes rows
-  6. Validation Agent     →  Scores data confidence (0.0–1.0) and flags missing cells
-  7. Memory Agent         →  Caches dataset in Redis for zero-latency follow-up queries
-  8. Conversation Agent   →  Performs instant in-memory filtering, sorting, or reshaping
-  9. Export Agent         →  Generates sanitized CSV, Excel (.xlsx), JSON, Markdown, or PDF
-
-Result: Delivered directly in the interactive Chat HUD. Done.
+User Prompt: "Extract all laptop names, discounted prices, ratings, and image links"
+             + Target URL (or uploaded PDF/DOCX/CSV/Excel/Image)
+                                     │
+                                     ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │                         9-AGENT AUTONOMOUS SWARM                            │
+ │                                                                             │
+ │  1. 🧭 Planner Agent      → Deconstructs prompt; decides scrape vs. cache   │
+ │  2. 🔬 Analyzer Agent     → Inspects DOM; discovers repeating card patterns │
+ │  3. 🌐 Browser Agent      → Headless Chromium (auto-scroll, network-idle)   │
+ │  4. 📦 Extractor Agent    → Extracts strict typed JSON records              │
+ │  5. 🧹 Cleaner Agent      → Dedupes, trims, normalizes currency & dates     │
+ │  6. ✅ Validator Agent    → Calculates statistical confidence score (0-1)   │
+ │  7. 🧠 Memory Agent       → Caches dataset into Redis (z1 compressed)       │
+ │  8. 💬 Conversation Agent → Handles conversational filters & transformations│
+ │  9. 📤 Export Agent       → Sanitizes formulas & prepares download files    │
+ └─────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+      Interactive Chat HUD + TanStack Data Table + One-Click Export Suite
 ```
 
 ---
 
 ## 🤖 The 9-Agent Pipeline
 
-The core engine is orchestrated by `apps/backend/agents/orchestrator.py`, dispatching state across nine specialized agents calling Groq (LLaMA 3 70B) with automatic multi-key pool rotation (`ai/key_manager.py`).
+The core orchestration engine lives in [`apps/backend/agents/orchestrator.py`](apps/backend/agents/orchestrator.py), dispatching state deterministically through nine dedicated agents powered by Groq LLaMA 3 70B with an automated multi-key rotation pool:
 
-| # | Agent | Role | Functionality |
+| # | Agent | Category | Role & Core Responsibility |
 |---|---|---|---|
-| 1 | 🧭 **Planner** | Orchestrator | Interprets user intent, determines if a new scrape or cache query is needed, and outputs a JSON workflow plan. |
-| 2 | 🔬 **Website Analyzer** | Structure | Analyzes minified DOM/HTML structures and detects repeating container cards, tables, or list items. |
-| 3 | 🌐 **Browser Automation** | Automation | Drives headless Chromium via Playwright with lazy scrolling, network-idle waiting, and SSRF/DNS-rebinding defenses. |
-| 4 | 📦 **Extraction** | Extraction | Maps unstructured HTML chunks into strict, typed JSON schema objects. |
-| 5 | 🧹 **Cleaning** | Data Quality | Dedupes rows, normalizes messy currencies and dates, and resolves relative paths to absolute URLs. |
-| 6 | ✅ **Validation** | Trust & QA | Computes statistical confidence scores (0.0–1.0) and flags sparse or null fields. |
-| 7 | 🧠 **Memory** | Session Store | Caches validated datasets into Upstash Redis (`z1:` compressed) for rapid follow-ups without re-scraping. |
-| 8 | 💬 **Conversation** | Follow-ups | Filters, sorts, aggregates, or transforms cached rows in response to conversational follow-up prompts. |
-| 9 | 📤 **Export** | Output | Produces formula-sanitized files in CSV (UTF-8 BOM), native Excel (.xlsx), JSON, Markdown, and PDF. |
+| 1 | 🧭 **Planner** | Orchestration | Interprets user intent, determines whether to trigger live browsing or query cached memory, and synthesizes a schema plan. |
+| 2 | 🔬 **Analyzer** | Structure | Analyzes minified DOM structures, discovers repeating container elements (cards, table rows, list items), and detects access barriers. |
+| 3 | 🌐 **Browser** | Automation | Drives headless Chromium via Playwright with smart scrolling, dynamic network-idle waits, and SSRF/DNS-rebinding defenses. |
+| 4 | 📦 **Extractor** | Extraction | Maps unstructured HTML/text chunks into strict, typed JSON schema objects matching user fields. |
+| 5 | 🧹 **Cleaner** | Quality | Dedupes rows, normalizes messy currencies and dates, and resolves relative links to absolute URLs. |
+| 6 | ✅ **Validator** | Integrity | Computes data completeness and statistical confidence scores (0.0–1.0), flagging sparse or null attributes. |
+| 7 | 🧠 **Memory** | Session Cache | Stores compressed (`z1:`) datasets into Upstash Redis for instant follow-up conversations without re-scraping. |
+| 8 | 💬 **Conversation** | Analytics | Applies in-memory filtering, sorting, column reshaping, and aggregations in response to conversational prompts. |
+| 9 | 📤 **Export** | Output | Sanitizes spreadsheet formula injections and generates production-ready CSV, Excel (.xlsx), JSON, Markdown, and PDF. |
 
 ---
 
 ## ✨ Key Features
 
-- **Conversational Extraction HUD:** Complete chat interface built with Next.js 16 and a cinematic glassmorphism dark-mode theme.
-- **Audio Interface Sound FX (Cyberpunk HUD Engine):** Zero external audio files — synthesized entirely in real-time using the browser's Web Audio API. Provides acoustic feedback cues for keystroke typing clicks, file uploads, scrape extraction complete fanfare, downloads, login events, and chat deletion confirmation.
-- **Full Mobile Responsiveness:** Designed for all screen viewports with responsive slide-over drawer navigation, touch-friendly composer, horizontal scrolling data tables, and mobile-first modals.
-- **Diamond Cursor & Micro-Interactions:** Custom ambient glowing diamond cursor with spring physics and reactive component hover states.
-- **Multilingual Support:** Understands colloquial prompts in English, Hindi, Telugu, Tamil, and Hinglish.
-- **Multi-Format Export Suite:** Download datasets in one click:
-  - **CSV:** UTF-8 BOM encoding for seamless Microsoft Excel compatibility.
-  - **Excel (.xlsx):** Real multi-column spreadsheet workbooks.
-  - **JSON:** Pretty-printed structured records for developers.
-  - **Markdown:** Clean tables ready to paste into GitHub or documentation.
-  - **PDF:** Print-ready tables generated client-side via jsPDF.
-- **Document & Multi-Modal Uploads:** Extract directly from uploaded CSV, Excel, Word (`.docx`), PDF documents, or screenshots up to 20MB.
-- **Session Organization & Inline Rename:** Edit chat session titles directly from the sidebar with keyboard shortcuts (`Enter` to save, `Esc` to cancel).
-- **Public Product Suite:**
-  - `/how-it-works` — Interactive visual architecture breakdown of the 4-step workflow.
-  - `/features` — Feature matrix and comparison against traditional scraping scripts.
-  - `/docs` — REST API endpoint specification, quickstart, and tech stack details.
-  - `/creators` — Dedicated team showcase for the project maintainers.
-- **Live System Status Widget:** IRIS-inspired 4-column footer featuring real-time API operational status, swarm health, and social links.
-- **Intelligent URL Accessibility Classifier:** Distinguishes public vs. private or authenticated-only URLs (e.g. ChatGPT conversation sessions, Instagram login walls, internal dashboards, and OAuth portals). Gracefully explains access boundaries and guides the user toward public web pages without throwing raw exceptions, freezing, or returning corrupted rows.
-- **Flexible Authentication:** Email/Password with verification, Google OAuth (popup modal UX), and instant Guest Mode (no sign-up required).
-- **SEO & Search Console Integration:** Complete OpenGraph metadata, Twitter cards, and Google Search Console site verification.
+### ⚡ Conversational Data Extraction
+- **Zero-Code Extraction:** Paste any link and ask in plain words.
+- **Multilingual NLP:** Understands prompts in English, Telugu, Hindi, Tamil, and Hinglish.
+- **Zero-Latency Follow-ups:** Filter, sort, rank, or aggregate cached datasets conversationally.
+
+### 🛡️ URL Accessibility Classifier
+- **Login-Wall Detection:** Automatically detects private sessions, login walls (ChatGPT, Instagram, Gmail), and bot blocks (Cloudflare).
+- **Graceful Feedback:** Provides clear, user-friendly guidance instead of raw exceptions or corrupted data.
+
+### 📁 Multi-Modal Document Parsing
+- **Document Ingestion:** Upload PDF, DOCX, CSV, Excel (`.xlsx`, `.xls`), and image screenshots up to 20MB.
+- **Image OCR:** Embedded Tesseract OCR engine extracts text and tabular structures from images and diagrams.
+- **Direct Tabular Mode:** Tabular files bypass LLM round-trips for lossless, instantaneous dataset ingestion.
+
+### 🎧 Cyberpunk HUD Audio Interface
+- **Real-Time Sound Synthesis:** Synthesized dynamically via the browser's Web Audio API with zero external audio assets.
+- **Acoustic Cues:** Interactive audio feedback for keystroke clicks, file uploads, scrape complete fanfares, and downloads.
+
+### 📊 Multi-Format Export Engine
+- **CSV:** UTF-8 BOM encoded for seamless Microsoft Excel compatibility.
+- **Excel (.xlsx):** Native multi-column spreadsheet workbooks.
+- **JSON:** Formatted, pretty-printed structured arrays for developers.
+- **Markdown:** Clean tables ready for GitHub, Notion, or documentation.
+- **PDF:** Print-ready tables generated client-side via jsPDF.
+
+### 📱 Responsive Glassmorphism HUD
+- **Cinematic Dark Theme:** Built with Tailwind CSS v4 custom tokens, subtle ambient glows, and glassmorphism cards.
+- **Adaptive Mobile Layout:** Slide-over navigation drawers, touch-friendly composer, and horizontally scrollable tables.
+- **Inline Session Management:** Rename chat session titles directly from the sidebar (`Enter` to save, `Esc` to cancel).
 
 ---
 
@@ -133,131 +151,101 @@ The core engine is orchestrated by `apps/backend/agents/orchestrator.py`, dispat
 
 ```
 Frontend:
-  Framework     →  Next.js 16 (App Router · Turbopack) + React 19
-  Language      →  TypeScript
-  State         →  Zustand (In-memory reactive state)
-  Styling       →  Tailwind CSS v4 (Custom dark glassmorphism "HUD" theme)
-  Data Tables   →  TanStack Table v8
-  Icons         →  Lucide React
+  Framework        → Next.js 16 (App Router · Turbopack) + React 19
+  Language         → TypeScript
+  State Management → Zustand (Reactive in-memory store)
+  Styling          → Tailwind CSS v4 (Custom HUD glassmorphism design tokens)
+  Data Tables      → TanStack Table v8
+  Audio Engine     → Web Audio API (real-time synthesizer)
+  Icons            → Lucide React
 
 Backend:
-  Framework     →  FastAPI (Python 3.11+, async, Uvicorn)
-  ORM & DB      →  SQLModel + SQLAlchemy (asyncpg)
-  Database      →  PostgreSQL on Neon Serverless
-  Session Store →  Redis on Upstash (z1 zlib payload compression)
-  Job Queue     →  Durable Redis worker for background tasks
-  AI Provider   →  Groq (LLaMA 3 70B) with automatic multi-key rotation pool
-  Browser       →  Playwright (Headless Chromium)
-  Email Service →  Brevo HTTPS API & SMTP fallback
+  Framework        → FastAPI (Python 3.11+, async/await, Uvicorn)
+  ORM & Database   → SQLModel + SQLAlchemy (asyncpg) on Neon PostgreSQL
+  Session Memory   → Upstash Redis (z1 zlib compression, atomic claims)
+  AI Infrastructure→ Groq (LLaMA 3 70B) with automatic multi-key rotation pool
+  Browser Engine   → Playwright (Headless Chromium with DNS pin guards)
+  Document Parsers → PyPDF, python-docx, openpyxl, pandas, pytesseract (OCR)
+  Email Service    → Brevo HTTPS API with SMTP fallback
 
-Deployment:
-  Frontend      →  Vercel (Edge network, automated CI/CD)
-  Backend API   →  Render (Docker web service with /health probe)
-  Queue Worker  →  Render (Background worker running workers.scrape_worker)
+Infrastructure & Deployment:
+  Frontend Edge    → Vercel (Edge network, global CDN, automated CI/CD)
+  Backend Engine   → Render (Dockerized web service with /health probe)
+  Background Worker→ Render (Durable Redis scrape queue worker)
 ```
 
 ---
 
-## 🔒 Security & Architecture Hardening
+## 🔒 Security & Hardening
 
-WEBISCRAP has undergone rigorous end-to-end security audits:
+WEBISCRAP has undergone extensive security audits and vulnerability remediation:
 
-- **In-Memory Access Tokens:** Access tokens live strictly in JavaScript memory (never in `localStorage` or `sessionStorage`), protecting against XSS token exfiltration.
-- **HttpOnly Refresh Rotation:** Refresh tokens are stored strictly in `httpOnly`, `SameSite=Lax`, secure cookies with silent rotation and JTI blacklisting on every refresh.
-- **Fail-Closed Session Authorization:** Every session-scoped endpoint validates ownership before returning data, rejecting unowned or foreign session IDs.
-- **SSRF & DNS-Rebinding Protection:** Target URLs are resolved and validated against RFC 1918 private ranges, carrier-grade NAT / cloud metadata (`100.64.0.0/10`), localhost, and link-local metadata (`169.254.169.254`). Headless browser subresources enforce fail-closed DNS pin checks.
-- **Formula Injection Defense:** All spreadsheet cell contents and dynamic column headers starting with formula characters (`=`, `+`, `-`, `@`, `\t`, `\r`) are sanitized before CSV/XLSX generation.
-- **Upload Hardening & Resource Bounding:** Magic-byte header inspection, strict file-extension allowlists, 60s OCR timeout guards, and 20MB file size limits with streaming HTTP chunk bounding.
-- **OAuth Nonce CSRF Protection:** Cryptographic client-side nonce generation and server-side validation preventing token replay and CSRF injection.
-- **High-Integrity Audit Logging:** Production log streaming formatted as strict JSON with newline-injection sanitization on correlation `X-Request-ID` headers.
-- **Readiness Probe Rate-Limiting & Error Redaction:** Protects `/health/ready` against probe enumeration (30 req/min sliding window per IP) while redacting raw internal exceptions in production.
-- **Reverse-Proxy Client IP Integrity (Anti-Spoofing):** Resolves client IP via proxy-appended `X-Forwarded-For` tail selection behind trusted reverse proxies, preventing rate-limit bypass and audit log spoofing.
+### Authentication & Session Security
+- **In-Memory Access Tokens:** JWT access tokens reside exclusively in JavaScript memory (never in `localStorage` or `sessionStorage`), eliminating XSS token exfiltration risks.
+- **HttpOnly Refresh Cookies:** Refresh tokens are restricted to `httpOnly`, `SameSite=Lax`, secure cookies with automatic rotation and JTI blacklisting on logout/refresh.
+- **Fail-Closed Session Authorization:** Every session-scoped request validates ownership via Redis atomic claims, rejecting unauthorized access to other users' data.
+- **Google OAuth Nonce Protection:** Client-side cryptographic nonce generation and server-side verification prevent token replay and CSRF attacks.
+
+### Network & SSRF Defenses
+- **Comprehensive SSRF & DNS-Rebinding Guards:** All target URLs and redirect hops are resolved via `getaddrinfo` and validated against loopback, private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), carrier-grade NAT / cloud metadata (`100.64.0.0/10`), link-local (`169.254.169.254`), and IPv6-mapped equivalents.
+- **Headless Browser Subresource Interception:** Headless Chromium routes resolve and validate all dynamic subresource requests against the same IP whitelist.
+- **Reverse-Proxy Client IP Integrity (Anti-Spoofing):** Resolves client IP via proxy-appended `X-Forwarded-For` tail selection behind trusted proxies, preventing rate-limit and audit log spoofing.
+
+### Data Sanitization & Resource Bounding
+- **Spreadsheet Formula Injection Defense:** All cell contents and column headers starting with formula triggers (`=`, `+`, `-`, `@`, `\t`, `\r`) are sanitized before CSV/Excel export.
+- **Upload Hardening:** Magic-byte header inspection, strict file-extension allowlists, 60s OCR timeout guards, and a 20MB file limit with early `Content-Length` checks.
+- **Structured Audit Logging:** Production logs are formatted as strict JSON with newline-injection sanitization on correlation `X-Request-ID` headers.
+- **Readiness Probe Rate-Limiting:** Protects `/health/ready` against probe enumeration (30 req/min per IP) while redacting raw internal exceptions in production.
 
 ---
 
-## 📁 Folder Structure
+## 📁 Repository Structure
 
 ```
-webiscrap/
-│
+WEBISCRAP/
 ├── apps/
 │   ├── frontend/                       # Next.js 16 UI Application
 │   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── (marketing)/        # Public landing, /how-it-works, /features, /docs, /creators, /terms, /privacy
-│   │   │   │   ├── (auth)/             # /login, /signup, /forgot-password, /reset-password, /verify-email
-│   │   │   │   ├── (app)/              # /chat/[sessionId], /dataset/[sessionId], /limit
-│   │   │   │   └── globals.css         # Tailwind v4 HUD glassmorphism design tokens
-│   │   │   ├── components/
-│   │   │   │   ├── auth/               # SocialAuth (Google popup UX), AuthCard
-│   │   │   │   ├── chat/               # Composer, MessageBubble, PipelineStrip, DataCard
-│   │   │   │   ├── dataset/            # DataTable, ExportPanel
-│   │   │   │   ├── marketing/          # MarketingNavbar, MarketingFooter (IRIS status card)
-│   │   │   │   ├── sidebar/            # Sidebar with inline session rename and deletion
-│   │   │   │   └── ui/                 # Button, Card, Input, Chip, Divider
-│   │   │   ├── lib/
-│   │   │   │   ├── api/client.ts       # ApiClient with in-memory token & silent refresh
-│   │   │   │   ├── store/chat.ts       # Zustand reactive chat and session store
-│   │   │   │   ├── audio.ts            # Web Audio API sound synthesis engine (typing, cues)
-│   │   │   │   └── export.ts           # Multi-format export engine (CSV, XLSX, JSON, PDF)
-│   │   │   └── styles/
+│   │   │   ├── app/                    # Marketing, Auth, and App Route Handlers
+│   │   │   ├── components/             # Reusable HUD Primitives, Chat, Dataset, Sidebar
+│   │   │   ├── lib/                    # API client, Zustand store, Audio engine, Exporter
+│   │   │   └── styles/                 # Global styles & Tailwind v4 design tokens
+│   │   ├── tests/                      # Frontend store behavior verification tests
 │   │   └── package.json
 │   │
 │   └── backend/                        # FastAPI REST API & Worker Engine
-│       ├── agents/                     # 9-Agent Pipeline (orchestrator, planner, memory_agent, ...)
-│       ├── ai/                         # Groq LLM client, key rotation pool manager
-│       ├── api/                        # Route handlers (auth_routes, chat, scrape, export, upload)
-│       ├── auth/                       # JWT tokens, Google OAuth, Email service (Brevo HTTPS)
-│       ├── core/                       # App config, rate limiter, audit logger, health checks
+│       ├── agents/                     # 9-Agent Pipeline Swarm
+│       ├── ai/                         # Groq client, Key rotation pool manager
+│       ├── api/                        # Route handlers (auth, chat, scrape, export, upload)
+│       ├── auth/                       # JWT tokens, Google OAuth, Brevo HTTPS service
+│       ├── core/                       # App configuration, rate limiter, audit logger, health
 │       ├── database/                   # PostgreSQL async connection (SQLModel)
-│       ├── memory/                     # Redis session store (z1 compression, JTI blacklist)
-│       ├── models/                     # User, BaseUUIDModel SQLModel schemas
+│       ├── memory/                     # Redis session store (z1 compression, atomic claims)
+│       ├── models/                     # SQLModel database schemas (User, Session)
 │       ├── parsers/                    # PDF, DOCX, CSV, Excel, and OCR document parsers
-│       ├── prompts/                    # Specialized system prompts per agent
-│       ├── workers/                    # Durable Redis scrape worker
-│       ├── main.py                     # FastAPI entry point
-│       └── requirements.txt
+│       ├── prompts/                    # Specialized agent system prompts
+│       ├── tests/                      # Backend test suites (84 unit & integration tests)
+│       ├── workers/                    # Durable Redis scrape queue worker
+│       └── main.py                     # FastAPI application entrypoint
 │
-├── dev.py                              # Local multi-service runner (Frontend + Backend)
-├── render.yaml                         # Render Blueprint (API service + Queue worker)
-├── vercel.json                         # Vercel security headers & rewrite config
+├── dev.py                              # Local multi-service orchestrator (Frontend + Backend)
+├── render.yaml                         # Render Blueprint specification
+├── vercel.json                         # Vercel edge deployment configuration
 ├── .env.example                        # Template for environment variables
 └── README.md
 ```
 
 ---
 
-## 🎯 Milestones & Roadmap
-
-WEBISCRAP is actively engineered with continuous development cycles. We have officially reached our **100th Commit Milestone**! 🚀
-
-```
-[██████████████████████████████████████████████████] 100% Completed
-Current Status: Commit #100 (🌟 Official v1.0 Production Gold Release Achieved)
-Target Milestone: Commit #100 (v1.0 Production Gold Release) — Reached! 🚀
-```
-
-| Phase | Commits | Focus Areas | Status |
-|---|---|---|---|
-| **Phase 1: Foundation** | `#1` – `#25` | Monorepo setup, Next.js 16 scaffolding, FastAPI REST structure, basic database schemas | ✅ Completed |
-| **Phase 2: Agent Swarm** | `#26` – `#50` | 9-Agent pipeline orchestration, Groq LLaMA 3 70B integration, multi-key rotation pool | ✅ Completed |
-| **Phase 3: State & Hardening** | `#51` – `#70` | Upstash Redis `z1` compressed cache, SSRF/DNS-rebinding guards, JWT HttpOnly auth | ✅ Completed |
-| **Phase 4: HUD & Experience** | `#71` – `#85` | Glassmorphism HUD theme, TanStack tables, multi-format exports (CSV/XLSX/JSON/PDF) | ✅ Completed |
-| **Phase 5: Audio, Mobile & SEO** | `#86` – `#92` | Web Audio sound FX synthesis, full mobile responsiveness pass, SEO verification | ✅ Completed |
-| **Phase 6: Forensic Security Audit** | `#93` – `#98` | Full vulnerability mitigation (N1–N11), private URL classifier, Next.js CVE patch, 84-test test suite | ✅ Completed |
-| **Phase 7: Century Milestone** | `#99` – `#100` | 🌟 **Official v1.0 Production Gold Release Celebration** | ✅ Completed |
-
----
-
 ## 🔧 Prerequisites
 
-- **Python** 3.11+
-- **Node.js** v20+
+- **Python:** 3.11+
+- **Node.js:** 20+
 - **Git**
-- **Groq API Key(s)** — [console.groq.com](https://console.groq.com) (free)
-- **PostgreSQL Database** — [Neon](https://neon.tech) (free tier managed PostgreSQL)
-- **Redis Cache** — [Upstash](https://upstash.com) (free tier managed Redis)
-- **Brevo API Key** (optional, for transactional verification emails) — [brevo.com](https://www.brevo.com)
+- **Groq API Key(s):** [console.groq.com](https://console.groq.com) (Free tier supported)
+- **PostgreSQL Database:** [Neon Serverless](https://neon.tech) (Free tier managed Postgres)
+- **Redis Cache:** [Upstash](https://upstash.com) (Free tier managed Redis)
+- **Brevo API Key:** [brevo.com](https://www.brevo.com) (Optional, for transactional emails)
 
 ---
 
@@ -268,12 +256,9 @@ Target Milestone: Commit #100 (v1.0 Production Gold Release) — Reached! 🚀
 ```bash
 git clone https://github.com/manoj-n-dev/WEBISCRAP.git
 cd WEBISCRAP
-
-# Alternate team mirror:
-# git clone https://github.com/team3c23/WEBISCRAP.git
 ```
 
-### 2. Set Up the Backend
+### 2. Backend Setup
 
 ```bash
 cd apps/backend
@@ -281,14 +266,14 @@ python -m venv venv
 
 # Windows:
 .\venv\Scripts\activate
-# macOS/Linux:
+# Linux/macOS:
 # source venv/bin/activate
 
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 3. Set Up the Frontend
+### 3. Frontend Setup
 
 ```bash
 cd ../frontend
@@ -297,50 +282,50 @@ npm install
 
 ### 4. Configure Environment Variables
 
-In the project root, copy `.env.example` to `.env`:
+From the project root:
 
 ```bash
 cd ../..
 cp .env.example .env
 ```
 
-Edit `.env` with your database URL, Redis URL, and Groq API keys.
+Populate `.env` with your Neon database URL, Upstash Redis URL, and Groq API keys.
 
-### 5. Quick Launch
+### 5. Launch Development Servers
 
-Run both the frontend and backend concurrently using the root dev runner:
+Run both services concurrently using the root orchestrator:
 
 ```bash
 python dev.py
 ```
 
-- **Frontend:** `http://localhost:3000`
+- **Frontend HUD:** `http://localhost:3000`
 - **Backend API:** `http://localhost:8000`
-- **API Documentation:** `http://localhost:8000/docs`
+- **Interactive API Docs:** `http://localhost:8000/docs`
 
 ---
 
 ## ⚙️ Environment Configuration
 
-Example `.env` configuration:
+Example `.env` configuration template:
 
 ```env
 # AI Provider (Groq) — comma-separated keys for auto-rotation
 GROQ_API_KEYS=gsk_key1,gsk_key2,gsk_key3
 
 # Database (Neon PostgreSQL)
-DATABASE_URL=postgresql+asyncpg://neondb_owner:password@ep-host.us-east-2.aws.neon.tech/neondb?ssl=require
+DATABASE_URL=postgresql+asyncpg://user:password@ep-host.aws.neon.tech/neondb?ssl=require
 
 # Cache & Session Store (Upstash Redis)
 REDIS_URL=rediss://default:password@host.upstash.io:6379
 
 # JWT Security
-JWT_SECRET=your_super_secret_random_key_here
+JWT_SECRET=your_super_secret_random_key_of_at_least_32_chars
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Email Provider (Brevo HTTPS API recommended for production)
+# Email Provider (Brevo HTTPS API)
 EMAIL_PROVIDER=auto
 BREVO_API_KEY=xkeysib-your_brevo_key_here
 EMAILS_FROM_EMAIL=noreply@webiscrap.com
@@ -349,26 +334,65 @@ EMAILS_FROM_NAME=WEBISCRAP
 # Security & CORS
 FRONTEND_URL=http://localhost:3000
 BACKEND_CORS_ORIGINS=http://localhost:3000,https://webiscrap.vercel.app
-RATE_LIMIT_PER_MINUTE=20
+RATE_LIMIT_PER_MINUTE=60
+TRUST_PROXY_HEADERS=False
+```
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+WEBISCRAP maintains strict quality gates across both frontend and backend services:
+
+```bash
+# 1. Run all backend tests (SSRF, auth, agents, pipelines, parsers)
+cd apps/backend
+python tests/run_all_tests.py
+
+# 2. Run specific security test suites
+python -m unittest tests.test_ssrf_and_proxy -v
+python -m unittest tests.test_private_url_handling -v
+
+# 3. Run frontend reactive store behavior suite
+cd ../frontend
+npm run test:store
+
+# 4. Run TypeScript compilation check
+npx tsc --noEmit
 ```
 
 ---
 
 ## 🌐 Production Deployment
 
-WEBISCRAP is architected for zero-downtime deployment:
+WEBISCRAP is architected for zero-downtime, continuous deployment:
 
 ### Backend on Render (`render.yaml`)
 1. Connect your repository to [Render](https://render.com).
-2. Create a new **Blueprint** from `render.yaml`. Render provisions:
-   - `webiscrap-api` — FastAPI Docker container with automatic `/health` monitoring.
+2. Create a new **Blueprint** from `render.yaml`. Render automatically provisions:
+   - `webiscrap-api` — FastAPI Docker container with automated `/health` probes.
    - `webiscrap-worker` — Background worker running `python -m workers.scrape_worker`.
-3. Add environment variables in the Render dashboard.
+3. Configure the environment variables in the Render dashboard.
 
 ### Frontend on Vercel (`vercel.json`)
-1. Import the repository on [Vercel](https://vercel.com) and set the root directory to `apps/frontend`.
-2. Add `NEXT_PUBLIC_API_URL` pointing to your Render service.
-3. Deploy — security headers and route rewrites are applied automatically.
+1. Import the repository on [Vercel](https://vercel.com) and designate the root directory as `apps/frontend`.
+2. Configure `NEXT_PUBLIC_API_URL` pointing to your Render deployment.
+3. Deploy — security headers, CSP, and route rewrites apply automatically.
+
+---
+
+## 🎯 Milestones & Roadmap
+
+| Milestone | Release | Key Highlights | Status |
+|---|---|---|---|
+| **Phase 1: Foundation** | `v0.1.0` | Monorepo scaffolding, FastAPI REST API, Next.js 16 app router, PostgreSQL schemas. | ✅ Completed |
+| **Phase 2: Agent Swarm** | `v0.4.0` | 9-agent autonomous pipeline, Groq LLaMA 3 70B integration, multi-key rotation pool. | ✅ Completed |
+| **Phase 3: State & Hardening** | `v0.7.0` | Upstash Redis `z1` compressed cache, SSRF/DNS-rebinding guards, HttpOnly refresh cookies. | ✅ Completed |
+| **Phase 4: HUD & Experience** | `v0.8.5` | Cyberpunk HUD glassmorphism theme, TanStack data tables, multi-format export suite. | ✅ Completed |
+| **Phase 5: Audio & Mobile** | `v0.9.0` | Real-time Web Audio synthesis engine, full responsive mobile drawer navigation, SEO tags. | ✅ Completed |
+| **Phase 6: Forensic Audit** | `v0.9.8` | Forensic vulnerability fixes (N1–N11), private URL classifier, proxy anti-spoofing. | ✅ Completed |
+| **Phase 7: Gold Release** | `v1.0.0` | 🌟 **Official Production Gold Release** — 84/84 tests passing, zero-defect release. | ✅ Completed |
+| **Phase 8: Future Roadmap** | `v1.1+` | Scheduled recurring extractions, webhook integrations, browser extension companion. | 🗺️ Planned |
 
 ---
 
@@ -376,16 +400,16 @@ WEBISCRAP is architected for zero-downtime deployment:
 
 WEBISCRAP was conceptualized, engineered, and deployed as a Final Year Capstone Project by:
 
-| Name | Role | Primary Focus |
+| Name | Role | Core Specialization |
 |---|---|---|
-| **Manoj N** | Project Lead & Full-Stack Architect | System Architecture, FastAPI Orchestrator, Next.js 16 UI, Deployment |
-| **Bhavya** | AI Pipeline Engineer | 9-Agent Prompt Workflows, Groq Key Pool, LLM Schema Alignment |
+| **Manoj N** | Project Lead & Full-Stack Architect | System Architecture, FastAPI Orchestrator, Next.js 16 HUD, Cloud Deployment |
+| **Bhavya** | AI Pipeline Engineer | 9-Agent Prompt Workflows, Groq Key Pool Rotation, LLM Schema Alignment |
 | **Lohit** | Backend & Distributed Cache Engineer | Redis Session Memory, `z1` Compression, Async Queue Workers |
-| **Sushanth** | Frontend UI/UX Engineer | TanStack Table, Export Engine (CSV/XLSX/PDF), Dark HUD Theme |
-| **Muni Bharath** | Security & QA Engineer | SSRF/DNS Rebinding Guards, Token Blacklisting, E2E Workflow Testing |
+| **Sushanth** | Frontend UI/UX Engineer | TanStack Table, Multi-Format Export Suite, Dark HUD Glassmorphism |
+| **Muni Bharath** | Security & QA Engineer | SSRF/DNS Rebinding Guards, Anti-Spoofing, E2E Security Test Suites |
 
 - **Primary Repository:** [github.com/manoj-n-dev/WEBISCRAP](https://github.com/manoj-n-dev/WEBISCRAP)
-- **Team Organization:** [github.com/team3c23/WEBISCRAP](https://github.com/team3c23/WEBISCRAP)
+- **Team Mirror:** [github.com/team3c23/WEBISCRAP](https://github.com/team3c23/WEBISCRAP)
 
 ---
 
