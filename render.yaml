@@ -78,6 +78,9 @@ services:
         value: llm   # set to "fast" to skip the planner LLM call (quicker, fewer tokens)
       - key: MAX_CONCURRENT_BROWSERS
         value: "1"
+      - key: SMART_CONTENT_SELECTION
+        sync: false
+        # "true" enables budget-aware trimming of large pages (R8-04). Leave UNSET until smoke tests pass.
       - key: ENABLE_SCRAPE_WORKER
         value: "false"
       - key: GOOGLE_CLIENT_ID

@@ -36,6 +36,15 @@ def minify_html(html_content: str, max_chars: int = MAX_HTML_CHARS) -> str:
             tag.decompose()
         text = str(soup)
         text = re.sub(r'\s+', ' ', text).strip()
+        if len(text) > max_chars and getattr(settings, "SMART_CONTENT_SELECTION", False):
+            # Big page: legacy behaviour cuts from the TOP (site chrome) and can lose the whole product grid.
+            try:
+                from .content_select import smart_minify
+                smart = smart_minify(html_content, max_chars)
+                if smart and len(smart) > 200:
+                    return smart
+            except Exception as e:                      # never let the optimisation break scraping
+                logger.warning(f"smart_minify failed, using legacy truncation: {e}")
         if len(text) > max_chars:
             text = text[:max_chars] + " <!-- TRUNCATED -->"
         return text
