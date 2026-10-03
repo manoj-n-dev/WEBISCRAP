@@ -8,34 +8,13 @@ from ai.router import ai_router
 from core.config import settings
 from core.llm_json import extract_json
 from prompts.analyzer_prompt import ANALYZER_SYSTEM_PROMPT
+from .access_classifier import is_known_private_platform_url   # noqa: F401  (re-exported: tests import it from here)
 from .base import BaseAgent, ssrf_safe_fetch
 
 _SPA_MARKERS = ('id="root"', "id='root'", 'id="app"', "id='app'", "__NEXT_DATA__", "data-reactroot", "ng-app", "ng-version", "__NUXT__")
 
 
 import urllib.parse
-
-
-def is_known_private_platform_url(url: str) -> bool:
-    """Identify URLs belonging to known authenticated-only user services."""
-    if not url:
-        return False
-    try:
-        parsed = urllib.parse.urlparse(url)
-        netloc = (parsed.netloc or "").lower()
-        path = (parsed.path or "").lower()
-        # ChatGPT / OpenAI private conversation sessions
-        if ("chatgpt.com" in netloc or "openai.com" in netloc) and path.startswith("/c/"):
-            return True
-        # Claude private conversation sessions
-        if "claude.ai" in netloc and path.startswith("/chat/"):
-            return True
-        # Webmail / private app dashboards
-        if netloc in ("mail.google.com", "outlook.live.com", "mail.yahoo.com", "app.slack.com", "discord.com"):
-            return True
-        return False
-    except Exception:
-        return False
 
 
 def heuristic_analysis(html_text: str, target_url: str = "") -> Dict[str, Any]:
@@ -60,7 +39,9 @@ def heuristic_analysis(html_text: str, target_url: str = "") -> Dict[str, Any]:
     nxt = soup.find("a", attrs={"rel": re.compile("next", re.I)}) or soup.find("link", attrs={"rel": re.compile("next", re.I)})
     pagination = {"pagination_type": "link", "pagination_selector": "a[rel='next']"} if nxt else {"pagination_type": "none"}
     login = known_private or (bool(soup.find("input", attrs={"type": "password"})) and text_len < 1500)
-    url_access_issue = "private_auth" if login else None
+    # Static HTML of a JS shell is weak evidence: only a KNOWN private URL is "private_auth".
+    # A bare password field is "login_suspected" (never skips extraction; the real browser re-checks it).
+    url_access_issue = "private_auth" if known_private else ("login_suspected" if login else None)
     return {
         "requires_js_rendering": (not static_ok) or bool(nxt),
         "login_required": login,

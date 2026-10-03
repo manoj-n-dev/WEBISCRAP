@@ -90,7 +90,8 @@ MAX_RESPONSE_BYTES = 10 * 1024 * 1024  # H-13: 10 MB maximum response size cap
 async def ssrf_safe_fetch(
     url: str,
     max_redirects: int = 5,
-    max_bytes: int = MAX_RESPONSE_BYTES
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    timeout: float = 20.0,
 ) -> Optional[str]:
     """
     C4 & H-13: Redirect-aware, IP-validated, resource-bounded HTTP fetcher.
@@ -109,7 +110,7 @@ async def ssrf_safe_fetch(
         
         try:
             async with httpx.AsyncClient(
-                timeout=20.0,
+                timeout=timeout,
                 follow_redirects=False,
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

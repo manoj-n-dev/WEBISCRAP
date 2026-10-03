@@ -7,6 +7,8 @@ from loguru import logger
 from ai.errors import LLMError
 from core.config import settings
 from memory.session_store import redis_store
+from .access_classifier import private_platform_service
+from .access_messages import build_access_message
 from .analyzer import analyzer_agent
 from .base import validate_target_url
 from .browser import browser_agent
@@ -112,7 +114,13 @@ class PipelineOrchestrator:
                 state["mode"] = "extraction"
                 has_url = bool(state.get("target_url"))
 
-                if has_url:
+                private_service = private_platform_service(state.get("target_url") or "")
+                skip_fetch = bool(private_service) and not (uploads["text"] or uploads["rows"])
+                if skip_fetch:       # known logged-in-only app URL: answer immediately, do not fetch or launch Chromium
+                    state["url_access_issue"] = "private_auth"
+                    state["private_service"] = private_service
+
+                if has_url and not skip_fetch:
                     await redis_store.set_pipeline_progress(session_id, "analyze")
                     state = await self.analyzer.run(state, session_id)
                     completed.append("analyze")
@@ -163,28 +171,7 @@ class PipelineOrchestrator:
 
             if state.get("extraction_empty"):
                 issue = state.get("url_access_issue") or state.get("analysis", {}).get("url_access_issue")
-                if issue == "private_auth":
-                    resp_text = (
-                        "This URL appears to be private or requires authentication. "
-                        "WEBISCRAP currently works with publicly accessible web pages. "
-                        "Please provide a public URL that can be opened without logging in."
-                    )
-                elif issue == "access_blocked":
-                    resp_text = (
-                        "We couldn't access this URL because automated access was restricted or blocked by the website "
-                        "(e.g. Cloudflare or bot protection). Please provide a publicly accessible URL, or try uploading "
-                        "the content directly as a document (PDF, CSV, Excel, or Word)."
-                    )
-                elif issue in ("unreachable_timeout", "unreachable_dns", "unreachable"):
-                    resp_text = (
-                        "We couldn't connect to this URL. The website took too long to respond or is temporarily "
-                        "unavailable. Please check that the URL is active and try again."
-                    )
-                else:
-                    resp_text = (
-                        "We couldn't access this URL. It may require authentication, block automated access, "
-                        "or be temporarily unavailable. Please try a publicly accessible URL."
-                    )
+                resp_text = build_access_message(issue, state.get("private_service"), state.get("browse_stats"))
                 state["conversation_response"] = {
                     "response_text": resp_text,
                     "export_requested": "none",
