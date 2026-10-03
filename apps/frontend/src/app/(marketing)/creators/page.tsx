@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 
 const teamMembers = [
   {
-    name: "Manoj N",
+    name: "N Manoj",
     role: "Lead Full-Stack Architect & Project Lead",
     focus: "System Architecture, FastAPI Orchestrator, Next.js 16 UI, Deployment",
     icon: Code2,
@@ -44,7 +44,7 @@ const teamMembers = [
     github: "https://github.com/manoj-n-dev",
   },
   {
-    name: "Bhavya",
+    name: "S Bhavyasree",
     role: "AI Agent Pipeline & Prompt Engineer",
     focus: "LLM Schema Alignment, Groq Key Rotation Pool, Extraction Prompts",
     icon: Cpu,
@@ -53,7 +53,7 @@ const teamMembers = [
     github: "https://github.com/team3c23",
   },
   {
-    name: "Lohit",
+    name: "Y Lohith Kumar",
     role: "Backend & Distributed Cache Engineer",
     focus: "Redis Session Memory, Payload Compression, Async Queue Workers",
     icon: Database,
@@ -62,7 +62,7 @@ const teamMembers = [
     github: "https://github.com/team3c23",
   },
   {
-    name: "Sushanth",
+    name: "A Sushanth Royal",
     role: "Frontend UI/UX & Data Visualization",
     focus: "TanStack Table Integration, Multi-Format Exports, HUD Components",
     icon: Palette,
@@ -71,7 +71,7 @@ const teamMembers = [
     github: "https://github.com/team3c23",
   },
   {
-    name: "Muni Bharath",
+    name: "S Muni Bharath",
     role: "Security & QA Engineer",
     focus: "SSRF & DNS Defense, Token Blacklisting, E2E Integration Testing",
     icon: ShieldCheck,

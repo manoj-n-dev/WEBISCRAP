@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from typing import Dict, Any, List
+from .access_classifier import STRONG_ISSUES, classify_navigation_error, classify_page
 from .base import BaseAgent, validate_target_url, validate_resolved_ip, ssrf_safe_fetch
 from loguru import logger
 from bs4 import BeautifulSoup
@@ -35,6 +36,15 @@ def minify_html(html_content: str, max_chars: int = MAX_HTML_CHARS) -> str:
             tag.decompose()
         text = str(soup)
         text = re.sub(r'\s+', ' ', text).strip()
+        if len(text) > max_chars and getattr(settings, "SMART_CONTENT_SELECTION", False):
+            # Big page: legacy behaviour cuts from the TOP (site chrome) and can lose the whole product grid.
+            try:
+                from .content_select import smart_minify
+                smart = smart_minify(html_content, max_chars)
+                if smart and len(smart) > 200:
+                    return smart
+            except Exception as e:                      # never let the optimisation break scraping
+                logger.warning(f"smart_minify failed, using legacy truncation: {e}")
         if len(text) > max_chars:
             text = text[:max_chars] + " <!-- TRUNCATED -->"
         return text
@@ -67,6 +77,7 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
     if target_hostname:
         try:
             addr_infos = socket.getaddrinfo(target_hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+            addr_infos = sorted(addr_infos, key=lambda a: 0 if a[0] == socket.AF_INET else 1)   # IPv4 first: hosts without IPv6 egress
             if addr_infos:
                 candidate_ip = str(addr_infos[0][4][0])
                 if validate_resolved_ip(candidate_ip):
@@ -138,42 +149,27 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
             final_url = page.url or ""
             status_code = response.status if response else 200
 
-            # Level 4 & 5: Check for authentication / login requirement or access blocking
-            is_private_auth = False
-            is_blocked = False
-
-            if status_code == 401:
-                is_private_auth = True
-            elif status_code == 403:
-                is_blocked = True
-
-            # Check if redirected to a login endpoint
-            parsed_orig = urllib.parse.urlparse(target_url)
-            parsed_final = urllib.parse.urlparse(final_url)
-            login_paths = ("/login", "/signin", "/sign-in", "/accounts/login", "/checkpoint", "/session/new", "/auth/")
-            if any(lp in parsed_final.path.lower() for lp in login_paths) and not any(lp in parsed_orig.path.lower() for lp in login_paths):
-                is_private_auth = True
-
-            # Check DOM login indicators vs content
+            # Level 4 & 5: classify the REAL rendered page (status + title + visible text + DOM signals)
             try:
-                page_title = (page.title() or "").lower()
-                has_password_input = bool(page.query_selector("input[type='password']"))
-                body_text = page.evaluate("(document.body && document.body.innerText) || ''")
-                body_text_len = len(body_text.strip())
-                login_keywords = ("log in", "sign in", "login", "signin", "authentication required", "sign in to continue", "log in to continue")
-                if has_password_input and (body_text_len < 2000 or any(k in page_title for k in login_keywords)):
-                    is_private_auth = True
-                elif any(cf in page_title for cf in ("attention required! | cloudflare", "just a moment...", "security check")):
-                    is_blocked = True
+                page_title = page.title() or ""
+                body_text = page.evaluate("(document.body && document.body.innerText) || ''") or ""
+                pw_el = page.query_selector("input[type='password']")
+                has_visible_password = bool(pw_el and pw_el.is_visible())
+                repeating_items = page.evaluate("document.querySelectorAll('li,tr,article').length")
             except Exception:
-                pass
+                page_title, body_text, has_visible_password, repeating_items = "", "", False, 0
 
-            if is_private_auth:
-                analysis["url_access_issue"] = "private_auth"
-                logger.info(f"Identified private/login-protected URL for {target_url} (final={final_url}, status={status_code})")
-            elif is_blocked:
-                analysis["url_access_issue"] = "access_blocked"
-                logger.info(f"Identified access-blocked URL for {target_url} (status={status_code})")
+            issue, reason = classify_page(status_code, target_url, final_url, page_title, body_text,
+                                          has_visible_password, int(repeating_items or 0))
+            if issue:
+                analysis["url_access_issue"] = issue
+                logger.info(f"Access classification for {target_url}: {issue} ({reason}; final={final_url}, status={status_code})")
+            elif analysis.get("url_access_issue") == "login_suspected":
+                analysis.pop("url_access_issue", None)       # the real browser is authoritative over the static guess
+
+            if issue in STRONG_ISSUES:
+                # Bot-wall / CAPTCHA / 429 / login pages carry no data: do not burn LLM quota extracting from them.
+                return []
 
             pagination_type = (analysis.get("pagination_type") or "").lower()
 
@@ -191,17 +187,19 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                 dom_snapshots = _auto_detect_and_extract(page)
 
         except Exception as e:
-            err_str = str(e).lower()
-            if "timeout" in err_str:
-                analysis["url_access_issue"] = "unreachable_timeout"
-            elif "err_name_not_resolved" in err_str or "dns" in err_str:
+            err_str = str(e)
+            nav_issue = classify_navigation_error(err_str)
+            if nav_issue:
+                analysis["url_access_issue"] = nav_issue
+            elif "dns" in err_str.lower():
                 analysis["url_access_issue"] = "unreachable_dns"
             logger.error(f"Playwright navigation failed: {e}")
-            # Try to capture whatever is on the page
+            # Try to capture whatever is on the page (never Chromium's own error page)
             try:
-                content = page.content()
-                if content:
-                    dom_snapshots.append(minify_html(content))
+                if not (page.url or "").startswith(("chrome-error:", "about:")):
+                    content = page.content()
+                    if content:
+                        dom_snapshots.append(minify_html(content))
             except Exception:
                 pass
         finally:
@@ -388,10 +386,15 @@ def _auto_detect_and_extract(page) -> List[str]:
     return dom_snapshots
 
 
-async def _fetch_static_html(target_url: str) -> str:
+async def _fetch_static_html(target_url: str, timeout: float = 20.0) -> str:
     """C4: Fetch page HTML using SSRF-safe redirect-walking fetcher."""
-    result = await ssrf_safe_fetch(target_url)
+    result = await ssrf_safe_fetch(target_url, timeout=timeout)
     return result or ""
+
+
+def _browse_stats(snapshots) -> dict:
+    snaps = [x for x in (snapshots or []) if x]
+    return {"snapshots": len(snaps), "chars": sum(len(x) for x in snaps)}
 
 
 class BrowserAgent(BaseAgent):
@@ -417,6 +420,7 @@ class BrowserAgent(BaseAgent):
                 input_data["dom_snapshots"] = []
             if analysis.get("url_access_issue"):
                 input_data["url_access_issue"] = analysis["url_access_issue"]
+            input_data["browse_stats"] = _browse_stats(input_data.get("dom_snapshots"))
             return input_data
 
         # JS rendering required — use Playwright in a separate thread
@@ -439,8 +443,16 @@ class BrowserAgent(BaseAgent):
             else:
                 input_data["dom_snapshots"] = []
 
+        # Playwright swallowed an error and produced nothing (and the site did not clearly refuse us): try one
+        # short static fetch before giving up. Strong issues (bot wall / CAPTCHA / 429 / login) are not retried.
+        if not input_data.get("dom_snapshots") and analysis.get("url_access_issue") not in STRONG_ISSUES:
+            html = await _fetch_static_html(target_url, timeout=8.0)
+            if html:
+                input_data["dom_snapshots"] = [minify_html(html)]
+
         if analysis.get("url_access_issue"):
             input_data["url_access_issue"] = analysis["url_access_issue"]
+        input_data["browse_stats"] = _browse_stats(input_data.get("dom_snapshots"))
 
         return input_data
 

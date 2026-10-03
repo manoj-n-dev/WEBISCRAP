@@ -70,6 +70,7 @@ class Settings(BaseSettings):
 
     # ── Background queue (NEW) ─────────────────────────────────────────────
     MAX_CONCURRENT_BROWSERS: int = 1         # parallel Chromium instances (1 for 512 MB instances)
+    SMART_CONTENT_SELECTION: bool = False    # reduce big pages to the repeating record block instead of cutting from the top
     ENABLE_SCRAPE_WORKER: bool = False       # polling worker burns Upstash commands; UI does not use it
 
     # ── Email delivery (NEW) — Render free blocks SMTP ports 25/465/587, use an HTTPS API ──

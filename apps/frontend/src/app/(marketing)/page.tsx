@@ -205,11 +205,11 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[16px]">
             {[
-              { name: "Manoj N", role: "Lead Architect", icon: Code2, focus: "Architecture & Core" },
-              { name: "Bhavya", role: "AI Pipeline", icon: Cpu, focus: "Prompt & LLM Swarm" },
-              { name: "Lohit", role: "Backend & Cache", icon: Database, focus: "Redis & Queue" },
-              { name: "Sushanth", role: "Frontend UI/UX", icon: Palette, focus: "Next.js & Tables" },
-              { name: "Muni Bharath", role: "Security & QA", icon: ShieldCheck, focus: "SSRF & Auth Hardening" },
+              { name: "N Manoj", role: "Lead Architect", icon: Code2, focus: "Architecture & Core" },
+              { name: "S Bhavyasree", role: "AI Pipeline", icon: Cpu, focus: "Prompt & LLM Swarm" },
+              { name: "Y Lohith Kumar", role: "Backend & Cache", icon: Database, focus: "Redis & Queue" },
+              { name: "A Sushanth Royal", role: "Frontend UI/UX", icon: Palette, focus: "Next.js & Tables" },
+              { name: "S Muni Bharath", role: "Security & QA", icon: ShieldCheck, focus: "SSRF & Auth Hardening" },
             ].map((m, i) => (
               <Card key={i} className="p-[20px] bg-panel text-center hover:border-signal-400/40 transition-all flex flex-col items-center justify-between">
                 <div className="w-[48px] h-[48px] rounded-full bg-[rgba(20,119,245,0.1)] border border-[rgba(20,119,245,0.25)] flex items-center justify-center text-cyan mb-[12px]">

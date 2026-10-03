@@ -38,7 +38,7 @@ class TestPrivateAndRestrictedUrlHandling(unittest.IsolatedAsyncioTestCase):
         login_html = "<html><head><title>Sign In</title></head><body><form><input type='password' name='p'></form></body></html>"
         res_login = heuristic_analysis(login_html)
         self.assertTrue(res_login["login_required"])
-        self.assertEqual(res_login["url_access_issue"], "private_auth")
+        self.assertEqual(res_login["url_access_issue"], "login_suspected")   # weak signal: never skips extraction
 
         # Known private URL passed to heuristic_analysis
         res_chatgpt = heuristic_analysis("", target_url="https://chatgpt.com/c/test-chat")
