@@ -402,11 +402,11 @@ WEBISCRAP was conceptualized, engineered, and deployed as a Final Year Capstone 
 
 | Name | Role | Core Specialization |
 |---|---|---|
-| **Manoj N** | Project Lead & Full-Stack Architect | System Architecture, FastAPI Orchestrator, Next.js 16 HUD, Cloud Deployment |
-| **Bhavya** | AI Pipeline Engineer | 9-Agent Prompt Workflows, Groq Key Pool Rotation, LLM Schema Alignment |
-| **Lohit** | Backend & Distributed Cache Engineer | Redis Session Memory, `z1` Compression, Async Queue Workers |
-| **Sushanth** | Frontend UI/UX Engineer | TanStack Table, Multi-Format Export Suite, Dark HUD Glassmorphism |
-| **Muni Bharath** | Security & QA Engineer | SSRF/DNS Rebinding Guards, Anti-Spoofing, E2E Security Test Suites |
+| **N Manoj** | Project Lead & Full-Stack Architect | System Architecture, FastAPI Orchestrator, Next.js 16 HUD, Cloud Deployment |
+| **S Bhavyasree** | AI Pipeline Engineer | 9-Agent Prompt Workflows, Groq Key Pool Rotation, LLM Schema Alignment |
+| **Y Lohith Kumar** | Backend & Distributed Cache Engineer | Redis Session Memory, `z1` Compression, Async Queue Workers |
+| **A Sushanth Royal** | Frontend UI/UX Engineer | TanStack Table, Multi-Format Export Suite, Dark HUD Glassmorphism |
+| **S Muni Bharath** | Security & QA Engineer | SSRF/DNS Rebinding Guards, Anti-Spoofing, E2E Security Test Suites |
 
 - **Primary Repository:** [github.com/manoj-n-dev/WEBISCRAP](https://github.com/manoj-n-dev/WEBISCRAP)
 - **Team Mirror:** [github.com/team3c23/WEBISCRAP](https://github.com/team3c23/WEBISCRAP)
