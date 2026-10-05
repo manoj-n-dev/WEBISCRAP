@@ -24,7 +24,7 @@ from auth.security import (
     create_verification_token,
     decode_verification_token,
 )
-from auth.email_service import send_password_reset_email, send_verification_email
+from auth.email_service import has_email_provider, send_password_reset_email, send_verification_email
 from auth.dependencies import get_current_user
 from pydantic import BaseModel, EmailStr
 from memory.session_store import redis_store
@@ -113,13 +113,14 @@ async def register(
             detail="The user with this email already exists in the system."
         )
         
+    has_provider = has_email_provider()
     # Explicit User model construction: privileged fields are hardcoded to safe defaults
     new_user = User(
         email=email,
         full_name=user_in.full_name,
         hashed_password=await run_in_threadpool(get_password_hash, user_in.password),   # bcrypt is CPU-bound
         is_active=True,
-        is_verified=False,
+        is_verified=not has_provider,  # Auto-verify if no outbound email provider is configured
         is_superuser=False,
         is_guest=False,
         token_version=1,
@@ -136,13 +137,18 @@ async def register(
             detail="The user with this email already exists in the system."
         )
 
-    # Generate single-use email verification token
-    verify_token = create_verification_token(new_user.id)
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
-    email_res = await send_verification_email(email, verify_url)
-    email_sent = bool(email_res.get("sent"))
-    if not email_sent:
-        logger.error(f"Registration verification email NOT sent (method={email_res.get('method')}): {email_res.get('error')}")
+    email_sent = False
+    email_res: dict = {}
+    if has_provider:
+        # Generate single-use email verification token
+        verify_token = create_verification_token(new_user.id)
+        verify_url = f"{settings.FRONTEND_URL}/verify-email?token={verify_token}"
+        email_res = await send_verification_email(email, verify_url)
+        email_sent = bool(email_res.get("sent"))
+        if not email_sent:
+            logger.error(f"Registration verification email NOT sent (method={email_res.get('method')}): {email_res.get('error')}")
+    else:
+        email_sent = True
 
     audit_log.auth_event("register", user_id=str(new_user.id), email=new_user.email or user_in.email)
     
@@ -150,12 +156,12 @@ async def register(
         "id": str(new_user.id),
         "email": new_user.email,
         "full_name": new_user.full_name,
-        "is_verified": False,
+        "is_verified": new_user.is_verified,
         "email_sent": email_sent,
         "message": (
             "Registration successful. Please check your email to verify your account before logging in."
-            if email_sent else
-            "Account created, but we could not send the verification email right now. Use 'Resend verification' in a minute."
+            if has_provider else
+            "Registration successful. Your account is active and you can now log in."
         ),
     }
     # Dev/test only helper: never return token or URL in production
@@ -269,10 +275,17 @@ async def login_access_token(
         
     # Email verification guard: standard email accounts must be verified before login
     if user.email and not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please check your inbox or request a new verification link."
-        )
+        if not has_email_provider():
+            # If no email provider is configured, auto-activate user so they are not blocked
+            user.is_verified = True
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified. Please check your inbox or request a new verification link."
+            )
         
     new_refresh = create_refresh_token(user.id, token_version=user.token_version)
     set_refresh_cookie(response, new_refresh, remember_me=remember_me)

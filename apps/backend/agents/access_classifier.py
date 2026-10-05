@@ -113,7 +113,7 @@ def classify_http_status(status: Optional[int]) -> Optional[str]:
         return "private_auth"
     if status == 403:
         return "access_blocked"
-    if status == 429:
+    if status in (429, 529):
         return "rate_limited"
     return None
 
@@ -136,7 +136,7 @@ def classify_page(status: Optional[int], target_url: str, final_url: str, title:
     if (any(t == title_l or title_l.startswith(t) for t in _BLOCK_TITLES) and body_len < 4000) or \
        (any(m in sample for m in _BLOCK_MARKERS) and body_len < 1500):
         return "access_blocked", "bot-wall title/marker on short page"
-    if status in (500, 502, 503, 504) and body_len < 800:
+    if status and 500 <= status <= 599 and body_len < 1000:
         return "server_error", f"http {status} with almost no content"
 
     o, f = urllib.parse.urlparse(target_url), urllib.parse.urlparse(final_url or target_url)
