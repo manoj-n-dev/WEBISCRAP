@@ -147,11 +147,6 @@ async def register(
         email_sent = bool(email_res.get("sent"))
         if not email_sent:
             logger.error(f"Registration verification email NOT sent (method={email_res.get('method')}): {email_res.get('error')}")
-            # If outbound email delivery failed (e.g. SMTP port blocked on host), auto-activate user
-            new_user.is_verified = True
-            db.add(new_user)
-            await db.commit()
-            await db.refresh(new_user)
     else:
         email_sent = True
 
@@ -704,3 +699,32 @@ async def logout(
 
     clear_refresh_cookie(response)
     return {"message": "Successfully logged out"}
+
+# --- 7. EMAIL DIAGNOSTICS & TEST ENDPOINTS ---
+
+@router.get("/email-diagnostics")
+async def email_diagnostics() -> dict:
+    """Diagnostic probe to inspect active email provider configuration on host."""
+    from auth.email_service import _provider
+    return {
+        "provider": _provider(),
+        "has_email_provider": has_email_provider(),
+        "brevo_configured": bool(settings.BREVO_API_KEY),
+        "resend_configured": bool(settings.RESEND_API_KEY),
+        "smtp_host": settings.SMTP_HOST,
+        "smtp_port": settings.SMTP_PORT,
+        "smtp_user_configured": bool(settings.SMTP_USER),
+        "from_email": settings.EMAILS_FROM_EMAIL,
+        "frontend_url": settings.FRONTEND_URL,
+        "environment": settings.ENVIRONMENT,
+    }
+
+@router.post("/test-email")
+async def test_email_dispatch(to_email: str = Query(..., description="Recipient email to test delivery to")) -> dict:
+    """Diagnostic endpoint to test outbound email delivery and return raw provider response."""
+    test_url = f"{settings.FRONTEND_URL}/verify-email?token=diagnostic-test-token"
+    res = await send_verification_email(to_email, test_url)
+    return {
+        "recipient": to_email,
+        "result": res,
+    }
