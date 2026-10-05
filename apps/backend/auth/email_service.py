@@ -260,18 +260,24 @@ async def _post_json(url: str, headers: dict, payload: dict) -> Tuple[bool, Opti
 
 
 async def _send_brevo(recipient: str, subject: str, html_content: str, text: str):
+    from_email = (settings.EMAILS_FROM_EMAIL or "").strip()
+    if (not from_email or "webiscrap.com" in from_email or "example.com" in from_email) and settings.SMTP_USER:
+        from_email = settings.SMTP_USER.strip()
     return await _post_json(
         "https://api.brevo.com/v3/smtp/email",
         {"api-key": settings.BREVO_API_KEY, "accept": "application/json", "content-type": "application/json"},
-        {"sender": {"name": settings.EMAILS_FROM_NAME, "email": settings.EMAILS_FROM_EMAIL},
+        {"sender": {"name": settings.EMAILS_FROM_NAME, "email": from_email},
          "to": [{"email": recipient}], "subject": subject, "htmlContent": html_content, "textContent": text})
 
 
 async def _send_resend(recipient: str, subject: str, html_content: str, text: str):
+    from_email = (settings.EMAILS_FROM_EMAIL or "").strip()
+    if not from_email or "webiscrap.com" in from_email or "example.com" in from_email:
+        from_email = "onboarding@resend.dev"
     return await _post_json(
         "https://api.resend.com/emails",
         {"Authorization": f"Bearer {settings.RESEND_API_KEY}", "Content-Type": "application/json"},
-        {"from": f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>", "to": [recipient],
+        {"from": f"{settings.EMAILS_FROM_NAME} <{from_email}>", "to": [recipient],
          "subject": subject, "html": html_content, "text": text})
 
 

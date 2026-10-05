@@ -147,6 +147,11 @@ async def register(
         email_sent = bool(email_res.get("sent"))
         if not email_sent:
             logger.error(f"Registration verification email NOT sent (method={email_res.get('method')}): {email_res.get('error')}")
+            # If outbound email delivery failed (e.g. SMTP port blocked on host), auto-activate user
+            new_user.is_verified = True
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
     else:
         email_sent = True
 
@@ -160,7 +165,7 @@ async def register(
         "email_sent": email_sent,
         "message": (
             "Registration successful. Please check your email to verify your account before logging in."
-            if has_provider else
+            if (has_provider and email_sent) else
             "Registration successful. Your account is active and you can now log in."
         ),
     }
@@ -282,9 +287,18 @@ async def login_access_token(
             await db.commit()
             await db.refresh(user)
         else:
+            # When unverified user logs in, automatically dispatch a fresh verification email
+            token = create_verification_token(user.id)
+            verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+            email_res = await send_verification_email(user.email, verify_url)
+            email_sent = bool(email_res.get("sent"))
+            if email_sent:
+                detail = "Email not verified. A verification link has been sent to your email inbox. Please verify your email before logging in."
+            else:
+                detail = "Email not verified. Please check your inbox or request a new verification link."
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Email not verified. Please check your inbox or request a new verification link."
+                detail=detail
             )
         
     new_refresh = create_refresh_token(user.id, token_version=user.token_version)
