@@ -100,9 +100,19 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
 
         browser = p.chromium.launch(headless=True, args=launch_args)
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080},
             ignore_https_errors=allow_insecure_ssl,
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
+            extra_http_headers={
+                "Accept-Language": "en-IN,en;q=0.9,en-US;q=0.8",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"Windows"',
+                "Upgrade-Insecure-Requests": "1",
+            },
         )
         page = context.new_page()
 
@@ -145,6 +155,14 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                 page.wait_for_load_state("networkidle", timeout=5000)
             except Exception:
                 pass
+            # Allow client-side rendering (React/Next.js/SPAs) to mount products/content
+            try:
+                page.wait_for_selector(
+                    "div[data-id], div._1AtVbE, div._75nlfW, div[class*='product'], article, main, table, .s-result-item",
+                    timeout=5000,
+                )
+            except Exception:
+                pass
 
             final_url = page.url or ""
             status_code = response.status if response else 200
@@ -155,7 +173,7 @@ def _run_playwright_sync(target_url: str, analysis: dict) -> List[str]:
                 body_text = page.evaluate("(document.body && document.body.innerText) || ''") or ""
                 pw_el = page.query_selector("input[type='password']")
                 has_visible_password = bool(pw_el and pw_el.is_visible())
-                repeating_items = page.evaluate("document.querySelectorAll('li,tr,article').length")
+                repeating_items = page.evaluate("document.querySelectorAll('li,tr,article,div[data-id],div._1AtVbE,div._75nlfW,div[class*=\"product\"]').length")
             except Exception:
                 page_title, body_text, has_visible_password, repeating_items = "", "", False, 0
 

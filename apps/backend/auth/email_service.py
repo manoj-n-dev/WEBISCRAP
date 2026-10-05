@@ -236,6 +236,11 @@ def _provider() -> str:
     return "none"
 
 
+def has_email_provider() -> bool:
+    """Return True if an outbound email provider (Brevo, Resend, or SMTP) is configured."""
+    return _provider() != "none"
+
+
 async def _post_json(url: str, headers: dict, payload: dict) -> Tuple[bool, Optional[str]]:
     """HTTPS (port 443) delivery - works on hosts that block SMTP ports (Render free blocks 25/465/587)."""
     last: Optional[str] = None
